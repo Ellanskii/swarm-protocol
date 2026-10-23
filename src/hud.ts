@@ -26,7 +26,7 @@ export function resetHUD(): void {
 
 export function updateHUD(): void {
   set('hp', (P.hp / P.maxHp * 100).toFixed(1), v => { el.hpfill.style.width = v + '%'; });
-  set('hpt', `${Math.ceil(P.hp)} / ${P.maxHp}`, v => { el.hptext.textContent = v; });
+  set('hpt', `${Math.ceil(P.hp)} / ${P.maxHp}${G.god ? ' · GOD' : ''}`, v => { el.hptext.textContent = v; });
   set('xp', (P.xp / P.xpNext * 100).toFixed(1), v => { el.xpfill.style.width = v + '%'; });
   set('lvl', 'УР ' + P.level, v => { el.lvl.textContent = v; });
   set('time', fmtTime(G.time), v => { el.timer.textContent = v; });

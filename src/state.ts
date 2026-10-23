@@ -131,6 +131,8 @@ export const G = {
   parts: [] as Particle[],
   drones: [] as Drone[],
   typeCount: {} as Record<EnemyType, number>,
+  /** Debug invulnerability. Not touched by resetState(), so it survives restarts. */
+  god: false,
 };
 
 export const magSize = (d: WeaponDef): number => Math.max(1, Math.round(d.mag * S.mag));

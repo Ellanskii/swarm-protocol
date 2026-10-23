@@ -62,6 +62,13 @@ function gameOver(): void {
   $('over').hidden = false;
 }
 
+/** Debug cheat: toggles invulnerability, or sets it when `on` is given. */
+function god(on = !G.god): boolean {
+  G.god = on;
+  showBanner(on ? 'БЕССМЕРТИЕ ВКЛ' : 'БЕССМЕРТИЕ ВЫКЛ', 'gold', 0.8);
+  return on;
+}
+
 // ---------------- input ----------------
 
 const DIGITS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2 };
@@ -83,6 +90,7 @@ bindInput({
         else if (code === 'KeyR') reloadPressed();
         else if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') tryDash();
         else if (code === 'Escape' || code === 'KeyP') setPause(true);
+        else if (code === 'KeyG' && import.meta.env.DEV) god();
         break;
       case 'levelup':
         if (code in DIGITS) choose(DIGITS[code]);
@@ -165,4 +173,4 @@ requestAnimationFrame(frame);
 declare global {
   interface Window { __swarm: unknown }
 }
-window.__swarm = { G, P, S, gainXP, startGame, choose };
+window.__swarm = { G, P, S, gainXP, startGame, choose, god };

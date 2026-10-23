@@ -63,7 +63,8 @@ export function updatePlayer(dt: number): void {
 /** Applies damage unless invulnerable. Death is detected by the main loop (P.hp <= 0). */
 export function hurt(amount: number): void {
   if (P.inv > 0 || G.state !== 'play') return;
-  P.hp = Math.max(0, P.hp - amount);
+  // god mode keeps the hit feedback so damage sources stay visible while testing
+  if (!G.god) P.hp = Math.max(0, P.hp - amount);
   P.inv = 0.6;
   P.blink = 0.6;
   G.shake = Math.min(1.2, G.shake + 0.55);
