@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Swarm Protocol</title>
+  <meta name="claude:viewport-fit-sides" content="cover">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="hud" hidden>
+    <div id="xpbar"><div id="xpfill"></div></div>
+    <div id="lvl">УР 1</div>
+    <div id="tl">
+      <div class="bar"><div id="hpfill"></div><span id="hptext">100 / 100</span></div>
+      <div class="bar" id="dash"><div id="dashfill"></div></div>
+      <div id="ups"></div>
+    </div>
+    <div id="tc"><div id="timer" class="mono">00:00</div><div id="kills">0 убито</div></div>
+    <div id="boss" hidden>МАТКА<div class="bar"><div id="bossfill"></div></div></div>
+    <div id="br">
+      <div id="wname">Пистолет</div>
+      <div id="ammo" class="mono">12 <small>/ 12</small></div>
+      <div id="slots"></div>
+    </div>
+    <div id="reload" hidden>
+      <div id="rtrack"><div id="rzone"></div><div id="rmark"></div></div>
+      <p>R в жёлтой зоне — идеальная перезарядка</p>
+    </div>
+    <div id="banner"></div>
+    <div id="nums"></div>
+    <div id="vignette"></div>
+  </div>
+  <div id="cross"></div>
+
+  <div id="start" class="screen">
+    <h1>SWARM<br><em>PROTOCOL</em></h1>
+    <p>Арена, бесконечные орды и прокачка за каждый уровень. Каждые 45 секунд тебя окружают, каждые 2 минуты приходит Матка. Продержись как можно дольше.</p>
+    <div class="keys">
+      <kbd>WASD</kbd><span>движение</span>
+      <kbd>Мышь</kbd><span>прицел, ЛКМ — огонь</span>
+      <kbd>R</kbd><span>перезарядка; ещё раз R в жёлтой зоне — мгновенно и +50% урона</span>
+      <kbd>Пробел / Shift</kbd><span>рывок с неуязвимостью</span>
+      <kbd>1 2 3 / колесо</kbd><span>смена оружия</span>
+      <kbd>Esc / P</kbd><span>пауза, M — звук</span>
+    </div>
+    <button class="btn" id="startBtn">В БОЙ</button>
+    <p class="note">Нужны клавиатура и мышь.</p>
+  </div>
+
+  <div id="levelup" class="screen" hidden>
+    <h2>НОВЫЙ УРОВЕНЬ</h2>
+    <div id="cards"></div>
+    <p>Клик по карточке или 1 / 2 / 3</p>
+  </div>
+
+  <div id="pause" class="screen" hidden>
+    <h2>ПАУЗА</h2>
+    <button class="btn" id="resumeBtn">ПРОДОЛЖИТЬ</button>
+  </div>
+
+  <div id="over" class="screen" hidden>
+    <h2 class="dead">ТЕБЯ СОЖРАЛИ</h2>
+    <div class="stats">
+      <div><b id="oTime">00:00</b>продержался</div>
+      <div><b id="oKills">0</b>убито</div>
+      <div><b id="oLvl">1</b>уровень</div>
+    </div>
+    <button class="btn" id="againBtn">ЕЩЁ РАЗ</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
