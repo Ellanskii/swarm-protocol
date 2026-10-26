@@ -9,9 +9,10 @@ import { hurt } from './player';
 import { G, P, S, type Enemy } from './state';
 import { clamp, rand } from './utils';
 
+/** Bosses ignore the crowd limits: a missing final boss would make the run unwinnable. */
 export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null {
   const t = ENEMIES[type];
-  if (G.typeCount[type] >= t.max || G.enemies.length >= LIMITS.enemies) return null;
+  if (type !== 'boss' && (G.typeCount[type] >= t.max || G.enemies.length >= LIMITS.enemies)) return null;
   G.typeCount[type]++;
   const hp = t.hp * (1 + (G.time / 60) * PACING.hpPerMinute);
   const e: Enemy = {
