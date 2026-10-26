@@ -175,6 +175,9 @@ body.touch #touch { display: block; }
 .cur.core { background: var(--violet); border-radius: 50%; box-shadow: 0 0 6px var(--violet); }
 #loot { margin-top: 4px; font-size: 13px; color: var(--fg); }
 #loot:empty { display: none; }
+#goal { margin-top: 2px; font-size: 12px; letter-spacing: .08em; color: var(--muted); }
+#goal.final { color: var(--hp); }
+#goal.evac { color: var(--accent); }
 .stats.loot b { display: inline; font-size: 24px; margin-right: 6px; }
 .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; align-items: center; }
 .row.left { justify-content: flex-start; }

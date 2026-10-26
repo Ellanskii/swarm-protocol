@@ -1,5 +1,5 @@
 // DOM HUD. Every write goes through a cache so unchanged values don't touch the DOM.
-import { MECHS, WEAPON_ORDER } from './config';
+import { MECHS, PACING, WEAPON_ORDER } from './config';
 import { dashCooldown } from './player';
 import { shoulderName } from './shoulders';
 import { G, P, S, magSize } from './state';
@@ -8,7 +8,7 @@ import { $, fmtTime } from './utils';
 
 const el = {
   hpfill: $('hpfill'), hptext: $('hptext'), shieldfill: $('shieldfill'), dash: $('dash'), xpfill: $('xpfill'), lvl: $('lvl'),
-  timer: $('timer'), kills: $('kills'), loot: $('loot'), dashfill: $('dashfill'),
+  timer: $('timer'), kills: $('kills'), loot: $('loot'), goal: $('goal'), dashfill: $('dashfill'),
   ammo: $('ammo'), slots: $('slots'), ups: $('ups'),
   reload: $('reload'), rzone: $('rzone'), rmark: $('rmark'),
   vent: $('vent'), vzone: $('vzone'), vmark: $('vmark'), heat: $('heat'), heatfill: $('heatfill'),
@@ -90,7 +90,18 @@ export function updateHUD(): void {
     el.ups.innerHTML = owned.map(u => `<span>${u.name} <b>${G.upLv[u.id]}</b></span>`).join('');
   });
 
+  // run goal: which forge is next and when; the third one is the final, beating it means evacuation
   const boss = G.enemies.find(e => e.boss && !e.dead);
+  const total = PACING.bossCount;
+  let goal: string, cls = '';
+  if (G.evacT > 0) { goal = 'Эвакуация'; cls = 'evac'; }
+  else if (boss) { goal = `Кузня ${G.bossN}/${total}${boss.final ? ' · финал' : ''}`; cls = boss.final ? 'final' : ''; }
+  else if (G.bossN < total) {
+    const final = G.bossN + 1 === total;
+    goal = `Кузня ${G.bossN + 1}/${total}${final ? ' · финал' : ''} через ${fmtTime(Math.max(0, G.nextBoss - G.time))}`;
+  } else goal = '';
+  set('goal', goal + cls, () => { el.goal.textContent = goal; el.goal.className = cls; });
+
   set('boss', !!boss, v => { el.boss.hidden = !v; });
   if (boss) el.bossfill.style.width = Math.max(0, (boss.hp / boss.maxHp) * 100) + '%';
 }

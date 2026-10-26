@@ -4,7 +4,7 @@ import { updateAura } from './abilities';
 import { initAudio, toggleMute } from './audio';
 import { closeBase, openBase, renderBase } from './base';
 import { updateBullets } from './combat';
-import { MECHS, MECH_ORDER, type MechId } from './config';
+import { MECHS, MECH_ORDER, PACING, type MechId } from './config';
 import { spawnDirector, spawnEnemy, updateEnemies, updateEnemyShots, updateStrikes } from './enemies';
 import { clearNumbers, showBanner, updateNumbers, updateParticles } from './fx';
 import { buildGrid } from './grid';
@@ -114,6 +114,13 @@ function god(on = !G.god): boolean {
   return on;
 }
 
+/** Debug cheat: the final boss arrives in a moment, to check the evacuation without a full run. */
+function final(): void {
+  if (G.state !== 'play' || G.bossN >= PACING.bossCount) return;
+  G.bossN = PACING.bossCount - 1;
+  G.nextBoss = G.time + 0.5;
+}
+
 /** Debug cheat: buying tech costs nothing. Toggles, or sets it when `on` is given. */
 function inf(on = !G.infRes): boolean {
   G.infRes = on;
@@ -149,6 +156,7 @@ bindInput({
         else if (code === 'Escape' || code === 'KeyP') setPause(true);
         else if (code === 'KeyG' && import.meta.env.DEV) god();
         else if (code === 'KeyU' && import.meta.env.DEV) allUps();
+        else if (code === 'KeyF' && import.meta.env.DEV) final();
         break;
       case 'levelup':
         if (code in DIGITS) choose(DIGITS[code]);
@@ -319,4 +327,4 @@ function rich(scrap = 5000, cores = 30): void {
   if (G.state === 'base') renderBase();
 }
 
-window.__swarm = { G, P, S, save, gainXP, startGame, choose, god, allUps, inf, rich, resetSave, installShoulder, giveWeapon, spawnEnemy };
+window.__swarm = { G, P, S, save, gainXP, startGame, choose, god, allUps, inf, final, rich, resetSave, installShoulder, giveWeapon, spawnEnemy };
