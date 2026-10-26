@@ -1,6 +1,7 @@
 // Base screen: the tech tree as a pannable, zoomable graph, plus buying nodes.
 import { sfx } from './audio';
 import { save } from './save';
+import { G } from './state';
 import { TECH, buyTech, canBuy, techCost, techLv, techNode, techOff, techOpen, toggleTechOff, type TechNode } from './tech';
 import { $, clamp } from './utils';
 
@@ -51,8 +52,8 @@ function linkPath(a: TechNode, b: TechNode): string {
 }
 
 export function renderBase(): void {
-  $('bScrap').textContent = String(save.scrap);
-  $('bCores').textContent = String(save.cores);
+  $('bScrap').textContent = G.infRes ? '∞' : String(save.scrap);
+  $('bCores').textContent = G.infRes ? '∞' : String(save.cores);
 
   links.innerHTML = TECH.filter(n => n.parent).map(n => {
     const p = techNode(n.parent!)!;

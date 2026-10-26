@@ -1,7 +1,7 @@
 // Base tech tree: node data, prices, what each node unlocks, permanent bonuses.
 import type { MechId } from './config';
 import { persist, save } from './save';
-import { P, S } from './state';
+import { G, P, S } from './state';
 
 export type Branch = 'core' | 'ballistics' | 'rockets' | 'energy' | 'robotics' | 'hull';
 
@@ -108,14 +108,16 @@ export function techCost(n: TechNode): { scrap: number; cores: number } {
 export function canBuy(n: TechNode): boolean {
   if (!techOpen(n) || techLv(n.id) >= n.max) return false;
   const c = techCost(n);
-  return save.scrap >= c.scrap && save.cores >= c.cores;
+  return G.infRes || (save.scrap >= c.scrap && save.cores >= c.cores);
 }
 
 export function buyTech(n: TechNode): boolean {
   if (!canBuy(n)) return false;
-  const c = techCost(n);
-  save.scrap -= c.scrap;
-  save.cores -= c.cores;
+  if (!G.infRes) {
+    const c = techCost(n);
+    save.scrap -= c.scrap;
+    save.cores -= c.cores;
+  }
   save.tech[n.id] = techLv(n.id) + 1;
   persist();
   return true;

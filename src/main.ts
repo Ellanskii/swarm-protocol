@@ -114,6 +114,14 @@ function god(on = !G.god): boolean {
   return on;
 }
 
+/** Debug cheat: buying tech costs nothing. Toggles, or sets it when `on` is given. */
+function inf(on = !G.infRes): boolean {
+  G.infRes = on;
+  showBanner(on ? 'БЕСКОНЕЧНЫЕ РЕСУРСЫ ВКЛ' : 'БЕСКОНЕЧНЫЕ РЕСУРСЫ ВЫКЛ', 'gold', 0.8);
+  if (G.state === 'base') renderBase();
+  return on;
+}
+
 /** Debug cheat: level-up offers every available upgrade. Toggles, or sets it when `on` is given. */
 function allUps(on = !G.allUps): boolean {
   G.allUps = on;
@@ -158,6 +166,7 @@ bindInput({
       case 'base':
         if (code === 'Escape') showMenu();
         else if (code === 'Enter') startGame();
+        else if (code === 'KeyI' && import.meta.env.DEV) inf();
         break;
     }
   },
@@ -310,4 +319,4 @@ function rich(scrap = 5000, cores = 30): void {
   if (G.state === 'base') renderBase();
 }
 
-window.__swarm = { G, P, S, save, gainXP, startGame, choose, god, allUps, rich, resetSave, installShoulder, giveWeapon, spawnEnemy };
+window.__swarm = { G, P, S, save, gainXP, startGame, choose, god, allUps, inf, rich, resetSave, installShoulder, giveWeapon, spawnEnemy };
