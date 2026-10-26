@@ -22,9 +22,42 @@ export const PACING = {
   dmgDoubleEvery: 300,
 } as const;
 
+// ---------------- mechs ----------------
+
+export type MechId = 'guard' | 'scout';
+
+/** Proportions of the procedural model, world units before `scale`. */
+export interface MechFrame {
+  hipH: number;
+  legW: number;
+  torso: [w: number, h: number, d: number];
+}
+
+export interface MechDef {
+  name: string;
+  hp: number;
+  speed: number;
+  /** Torso turn speed toward the aim point, rad/s. */
+  turnRate: number;
+  scale: number;
+  frame: MechFrame;
+  /** Armor trim and glow color. */
+  trim: number;
+}
+
+export const MECHS: Record<MechId, MechDef> = {
+  guard: { name: 'Страж', hp: 120, speed: 6.2, turnRate: 9,  scale: 1,    frame: { hipH: 1.1,  legW: 0.24, torso: [1.0, 0.65, 0.8] },  trim: 0x4cc9f0 },
+  scout: { name: 'Скаут', hp: 75,  speed: 8.2, turnRate: 13, scale: 0.92, frame: { hipH: 1.25, legW: 0.18, torso: [0.78, 0.5, 0.66] }, trim: 0x80ffdb },
+};
+
+export const MECH_ORDER: MechId[] = ['guard', 'scout'];
+
 // ---------------- weapons ----------------
 
 export type WeaponId = 'pistol' | 'shotgun' | 'smg';
+
+/** Slot-mounted models, see PART_BUILDERS in mech.ts. */
+export type PartId = 'mg' | 'cannon' | 'shotgun' | 'rockets' | 'mortar' | 'drone';
 
 export interface WeaponDef {
   name: string;
@@ -43,14 +76,14 @@ export interface WeaponDef {
   color: number;
   /** Screen shake per shot. */
   kick: number;
-  /** Visual gun length. */
-  gunLen: number;
+  /** Model mounted in the arm slot. */
+  part: PartId;
 }
 
 export const WEAPONS: Record<WeaponId, WeaponDef> = {
-  pistol:  { name: 'Пистолет', key: 1, dmg: 14, rate: 5,   mag: 12, reload: 1.1, spread: 0.03, pellets: 1, speed: 46, range: 30, color: 0x7fe3ff, kick: 0.18, gunLen: 0.8 },
-  shotgun: { name: 'Дробовик', key: 2, dmg: 9,  rate: 1.4, mag: 6,  reload: 1.6, spread: 0.3,  pellets: 7, speed: 38, range: 15, color: 0xffc36b, kick: 0.6,  gunLen: 1.05 },
-  smg:     { name: 'ПП',       key: 3, dmg: 7,  rate: 13,  mag: 36, reload: 1.4, spread: 0.11, pellets: 1, speed: 52, range: 24, color: 0xb98cff, kick: 0.07, gunLen: 0.7 },
+  pistol:  { name: 'Пистолет', key: 1, dmg: 14, rate: 5,   mag: 12, reload: 1.1, spread: 0.03, pellets: 1, speed: 46, range: 30, color: 0x7fe3ff, kick: 0.18, part: 'mg' },
+  shotgun: { name: 'Дробовик', key: 2, dmg: 9,  rate: 1.4, mag: 6,  reload: 1.6, spread: 0.3,  pellets: 7, speed: 38, range: 15, color: 0xffc36b, kick: 0.6,  part: 'shotgun' },
+  smg:     { name: 'ПП',       key: 3, dmg: 7,  rate: 13,  mag: 36, reload: 1.4, spread: 0.11, pellets: 1, speed: 52, range: 24, color: 0xb98cff, kick: 0.07, part: 'cannon' },
 };
 
 export const WEAPON_ORDER: WeaponId[] = ['pistol', 'shotgun', 'smg'];

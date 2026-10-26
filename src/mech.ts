@@ -1,0 +1,237 @@
+// Procedural player mech: model assembled from primitives, slot parts, walk animation.
+import * as THREE from 'three';
+import { MECHS, type MechDef, type PartId } from './config';
+import { mechRoot } from './scene';
+import { G, P } from './state';
+
+export type SlotId = 'armR' | 'armL' | 'shoulderR' | 'shoulderL';
+
+interface Leg { hip: THREE.Group; knee: THREE.Group }
+
+interface MechRig {
+  def: MechDef;
+  root: THREE.Group;
+  /** Pelvis and everything above it; bobs while walking. */
+  pelvis: THREE.Group;
+  torso: THREE.Group;
+  legs: [Leg, Leg];
+  slots: Record<SlotId, THREE.Group>;
+  parts: Partial<Record<SlotId, { id: PartId; mesh: THREE.Object3D; len: number }>>;
+  /** 0..1, eases in while moving so the legs settle when stopping. */
+  stride: number;
+}
+
+// ---------------- materials ----------------
+
+const hullMat = new THREE.MeshStandardMaterial({ color: 0xdfe8f5, roughness: 0.4, metalness: 0.35 });
+const darkMat = new THREE.MeshStandardMaterial({ color: 0x252b3d, roughness: 0.45, metalness: 0.6 });
+const trimMats = new Map<number, THREE.MeshStandardMaterial>();
+const glowMats = new Map<number, THREE.MeshBasicMaterial>();
+
+const trimMat = (c: number) => {
+  let m = trimMats.get(c);
+  if (!m) trimMats.set(c, (m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.35, metalness: 0.3 })));
+  return m;
+};
+const glowMat = (c: number) => {
+  let m = glowMats.get(c);
+  if (!m) glowMats.set(c, (m = new THREE.MeshBasicMaterial({ color: c, toneMapped: false })));
+  return m;
+};
+
+function box(w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0, z = 0): THREE.Mesh {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  return m;
+}
+
+/** Cylinder lying along +Z. */
+function barrel(r: number, len: number, mat: THREE.Material, x = 0, y = 0, z = 0): THREE.Mesh {
+  const g = new THREE.CylinderGeometry(r, r, len, 10);
+  g.rotateX(Math.PI / 2);
+  const m = new THREE.Mesh(g, mat);
+  m.position.set(x, y, z + len / 2);
+  m.castShadow = true;
+  return m;
+}
+
+// ---------------- slot parts ----------------
+
+interface PartBuild { mesh: THREE.Object3D; /** Muzzle distance along +Z from the mount. */ len: number }
+
+/** Every part points along +Z from its mount point. */
+const PART_BUILDERS: Record<PartId, (trim: number) => PartBuild> = {
+  mg: trim => {
+    const g = new THREE.Group();
+    g.add(box(0.22, 0.24, 0.45, darkMat, 0, 0, 0.1), barrel(0.06, 0.75, darkMat, 0, 0.03, 0.3), box(0.24, 0.05, 0.3, trimMat(trim), 0, 0.14, 0.05));
+    return { mesh: g, len: 1.05 };
+  },
+  cannon: trim => {
+    const g = new THREE.Group();
+    g.add(box(0.3, 0.3, 0.55, darkMat, 0, 0, 0.12), barrel(0.1, 0.8, darkMat, 0, 0, 0.38), box(0.32, 0.08, 0.2, trimMat(trim), 0, 0, 1.08));
+    return { mesh: g, len: 1.2 };
+  },
+  shotgun: trim => {
+    const g = new THREE.Group();
+    g.add(box(0.34, 0.26, 0.5, darkMat, 0, 0, 0.1), barrel(0.075, 0.55, darkMat, -0.08, 0, 0.33), barrel(0.075, 0.55, darkMat, 0.08, 0, 0.33), box(0.36, 0.06, 0.2, trimMat(trim), 0, 0.15, 0.05));
+    return { mesh: g, len: 0.9 };
+  },
+  rockets: trim => {
+    const g = new THREE.Group();
+    g.add(box(0.46, 0.36, 0.5, darkMat, 0, 0.1, 0), box(0.48, 0.06, 0.52, trimMat(trim), 0, 0.3, 0));
+    for (const [x, y] of [[-0.11, 0.02], [0.11, 0.02], [-0.11, 0.18], [0.11, 0.18]]) {
+      g.add(box(0.13, 0.11, 0.02, glowMat(0xff8c42), x, y, 0.255));
+    }
+    return { mesh: g, len: 0.3 };
+  },
+  mortar: trim => {
+    const g = new THREE.Group();
+    const tube = barrel(0.14, 0.7, darkMat);
+    const pivot = new THREE.Group();
+    pivot.add(tube, box(0.3, 0.06, 0.06, trimMat(trim), 0, 0, 0.66));
+    pivot.rotation.x = -Math.PI / 4; // tilted up
+    pivot.position.y = 0.1;
+    g.add(box(0.36, 0.18, 0.36, darkMat), pivot);
+    return { mesh: g, len: 0.6 };
+  },
+  drone: trim => {
+    const g = new THREE.Group();
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.1, 12), darkMat);
+    pad.castShadow = true;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 6, 20), glowMat(trim));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.06;
+    g.add(pad, ring);
+    return { mesh: g, len: 0 };
+  },
+};
+
+// ---------------- assembly ----------------
+
+function buildLeg(f: MechDef['frame'], x: number): Leg {
+  const thighLen = f.hipH * 0.52, shinLen = f.hipH * 0.42, w = f.legW;
+  const hip = new THREE.Group();
+  hip.position.set(x, f.hipH, 0);
+  hip.add(box(w * 1.3, w * 1.3, w * 1.3, darkMat), box(w, thighLen, w * 1.15, hullMat, 0, -thighLen / 2, 0));
+  const knee = new THREE.Group();
+  knee.position.y = -thighLen;
+  // shin leans back a little, foot sits flat on the ground
+  knee.add(
+    box(w * 1.2, w * 1.1, w * 1.4, darkMat),
+    box(w * 0.9, shinLen, w * 1.05, hullMat, 0, -shinLen / 2, -0.04),
+    box(w * 1.5, 0.1, w * 2.3, darkMat, 0, -f.hipH + thighLen + 0.05, 0.06),
+  );
+  hip.add(knee);
+  return { hip, knee };
+}
+
+function buildMech(def: MechDef): MechRig {
+  const f = def.frame;
+  const [tw, th, td] = f.torso;
+  const root = new THREE.Group();
+  root.scale.setScalar(def.scale);
+
+  const pelvis = new THREE.Group();
+  pelvis.add(box(tw * 0.65, 0.26, td * 0.55, darkMat, 0, f.hipH + 0.05, 0));
+  const legs: [Leg, Leg] = [buildLeg(f, tw * 0.33), buildLeg(f, -tw * 0.33)];
+  pelvis.add(legs[0].hip, legs[1].hip);
+
+  const torso = new THREE.Group();
+  torso.position.y = f.hipH + 0.2;
+  torso.add(
+    box(tw, th, td, hullMat, 0, th / 2, 0),
+    box(tw * 1.02, th * 0.18, td * 1.02, trimMat(def.trim), 0, th * 0.82, 0),
+    // cockpit visor
+    box(tw * 0.5, th * 0.16, 0.05, glowMat(0xffffff), 0, th * 0.6, td / 2 + 0.01),
+    // back radiators with glowing nozzles
+    box(tw * 0.6, th * 0.6, 0.2, darkMat, 0, th * 0.45, -td / 2 - 0.08),
+    box(tw * 0.14, th * 0.14, 0.04, glowMat(def.trim), -tw * 0.17, th * 0.3, -td / 2 - 0.19),
+    box(tw * 0.14, th * 0.14, 0.04, glowMat(def.trim), tw * 0.17, th * 0.3, -td / 2 - 0.19),
+  );
+
+  const slot = (x: number, y: number, z: number) => {
+    const g = new THREE.Group();
+    g.position.set(x, y, z);
+    torso.add(g);
+    return g;
+  };
+  const slots: Record<SlotId, THREE.Group> = {
+    armR: slot(tw / 2 + 0.17, th * 0.45, 0.05),
+    armL: slot(-tw / 2 - 0.17, th * 0.45, 0.05),
+    shoulderR: slot(tw * 0.3, th + 0.02, -td * 0.12),
+    shoulderL: slot(-tw * 0.3, th + 0.02, -td * 0.12),
+  };
+  // arm shoulder pads are always there, weapons hang below them
+  for (const s of [slots.armR, slots.armL]) s.add(box(0.3, 0.32, 0.42, trimMat(def.trim), 0, 0.12, 0));
+
+  pelvis.add(torso);
+  root.add(pelvis);
+  return { def, root, pelvis, torso, legs, slots, parts: {}, stride: 0 };
+}
+
+/** Arm parts hang from this point inside the arm slot. */
+const ARM_MOUNT_Y = -0.12;
+const ARM_MOUNT_Z = 0.1;
+
+let rig = buildMech(MECHS[G.mech]);
+mechRoot.add(rig.root);
+
+/** Rebuilds the model for the selected mech. Slot parts are cleared. */
+export function rebuildMech(): void {
+  mechRoot.remove(rig.root);
+  rig = buildMech(MECHS[G.mech]);
+  mechRoot.add(rig.root);
+}
+
+export function setSlotPart(slot: SlotId, id: PartId | null): void {
+  const cur = rig.parts[slot];
+  if (cur?.id === id) return;
+  if (cur) rig.slots[slot].remove(cur.mesh);
+  delete rig.parts[slot];
+  if (!id) return;
+  const { mesh, len } = PART_BUILDERS[id](rig.def.trim);
+  if (slot === 'armR' || slot === 'armL') mesh.position.set(0, ARM_MOUNT_Y, ARM_MOUNT_Z);
+  rig.slots[slot].add(mesh);
+  rig.parts[slot] = { id, mesh, len };
+}
+
+/** Right arm muzzle relative to the mech center, in torso space: forward, right, height. */
+export function muzzleOffset(): [number, number, number] {
+  const s = rig.def.scale, arm = rig.slots.armR.position, len = rig.parts.armR?.len ?? 0.3;
+  return [(arm.z + ARM_MOUNT_Z + len) * s, arm.x * s, (rig.torso.position.y + arm.y + ARM_MOUNT_Y) * s];
+}
+
+// ---------------- animation ----------------
+
+/** Walk cycle: radians of phase per world unit travelled. */
+const STEP_RATE = 2.4;
+const KICK_BACK = 0.2;
+
+export function animateMech(dt: number, playing: boolean): void {
+  const r = rig;
+  r.root.position.set(P.x, 0, P.z);
+  r.root.rotation.y = P.legAng;
+  r.torso.rotation.y = P.ang - P.legAng;
+
+  if (playing) P.walkPh += P.speed * STEP_RATE * dt / r.def.scale;
+  const target = playing && P.moving ? 1 : 0;
+  r.stride += (target - r.stride) * (1 - Math.exp(-10 * dt));
+  const a = r.stride, ph = P.walkPh;
+
+  r.legs.forEach((leg, i) => {
+    const p = ph + i * Math.PI;
+    leg.hip.rotation.x = Math.sin(p) * 0.55 * a;
+    // knee bends on the forward swing only
+    leg.knee.rotation.x = Math.max(0, Math.cos(p)) * 0.7 * a;
+  });
+  r.pelvis.position.y = -Math.abs(Math.cos(ph)) * 0.08 * a;
+  r.pelvis.rotation.x = P.dashT > 0 ? 0.22 : 0;
+  r.torso.rotation.z = Math.sin(ph) * 0.04 * a;
+
+  G.gunKick *= Math.exp(-18 * dt);
+  const gun = r.parts.armR?.mesh;
+  if (gun) gun.position.z = ARM_MOUNT_Z - G.gunKick * KICK_BACK;
+
+  r.root.visible = !(P.blink > 0 && Math.floor(P.blink * 20) % 2 === 0);
+}

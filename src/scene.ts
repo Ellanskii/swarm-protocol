@@ -62,24 +62,9 @@ for (const [x, z, w, d] of walls) {
 }
 
 // ---------------- player ----------------
-export const playerMesh = new THREE.Group();
-export const body = new THREE.Mesh(
-  new THREE.CapsuleGeometry(0.42, 0.7, 4, 12),
-  new THREE.MeshStandardMaterial({ color: 0x4cc9f0, roughness: 0.35, metalness: 0.3 }),
-);
-body.position.y = 0.85;
-body.castShadow = true;
-const visor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.2), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-visor.position.set(0, 0.4, 0.33);
-body.add(visor);
-export const gun = new THREE.Mesh(
-  new THREE.BoxGeometry(0.16, 0.16, 0.9),
-  new THREE.MeshStandardMaterial({ color: 0x252b3d, metalness: 0.6, roughness: 0.4 }),
-);
-gun.position.set(0.32, 0.95, 0.5);
-gun.castShadow = true;
-playerMesh.add(body, gun);
-scene.add(playerMesh);
+/** Holds the current mech model, see mech.ts. */
+export const mechRoot = new THREE.Group();
+scene.add(mechRoot);
 
 export const laserGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
 export const laser = new THREE.Line(laserGeo, new THREE.LineBasicMaterial({ color: 0xff3355, transparent: true, opacity: 0.3 }));

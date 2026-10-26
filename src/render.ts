@@ -1,9 +1,10 @@
 // Pushes simulation state into meshes and moves the camera.
 import * as THREE from 'three';
 import { ENEMY_TYPES } from './config';
+import { animateMech } from './mech';
 import {
-  body, bulletMesh, camera, enemyColors, enemyMeshes, eshotMesh, gemMesh, gun,
-  laser, laserGeo, muzzle, partMesh, playerMesh, sun,
+  bulletMesh, camera, enemyColors, enemyMeshes, eshotMesh, gemMesh,
+  laser, laserGeo, muzzle, partMesh, sun,
 } from './scene';
 import { G, P, aim } from './state';
 import { rand } from './utils';
@@ -88,17 +89,13 @@ export function renderWorld(dt: number, playing: boolean): void {
   commit(partMesh, n);
 
   // player
-  playerMesh.position.set(P.x, 0, P.z);
-  playerMesh.rotation.y = P.ang;
-  body.position.y = 0.85 + (P.moving && playing ? Math.abs(Math.sin(t * 12)) * 0.08 : 0);
-  playerMesh.visible = !(P.blink > 0 && Math.floor(P.blink * 20) % 2 === 0);
-  G.gunKick *= Math.exp(-18 * dt);
-  gun.position.z = 0.5 - G.gunKick * 0.18;
+  animateMech(dt, playing);
   muzzle.intensity *= Math.exp(-28 * dt);
 
+  // the laser follows the torso, so it shows where shots actually go while the torso turns
   const lp = laserGeo.attributes.position as THREE.BufferAttribute;
-  lp.setXYZ(0, P.mx, 1, P.mz);
-  lp.setXYZ(1, aim.x, 1, aim.z);
+  lp.setXYZ(0, P.mx, P.my, P.mz);
+  lp.setXYZ(1, P.tx, 1, P.tz);
   lp.needsUpdate = true;
   laser.visible = playing;
 }

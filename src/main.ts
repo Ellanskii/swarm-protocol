@@ -8,6 +8,7 @@ import { clearNumbers, showBanner, updateNumbers, updateParticles } from './fx';
 import { buildGrid } from './grid';
 import { resetHUD, updateHUD } from './hud';
 import { bindInput, mouse, toggleAutoAim, touch, updateAim } from './input';
+import { rebuildMech } from './mech';
 import { gainXP, removeAllPickups, updateGems, updatePickups } from './pickups';
 import { tryDash, updatePlayer } from './player';
 import { camTarget, renderWorld, updateCamera } from './render';
@@ -23,6 +24,7 @@ function resetGame(): void {
   removeAllPickups();
   removeAllDrones();
   resetState();
+  rebuildMech();
   camTarget.set(0, 0, 0);
   clearNumbers();
   resetHUD();

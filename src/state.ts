@@ -1,7 +1,7 @@
 // Mutable game state shared by all systems. Modules mutate fields on these objects
 // instead of reassigning exports, so everyone sees the same data.
 import * as THREE from 'three';
-import { ENEMY_TYPES, WEAPONS, xpFor, type EnemyDef, type EnemyType, type WeaponDef, type WeaponId } from './config';
+import { ENEMY_TYPES, MECHS, WEAPONS, xpFor, type EnemyDef, type EnemyType, type MechId, type WeaponDef, type WeaponId } from './config';
 
 export type GameState = 'start' | 'play' | 'levelup' | 'pause' | 'over';
 
@@ -27,8 +27,15 @@ export interface Stats {
 export interface Player {
   x: number;
   z: number;
-  /** Facing angle around Y, radians. */
+  /** Torso facing around Y, radians. Turns toward the aim point at the mech's turn rate. */
   ang: number;
+  /** Legs facing, follows the movement direction. */
+  legAng: number;
+  /** Walk cycle phase, radians. */
+  walkPh: number;
+  /** Point the torso is aiming at: along `ang`, at the aim distance. */
+  tx: number;
+  tz: number;
   hp: number;
   maxHp: number;
   inv: number;
@@ -42,7 +49,10 @@ export interface Player {
   xpNext: number;
   /** Muzzle position. */
   mx: number;
+  my: number;
   mz: number;
+  /** Current speed, world units per second. */
+  speed: number;
   moving: boolean;
 }
 
@@ -108,6 +118,8 @@ export const aim = new THREE.Vector3();
 
 export const G = {
   state: 'start' as GameState,
+  /** Selected mech. Not touched by resetState(), so the choice survives restarts. */
+  mech: 'guard' as MechId,
   time: 0,
   kills: 0,
   spawnAcc: 0,
@@ -154,9 +166,10 @@ export function resetState(): void {
     dmg: 1, rate: 1, mag: 1, reload: 1, pierce: 0, multi: 0, crit: 0.05, explode: 0,
     speed: 1, magnet: 3.2, regen: 0, dashMul: 1, arW: 0, aura: 0,
   } satisfies Stats);
+  const mech = MECHS[G.mech];
   Object.assign(P, {
-    x: 0, z: 0, ang: 0, hp: 100, maxHp: 100, inv: 0, blink: 0, dashCd: 0, dashT: 0, ddx: 0, ddz: 1,
-    level: 1, xp: 0, xpNext: xpFor(1), mx: 0, mz: 0, moving: false,
+    x: 0, z: 0, ang: 0, legAng: 0, walkPh: 0, tx: 0, tz: 1, hp: mech.hp, maxHp: mech.hp, inv: 0, blink: 0, dashCd: 0, dashT: 0, ddx: 0, ddz: 1,
+    level: 1, xp: 0, xpNext: xpFor(1), mx: 0, my: 1, mz: 0, speed: 0, moving: false,
   } satisfies Player);
   Object.assign(G, {
     time: 0, kills: 0, spawnAcc: 0, nextBurst: 45, nextBoss: 120, bossN: 0, shake: 0,

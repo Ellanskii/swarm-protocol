@@ -4,14 +4,13 @@ import { spawnBullet } from './combat';
 import { WEAPONS, WEAPON_ORDER, type WeaponId } from './config';
 import { showBanner } from './fx';
 import { fireHeld } from './input';
-import { gun, muzzle } from './scene';
-import { G, P, S, aim, curWeapon, magSize, mkWeapon, type WeaponState } from './state';
+import { setSlotPart } from './mech';
+import { muzzle } from './scene';
+import { G, P, S, curWeapon, magSize, mkWeapon, type WeaponState } from './state';
 import { clamp, rand } from './utils';
 
 const PERFECT_BONUS = 1.5;
 const PERFECT_COLOR = 0xffd166;
-
-const BASE_GUN_LEN = 0.9;
 
 export function giveWeapon(id: WeaponId): void {
   G.owned[id] = mkWeapon(id);
@@ -33,7 +32,7 @@ export function cycleWeapon(dir: 1 | -1): void {
 }
 
 export function syncGunModel(): void {
-  gun.scale.z = WEAPONS[G.cur].gunLen / BASE_GUN_LEN;
+  setSlotPart('armR', WEAPONS[G.cur].part);
 }
 
 // ---------------- firing ----------------
@@ -43,9 +42,8 @@ function fire(w: WeaponState): void {
   w.ammo--;
   G.fireCd = 1 / (d.rate * S.rate);
 
-  // aim from the muzzle so shots converge on the cursor; fall back to facing when the cursor is on top of us
-  let base = Math.atan2(aim.x - P.mx, aim.z - P.mz);
-  if (Math.hypot(aim.x - P.x, aim.z - P.z) < 1.6) base = P.ang;
+  // shots go where the torso faces, converging from the arm on the torso aim point
+  const base = Math.atan2(P.tx - P.mx, P.tz - P.mz);
 
   const perfect = w.perfect > 0;
   if (perfect) w.perfect--;
@@ -61,10 +59,10 @@ function fire(w: WeaponState): void {
       : base + (i - (n - 1) / 2) * 0.1 + rand(-d.spread, d.spread);
     const speed = d.speed * rand(0.92, 1.05);
     const life = (d.range / d.speed) * rand(0.9, 1.1);
-    spawnBullet(P.mx, P.mz, 1, Math.sin(ang), Math.cos(ang), speed, dmg, life, S.pierce, color);
+    spawnBullet(P.mx, P.mz, P.my, Math.sin(ang), Math.cos(ang), speed, dmg, life, S.pierce, color);
   }
 
-  muzzle.position.set(P.mx, 1.2, P.mz);
+  muzzle.position.set(P.mx, P.my + 0.2, P.mz);
   muzzle.intensity = 45;
   muzzle.color.setHex(color);
   G.shake = Math.min(1.2, G.shake + d.kick * 0.3);
