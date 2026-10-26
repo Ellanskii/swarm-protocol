@@ -1,20 +1,27 @@
-// Arm weapons: every mounted gun fires at once, one shared SYNTHETIK-style active reload.
+// Arm weapons: every mounted gun fires at once. Ballistic guns share one SYNTHETIK-style active reload,
+// energy weapons share one heat gauge that vents with the same timing window.
 import { sfx } from './audio';
 import { insidePillar } from './arena';
-import { damage, spawnBullet } from './combat';
-import { WEAPON_LEVELS, type WeaponId } from './config';
-import { showBanner, sparks } from './fx';
-import { fireHeld } from './input';
+import { damage, explode, spawnBullet } from './combat';
+import { HEAT, WEAPON_LEVELS, type WeaponId } from './config';
+import { showBanner, sparks, steam } from './fx';
+import { fireHeld, manualFire } from './input';
 import { muzzleOffset, setSlotPart, type ArmSlot } from './mech';
+import { hurt } from './player';
 import { muzzle } from './scene';
-import { G, P, S, armWeapons, magSize, mkWeapon, type WeaponState } from './state';
+import { G, P, S, armWeapons, magSize, mkWeapon, type ReloadState, type WeaponState } from './state';
 import { clamp, rand } from './utils';
 
 const PERFECT_BONUS = 1.5;
 const PERFECT_COLOR = 0xffd166;
+/** Energy weapons glow orange while running hot. */
+const HOT_COLOR = 0xff8a3d;
 /** Fire-button presses this early in a reload are leftover shots, not active-reload attempts. */
 const CLICK_GRACE = 0.15;
 const ARM_SLOTS: ArmSlot[] = ['armR', 'armL'];
+
+const ammoWeapons = (): WeaponState[] => armWeapons().filter(w => !w.d.heat);
+export const heatWeapons = (): WeaponState[] => armWeapons().filter(w => !!w.d.heat);
 
 export function freeArmSlot(): ArmSlot | null {
   return ARM_SLOTS.find(s => !armWeapons().some(w => w.slot === s)) ?? null;
@@ -44,7 +51,8 @@ export const levelBarrels = (lv: number): number => Math.floor((lv - 1) / WEAPON
 
 function fire(w: WeaponState): void {
   const d = w.d;
-  w.ammo--;
+  if (d.heat) heatUp(d.heat * S.heat);
+  else w.ammo--;
   w.cd = 1 / (d.rate * S.rate);
 
   // each arm fires along the torso facing, converging on the torso aim point
@@ -53,11 +61,11 @@ function fire(w: WeaponState): void {
   const mx = P.x + fx * fwd + fz * right, mz = P.z + fz * fwd - fx * right;
   const base = Math.atan2(P.tx - mx, P.tz - mz);
 
-  const perfect = G.reload.perfect;
   if (d.beam) {
-    fireBeam(w, mx, y, mz, base, perfect);
+    fireBeam(w, mx, y, mz, base);
     return;
   }
+  const perfect = G.reload.perfect;
   const isShotgun = d.pellets > 1;
   const n = d.pellets + (S.multi + levelBarrels(w.lv)) * (isShotgun ? 2 : 1);
   const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * (perfect ? PERFECT_BONUS : 1);
@@ -82,7 +90,7 @@ function fire(w: WeaponState): void {
 }
 
 /** Laser: hitscan line from the arm, stops at a pillar, hits every machine on it. */
-function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number, perfect: boolean): void {
+function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number): void {
   const d = w.d, dx = Math.sin(ang), dz = Math.cos(ang);
   let len = d.range;
   for (let s = 0.5; s < d.range; s += 0.5) {
@@ -90,7 +98,8 @@ function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number
   }
   // extra barrels widen the beam instead of adding projectiles
   const width = 0.15 + 0.12 * (S.multi + levelBarrels(w.lv));
-  const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * (perfect ? PERFECT_BONUS : 1);
+  const hot = G.heat >= HEAT.hot;
+  const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * (hot ? HEAT.hotDmg : 1);
   for (const e of G.enemies) {
     if (e.dead) continue;
     const ox = e.x - mx, oz = e.z - mz;
@@ -101,7 +110,7 @@ function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number
     damage(e, dmg, dx * 0.4 / e.r, dz * 0.4 / e.r, true, true);
     if (Math.random() < 0.3) sparks(e.x, 1, e.z, d.color, 1, 3);
   }
-  const color = perfect ? PERFECT_COLOR : d.color;
+  const color = hot ? HOT_COLOR : d.color;
   Object.assign(G.beam, { x1: mx, z1: mz, x2: mx + dx * len, z2: mz + dz * len, y, t: 0.06, col: color });
   muzzle.position.set(mx, y + 0.2, mz);
   muzzle.intensity = 25;
@@ -109,15 +118,13 @@ function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number
   sfx('laser');
 }
 
-// ---------------- reload ----------------
+// ---------------- reload and vent ----------------
 
-/** Reloads every arm weapon at once; takes as long as the slowest one. */
-export function startReload(): void {
-  const r = G.reload;
-  if (r.on || armWeapons().every(w => w.ammo >= magSize(w.d))) return;
+/** Opens a timed bar with a random active window, shared by the reload and the vent. */
+function openWindow(r: ReloadState, dur: number): void {
   r.on = true;
   r.t = 0;
-  r.dur = Math.max(...armWeapons().map(w => w.d.reload)) / S.reload;
+  r.dur = dur;
   r.arUsed = false;
   r.perfect = false;
   const width = clamp(0.14 + S.arW, 0.1, 0.34);
@@ -125,22 +132,60 @@ export function startReload(): void {
   r.arE = r.arS + width;
 }
 
+/** Reloads every ballistic weapon at once; takes as long as the slowest one. */
+export function startReload(): void {
+  const guns = ammoWeapons();
+  if (G.reload.on || guns.every(w => w.ammo >= magSize(w.d))) return;
+  openWindow(G.reload, Math.max(...guns.map(w => w.d.reload)) / S.reload);
+}
+
 function finishReload(): void {
-  for (const w of armWeapons()) w.ammo = magSize(w.d);
+  for (const w of ammoWeapons()) w.ammo = magSize(w.d);
   G.reload.on = false;
   sfx('reload');
 }
 
-/** Active-reload attempt during reload: inside the window — instant + bonus; outside — jam. */
-function tryActive(): void {
-  const r = G.reload;
+/** Vents energy weapons: manual vents scale with heat, an overheat forces the long one. */
+function startVent(forced: boolean): void {
+  if (G.vent.on || (!forced && G.heat < HEAT.minVent)) return;
+  G.ventFrom = G.heat;
+  openWindow(G.vent, (forced ? HEAT.overVent : HEAT.ventBase + HEAT.ventPerHeat * G.heat) / S.cool);
+  sfx('vent');
+}
+
+function finishVent(): void {
+  G.heat = 0;
+  G.vent.on = false;
+}
+
+function heatUp(amount: number): void {
+  G.heat += amount;
+  G.heatIdle = 0;
+  if (G.heat < 1) return;
+  G.heat = 1;
+  hurt(HEAT.overDmg);
+  showBanner('ПЕРЕГРЕВ', 'red', 0.9);
+  sparks(P.x, 1.6, P.z, HOT_COLOR, 14, 6);
+  sfx('overheat');
+  startVent(true);
+}
+
+/** Perfect vent: instant cooldown and a steam blast, stronger the hotter the guns were. */
+function steamBurst(): void {
+  finishVent();
+  explode(P.x, P.z, HEAT.steamR, HEAT.steamDmg * S.dmg * Math.max(0.4, G.ventFrom));
+  for (let i = 0; i < 16; i++) steam(P.x, 1, P.z, 6);
+  showBanner('СБРОС ТЕПЛА', 'blue', 0.9);
+  sfx('vent');
+}
+
+/** Active attempt: inside the window — instant + bonus; outside — jam. */
+function tryActive(r: ReloadState, onPerfect: () => void): void {
   if (!r.on || r.arUsed) return;
   r.arUsed = true;
   const f = r.t / r.dur;
   if (f >= r.arS && f <= r.arE) {
-    finishReload();
-    r.perfect = true;
-    showBanner('ИДЕАЛЬНО · +50% УРОНА', 'gold', 0.9);
+    onPerfect();
     sfx('perfect');
   } else {
     r.dur += 0.75;
@@ -149,26 +194,58 @@ function tryActive(): void {
   }
 }
 
-export function reloadPressed(): void {
-  if (G.reload.on) tryActive();
-  else startReload();
+function perfectReload(): void {
+  finishReload();
+  G.reload.perfect = true;
+  showBanner('ИДЕАЛЬНО · +50% УРОНА', 'gold', 0.9);
 }
 
-/** Fire button pressed: during a reload it is the active-reload attempt, like a tap on touch. */
+/** The one skill button: reloads and vents, or is the active attempt for whichever bar is running. */
+export function reloadPressed(): void {
+  if (G.reload.on || G.vent.on) {
+    tryActive(G.reload, perfectReload);
+    tryActive(G.vent, steamBurst);
+    return;
+  }
+  startReload();
+  startVent(false);
+}
+
+/** Fire button pressed: during a reload or vent it is the active attempt, like a tap on touch. */
 export function firePressed(): void {
-  if (G.reload.on && G.reload.t > CLICK_GRACE) tryActive();
+  if (G.reload.on && G.reload.t > CLICK_GRACE) tryActive(G.reload, perfectReload);
+  if (G.vent.on && G.vent.t > CLICK_GRACE) tryActive(G.vent, steamBurst);
 }
 
 export function updateWeapons(dt: number): void {
-  const r = G.reload;
+  const r = G.reload, v = G.vent;
   if (r.on) {
     r.t += dt;
     if (r.t >= r.dur) finishReload();
   }
+  if (v.on) {
+    v.t += dt;
+    G.heat = G.ventFrom * Math.max(0, 1 - v.t / v.dur);
+    if (Math.random() < dt * 25) steam(P.x, 1.6, P.z);
+    if (v.t >= v.dur) finishVent();
+  } else {
+    G.heatIdle += dt;
+    if (G.heatIdle > HEAT.coolDelay) G.heat = Math.max(0, G.heat - HEAT.cool * S.cool * dt);
+    if (G.heat >= HEAT.hot && Math.random() < dt * 6) steam(P.x, 1.6, P.z, 1);
+  }
+
+  const held = fireHeld();
+  // auto-fire never overheats on its own; overheating is a choice of the player holding the trigger
+  const heatOk = !v.on && (G.heat < HEAT.autoStop || manualFire());
   let empty = false;
   for (const w of armWeapons()) {
     w.cd -= dt;
-    if (r.on || !fireHeld() || w.cd > 0 || w.ammo <= 0) continue;
+    if (!held || w.cd > 0) continue;
+    if (w.d.heat) {
+      if (heatOk && !G.vent.on) fire(w);
+      continue;
+    }
+    if (r.on || w.ammo <= 0) continue;
     fire(w);
     if (w.ammo === 0) empty = true;
   }

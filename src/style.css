@@ -75,6 +75,19 @@ body.menu { cursor: auto; }
 #rzone { position: absolute; top: 0; bottom: 0; background: var(--gold); opacity: .85; }
 #rzone.used { opacity: .15; }
 #rmark { position: absolute; top: -4px; bottom: -4px; width: 3px; background: #fff; box-shadow: 0 0 6px #fff; }
+#vent { position: absolute; left: 50%; bottom: calc(168px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(340px, 80vw); text-align: center; }
+#vtrack { position: relative; height: 14px; background: rgba(255, 138, 61, .18); border: 1px solid var(--line); border-radius: 2px; }
+#vzone { position: absolute; top: 0; bottom: 0; background: var(--accent); opacity: .85; }
+#vzone.used { opacity: .15; }
+#vmark { position: absolute; top: -4px; bottom: -4px; width: 3px; background: #fff; box-shadow: 0 0 6px #fff; }
+#vent p { margin: 6px 0 0; font-size: 11px; letter-spacing: .12em; color: var(--muted); }
+/* heat gauge: the hot zone from 70% is marked, the fill turns orange there and red when venting */
+#heat { position: relative; height: 6px; margin: 0 0 8px auto; width: 180px; background: rgba(255, 255, 255, .08); border: 1px solid var(--line); border-radius: 2px; }
+#heat::after { content: ""; position: absolute; left: 70%; top: -3px; bottom: -3px; width: 1px; background: #ff8a3d; }
+#heatfill { height: 100%; width: 0; background: #ff4df0; }
+#heat.hot #heatfill { background: #ff8a3d; box-shadow: 0 0 10px #ff8a3d; }
+#heat.vent #heatfill { background: var(--hp); }
+#ammo .hot .mono { color: #ff8a3d; }
 #reload p { margin: 6px 0 0; font-size: 11px; letter-spacing: .12em; color: var(--muted); }
 
 /* ---- feedback ---- */

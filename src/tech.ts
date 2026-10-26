@@ -48,7 +48,8 @@ export const TECH: TechNode[] = [
 
   // energy (left): ignores shields, chains, weak against armor
   { id: 'reactor', name: 'Реактор', desc: '+5% скорострельности за уровень', branch: 'energy', x: -1, y: 0, parent: 'core', max: 5, scrap: 20, bonus: lv => { S.rate *= 1 + 0.05 * lv; } },
-  { id: 'laser', name: 'Лазер', desc: 'В забеге выпадает лазер: луч прожигает всех на линии и игнорирует щиты, но вязнет в броне', branch: 'energy', x: -2, y: -1, parent: 'reactor', max: 1, scrap: 80, cores: 1, unlocks: ['laser'] },
+  { id: 'laser', name: 'Лазер', desc: 'В забеге выпадает лазер: луч прожигает всех на линии и игнорирует щиты, но вязнет в броне', branch: 'energy', x: -2, y: -1, parent: 'reactor', max: 1, scrap: 80, cores: 1, unlocks: ['laser', 'cooling'] },
+  { id: 'radiators', name: 'Радиаторы', desc: '+20% к скорости остывания энергетического оружия за уровень', branch: 'energy', x: -2, y: 0, parent: 'reactor', max: 3, scrap: 50, bonus: lv => { S.cool *= 1 + 0.2 * lv; } },
   { id: 'aura', name: 'Тесла-катушка', desc: 'В забеге выпадает тесла-катушка: бьёт током всех вокруг меха', branch: 'energy', x: -2, y: 1, parent: 'reactor', max: 1, scrap: 80, cores: 1, unlocks: ['aura'] },
   { id: 'scout', name: 'Прототип «Скаут»', desc: 'Открывает Скаута: лёгкий мех с двумя рывками и жгучим плазменным следом', branch: 'energy', x: -3, y: -1, parent: 'laser', max: 1, scrap: 200, cores: 2, mech: 'scout' },
 

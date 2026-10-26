@@ -30,6 +30,10 @@ export interface Stats {
   scrap: number;
   /** Explosion radius multiplier. */
   blast: number;
+  /** Heat cooling and vent speed multiplier. */
+  cool: number;
+  /** Heat per shot multiplier. */
+  heat: number;
 }
 
 export interface Player {
@@ -197,6 +201,14 @@ export const G = {
   gunKick: 0,
   owned: {} as Partial<Record<WeaponId, WeaponState>>,
   reload: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false } as ReloadState,
+  /** Shared heat of all energy weapons, 0..1. */
+  heat: 0,
+  /** Seconds since an energy weapon last fired; cooling starts after HEAT.coolDelay. */
+  heatIdle: 0,
+  /** Venting heat: same timing window as the reload; `perfect` is unused. */
+  vent: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false } as ReloadState,
+  /** Heat when the vent started; the gauge drains from it to 0 over the vent. */
+  ventFrom: 0,
   upLv: {} as Record<string, number>,
   enemies: [] as Enemy[],
   bullets: [] as Bullet[],
@@ -235,7 +247,7 @@ export const armWeapons = (): WeaponState[] => Object.values(G.owned);
 export function resetState(): void {
   Object.assign(S, {
     dmg: 1, rate: 1, mag: 1, reload: 1, pierce: 0, multi: 0, crit: 0.05, explode: 0,
-    speed: 1, magnet: 3.2, regen: 0, dashMul: 1, arW: 0, aura: 0, scrap: 1, blast: 1,
+    speed: 1, magnet: 3.2, regen: 0, dashMul: 1, arW: 0, aura: 0, scrap: 1, blast: 1, cool: 1, heat: 1,
   } satisfies Stats);
   const mech = MECHS[G.mech];
   Object.assign(P, {
@@ -249,6 +261,8 @@ export function resetState(): void {
     pendingLevels: 0, loot: { scrap: 0, cores: 0 }, evacT: 0, won: false, auraT: 0, gunKick: 0,
     owned: { [mech.start]: mkWeapon(mech.start, 'armR') }, upLv: {},
     reload: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
+    heat: 0, heatIdle: 0, ventFrom: 0,
+    vent: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
     enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], debris: [], wrecks: [], strikes: [], drones: [],
     shoulders: [], rockets: [], shells: [], trails: [], mines: [], dashMod: 'dash',
     beam: { x1: 0, z1: 0, x2: 0, z2: 0, y: 0, t: 0, col: 0 },

@@ -27,6 +27,17 @@ export function smoke(x: number, y: number, z: number): void {
   });
 }
 
+/** Fast white puff for venting heat. */
+export function steam(x: number, y: number, z: number, spd = 2): void {
+  if (G.parts.length >= LIMITS.particles) return;
+  const life = rand(0.35, 0.7);
+  G.parts.push({
+    x: x + rand(-0.3, 0.3), y, z: z + rand(-0.3, 0.3),
+    vx: rand(-1, 1) * spd, vy: rand(1.5, 3), vz: rand(-1, 1) * spd,
+    g: -1, life, max: life, col: 0xdfe8ff, s: rand(1.2, 2),
+  });
+}
+
 const DEBRIS_DARK = 0x2a2f45;
 
 /**

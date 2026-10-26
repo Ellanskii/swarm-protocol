@@ -4,6 +4,9 @@ import { SHOULDERS, WEAPONS, WEAPON_LEVELS, type ShoulderId, type WeaponId } fro
 import { mouse } from './input';
 import { freeShoulderSlot, installShoulder } from './shoulders';
 import { G, P, S, armWeapons, magSize } from './state';
+
+const hasAmmoWeapon = (): boolean => armWeapons().some(w => !w.d.heat);
+const hasHeatWeapon = (): boolean => armWeapons().some(w => !!w.d.heat);
 import { upgradeUnlocked } from './tech';
 import { $ } from './utils';
 import { freeArmSlot, giveWeapon, levelBarrels } from './weapons';
@@ -56,14 +59,15 @@ export const UPGRADES: Upgrade[] = [
   { id: 'dmg', name: 'Калибр', desc: '+20% урона всем оружием', max: 8, apply: () => { S.dmg *= 1.2; } },
   { id: 'rate', name: 'Облегчённый затвор', desc: '+15% к скорострельности', max: 8, apply: () => { S.rate *= 1.15; } },
   {
-    id: 'mag', name: 'Длинный магазин', desc: '+35% патронов в магазине', max: 5,
+    id: 'mag', name: 'Длинный магазин', desc: '+35% патронов в магазине', max: 5, avail: hasAmmoWeapon,
     apply: () => {
       S.mag *= 1.35;
       for (const w of armWeapons()) w.ammo = magSize(w.d);
       G.reload.on = false;
     },
   },
-  { id: 'reload', name: 'Быстрые руки', desc: 'Перезарядка на 20% быстрее, жёлтая зона шире', max: 5, apply: () => { S.reload *= 1.2; S.arW += 0.03; } },
+  { id: 'reload', name: 'Быстрые руки', desc: 'Перезарядка на 20% быстрее, жёлтая зона шире', max: 5, avail: hasAmmoWeapon, apply: () => { S.reload *= 1.2; S.arW += 0.03; } },
+  { id: 'cooling', name: 'Теплоотвод', desc: 'Энергетическое оружие греется на 12% меньше и остывает на 25% быстрее', max: 4, avail: hasHeatWeapon, apply: () => { S.heat *= 0.88; S.cool *= 1.25; } },
   { id: 'multi', name: 'Сдвоенный ствол', desc: '+1 пуля за выстрел, дробовику +2 дробины', max: 4, apply: () => { S.multi++; } },
   { id: 'pierce', name: 'Бронебойные', desc: 'Пуля прошивает ещё одного врага', max: 4, apply: () => { S.pierce++; } },
   { id: 'crit', name: 'Слабые места', desc: '+10% шанс крита, крит наносит ×2.2', max: 5, apply: () => { S.crit += 0.1; } },

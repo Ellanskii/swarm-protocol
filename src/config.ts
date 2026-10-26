@@ -126,6 +126,8 @@ export interface WeaponDef {
   kick: number;
   /** Hitscan beam instead of projectiles: hits everything on the line up to `range`, ignores shield auras. */
   beam?: boolean;
+  /** Energy weapon: each shot adds this much heat (1 = overheat) instead of spending ammo; `mag` and `reload` are unused. */
+  heat?: number;
   /** Model mounted in the arm slot. */
   part: PartId;
 }
@@ -135,8 +137,34 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   cannon:  { name: 'Автопушка', dmg: 22, rate: 3.2, mag: 13, reload: 1.4, spread: 0.03, pellets: 1, speed: 44, range: 30, pierce: 1, size: 1.6, color: 0xffd166, kick: 0.3,  part: 'cannon' },
   shotgun: { name: 'Дробовик',  dmg: 9,  rate: 1.4, mag: 6,  reload: 1.6, spread: 0.3,  pellets: 7, speed: 38, range: 15, pierce: 0, size: 1,   color: 0xffc36b, kick: 0.6,  part: 'shotgun' },
   // many weak ticks: shreds crowds and shielded machines, barely scratches armor
-  laser:   { name: 'Лазер',     dmg: 3.2, rate: 20, mag: 90, reload: 1.6, spread: 0,    pellets: 1, speed: 0,  range: 20, pierce: 0, size: 1,   color: 0xff4df0, kick: 0.02, part: 'laser', beam: true },
+  laser:   { name: 'Лазер',     dmg: 3.2, rate: 20, mag: 0,  reload: 0,   spread: 0,    pellets: 1, speed: 0,  range: 20, pierce: 0, size: 1,   color: 0xff4df0, kick: 0.02, part: 'laser', beam: true, heat: 0.011 },
 };
+
+/**
+ * Heat for energy weapons: the energy branch's resource. Firing heats the shared gauge, it cools on its own after a pause.
+ * Running hot hits harder; reaching 100% hurts the mech and forces a long vent. The reload button vents early,
+ * with the same timing window: a hit cools instantly and blasts steam around the mech.
+ */
+export const HEAT = {
+  /** Gauge per second once the guns stop firing for `coolDelay`. */
+  cool: 0.35,
+  coolDelay: 0.35,
+  /** From this heat on, energy weapons deal `hotDmg` times damage. */
+  hot: 0.7,
+  hotDmg: 1.25,
+  /** Overheat: damage to the mech and a forced vent of this many seconds. */
+  overDmg: 15,
+  overVent: 2.2,
+  /** Manual vent time: base + per unit of heat. Below `minVent` there is nothing to vent. */
+  ventBase: 0.5,
+  ventPerHeat: 0.9,
+  minVent: 0.15,
+  /** Perfect vent: steam burst radius and damage at full heat (scales down to 40% when venting cold). */
+  steamR: 3.6,
+  steamDmg: 45,
+  /** Auto-fire on touch holds energy weapons at this heat; only manual fire can overheat. */
+  autoStop: 0.95,
+} as const;
 
 export const WEAPON_ORDER: WeaponId[] = ['mg', 'cannon', 'shotgun', 'laser'];
 

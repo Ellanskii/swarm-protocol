@@ -1,5 +1,5 @@
 // DOM HUD. Every write goes through a cache so unchanged values don't touch the DOM.
-import { MECHS, SHOULDERS, WEAPON_ORDER } from './config';
+import { HEAT, MECHS, SHOULDERS, WEAPON_ORDER } from './config';
 import { dashCooldown } from './player';
 import { G, P, magSize } from './state';
 import { UPGRADES } from './upgrades';
@@ -10,6 +10,7 @@ const el = {
   timer: $('timer'), kills: $('kills'), loot: $('loot'), dashfill: $('dashfill'),
   ammo: $('ammo'), slots: $('slots'), ups: $('ups'),
   reload: $('reload'), rzone: $('rzone'), rmark: $('rmark'),
+  vent: $('vent'), vzone: $('vzone'), vmark: $('vmark'), heat: $('heat'), heatfill: $('heatfill'),
   boss: $('boss'), bossfill: $('bossfill'), cross: $('cross'),
 };
 
@@ -46,11 +47,13 @@ export function updateHUD(): void {
   set('dash', (((P.dashCharges + partial) / charges) * 100).toFixed(0), v => { el.dashfill.style.width = v + '%'; });
   set('dashN', charges, v => { el.dash.style.setProperty('--n', String(v)); });
 
-  // one row per mounted arm weapon: name, level, ammo
-  const r = G.reload;
+  // one row per mounted arm weapon: name, level, ammo or heat
+  const r = G.reload, v = G.vent;
   const arms = WEAPON_ORDER.flatMap(id => G.owned[id] ?? []);
-  const ammo = arms.map(w =>
-    `<div><span>${w.d.name} <b>${w.lv}</b></span><span class="mono">${r.on ? '—' : w.ammo} <small>/ ${magSize(w.d)}</small></span></div>`,
+  const heatPct = Math.round(G.heat * 100), hot = G.heat >= HEAT.hot;
+  const ammo = arms.map(w => w.d.heat
+    ? `<div${hot ? ' class="hot"' : ''}><span>${w.d.name} <b>${w.lv}</b></span><span class="mono">${heatPct} <small>% тепла</small></span></div>`
+    : `<div><span>${w.d.name} <b>${w.lv}</b></span><span class="mono">${r.on ? '—' : w.ammo} <small>/ ${magSize(w.d)}</small></span></div>`,
   ).join('');
   set('ammo', ammo, v => { el.ammo.innerHTML = v; });
   set('perfect', r.perfect, v => { el.ammo.classList.toggle('perfect', v); });
@@ -60,6 +63,20 @@ export function updateHUD(): void {
     el.rzone.style.width = (r.arE - r.arS) * 100 + '%';
     el.rzone.classList.toggle('used', r.arUsed);
     el.rmark.style.left = Math.min(100, (r.t / r.dur) * 100) + '%';
+  }
+
+  const heated = arms.some(w => w.d.heat);
+  set('heated', heated, h => { el.heat.hidden = !h; });
+  if (heated) {
+    el.heatfill.style.width = G.heat * 100 + '%';
+    set('heatState', v.on ? 'vent' : hot ? 'hot' : '', s => { el.heat.className = s; });
+  }
+  set('venting', v.on, on => { el.vent.hidden = !on; });
+  if (v.on) {
+    el.vzone.style.left = v.arS * 100 + '%';
+    el.vzone.style.width = (v.arE - v.arS) * 100 + '%';
+    el.vzone.classList.toggle('used', v.arUsed);
+    el.vmark.style.left = Math.min(100, (v.t / v.dur) * 100) + '%';
   }
 
   set('slots', G.shoulders.map(s => s.id + s.lv).join(','), () => {

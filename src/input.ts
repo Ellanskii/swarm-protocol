@@ -196,6 +196,9 @@ function nearestEnemy(range: number): Enemy | null {
   return best;
 }
 
+/** Fire the player is steering right now: mouse button or a deflected aim stick, not auto-fire. */
+export const manualFire = (): boolean => (touch.on ? aimStick() : mouse.down);
+
 export function fireHeld(): boolean {
   if (!touch.on) return mouse.down;
   return aimStick() || (touch.autoAim && !stickR && target !== null);
