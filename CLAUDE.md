@@ -34,7 +34,7 @@ npm run build       # typecheck + dist/index.html
 npm run dev
 ```
 
-В консоли браузера доступен `window.__swarm` с полями `G`, `P`, `S`, `gainXP`, `startGame`, `choose`, `god`, `installShoulder`, `giveWeapon`. Например, `__swarm.G.time = 115` вызовет босса через 5 секунд, `__swarm.gainXP(200)` даст несколько уровней подряд, `__swarm.god()` переключает бессмертие (в dev-режиме ещё клавиша `G`).
+В консоли браузера доступен `window.__swarm` с полями `G`, `P`, `S`, `gainXP`, `startGame`, `choose`, `god`, `installShoulder`, `giveWeapon`. Например, `__swarm.G.time = 115` вызовет босса через 5 секунд, `__swarm.gainXP(200)` даст несколько уровней подряд, `__swarm.god()` переключает бессмертие (в dev-режиме ещё клавиша `G`), `__swarm.allUps()` — выбор из всех апгрейдов вместо трёх (в dev-режиме клавиша `U`).
 
 ## Что дальше
 

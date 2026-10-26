@@ -176,6 +176,8 @@ export const G = {
   typeCount: {} as Record<EnemyType, number>,
   /** Debug invulnerability. Not touched by resetState(), so it survives restarts. */
   god: false,
+  /** Debug: the level-up screen offers every available upgrade instead of 3. Survives restarts like `god`. */
+  allUps: false,
 };
 
 export const magSize = (d: WeaponDef): number => Math.max(1, Math.round(d.mag * S.mag));

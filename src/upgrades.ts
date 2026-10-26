@@ -89,6 +89,7 @@ let choices: Upgrade[] = [];
 
 function rollChoices(): Upgrade[] {
   const pool = UPGRADES.filter(u => levelOf(u) < u.max && (u.avail?.() ?? true));
+  if (G.allUps) return pool.length ? pool : [FALLBACK];
   const out: Upgrade[] = [];
   while (out.length < 3 && pool.length) {
     let r = Math.random() * pool.reduce((s, u) => s + weight(u), 0);
@@ -107,6 +108,7 @@ export function openLevelUp(): void {
   mouse.down = false;
   document.body.classList.add('menu');
   choices = rollChoices();
+  cards.classList.toggle('all', G.allUps);
   cards.replaceChildren(...choices.map((u, i) => {
     const lv = levelOf(u);
     const b = document.createElement('button');

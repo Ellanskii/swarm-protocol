@@ -73,6 +73,13 @@ function god(on = !G.god): boolean {
   return on;
 }
 
+/** Debug cheat: level-up offers every available upgrade. Toggles, or sets it when `on` is given. */
+function allUps(on = !G.allUps): boolean {
+  G.allUps = on;
+  showBanner(on ? 'ВСЕ АПГРЕЙДЫ ВКЛ' : 'ВСЕ АПГРЕЙДЫ ВЫКЛ', 'gold', 0.8);
+  return on;
+}
+
 // ---------------- input ----------------
 
 const DIGITS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2 };
@@ -92,6 +99,7 @@ bindInput({
         else if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') tryDash();
         else if (code === 'Escape' || code === 'KeyP') setPause(true);
         else if (code === 'KeyG' && import.meta.env.DEV) god();
+        else if (code === 'KeyU' && import.meta.env.DEV) allUps();
         break;
       case 'levelup':
         if (code in DIGITS) choose(DIGITS[code]);
@@ -224,4 +232,4 @@ requestAnimationFrame(frame);
 declare global {
   interface Window { __swarm: unknown }
 }
-window.__swarm = { G, P, S, gainXP, startGame, choose, god, installShoulder, giveWeapon };
+window.__swarm = { G, P, S, gainXP, startGame, choose, god, allUps, installShoulder, giveWeapon };
