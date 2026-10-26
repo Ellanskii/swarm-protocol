@@ -111,7 +111,7 @@ export function updateTrails(dt: number): void {
 
 /** Applies damage unless invulnerable; the shield soaks it first. Death is detected by the main loop (P.hp <= 0). */
 export function hurt(amount: number): void {
-  if (P.inv > 0 || G.state !== 'play') return;
+  if (P.inv > 0 || G.state !== 'play' || G.evacT > 0) return;
   P.calm = 0;
   const soak = Math.min(P.shield, amount);
   P.shield -= soak;

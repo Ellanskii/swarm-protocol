@@ -16,10 +16,24 @@ export const PACING = {
   burstEvery: 45,
   /** Boss interval, seconds. */
   bossEvery: 120,
+  /** The last boss is the final one: beating it ends the run with an evacuation. */
+  bossCount: 3,
+  /** Final boss HP multiplier on top of the usual boss scaling. */
+  finalBossHp: 1.6,
+  /** Seconds between beating the final boss and the victory screen. */
+  evacDelay: 3,
   /** Enemy HP grows by this fraction per minute survived. */
   hpPerMinute: 0.5,
   /** Contact damage doubles every N seconds. */
   dmgDoubleEvery: 300,
+} as const;
+
+/** Meta currencies dropped in a run. Scrap comes from every enemy, cores only from bosses. */
+export const LOOT = {
+  /** Cores per boss, by boss number (1-based); the last entry is the final boss. */
+  bossCores: [1, 2, 3],
+  /** Scrap from a boss, scattered as several pickups. */
+  bossScrap: 40,
 } as const;
 
 // ---------------- mechs ----------------
@@ -163,6 +177,8 @@ export interface EnemyDef {
   /** Contact damage. */
   dmg: number;
   xp: number;
+  /** Average scrap per kill; the fraction is rolled as a chance for one more. */
+  scrap: number;
   color: number;
   /** Height of the mesh center above ground. */
   y: number;
@@ -171,11 +187,11 @@ export interface EnemyDef {
 }
 
 export const ENEMIES: Record<EnemyType, EnemyDef> = {
-  grunt:   { hp: 26,   speed: 3.3, r: 0.55, dmg: 10, xp: 1,  color: 0xff4d6d, y: 0.55, max: 520 },
-  runner:  { hp: 11,   speed: 5.9, r: 0.42, dmg: 6,  xp: 1,  color: 0xffd23f, y: 0.5,  max: 300 },
-  spitter: { hp: 38,   speed: 2.7, r: 0.6,  dmg: 8,  xp: 2,  color: 0xff8c42, y: 1.0,  max: 120 },
-  brute:   { hp: 210,  speed: 2.0, r: 1.15, dmg: 25, xp: 6,  color: 0x9b5de5, y: 1.15, max: 80 },
-  boss:    { hp: 2600, speed: 2.5, r: 2.3,  dmg: 35, xp: 60, color: 0xf72585, y: 2.4,  max: 6 },
+  grunt:   { hp: 26,   speed: 3.3, r: 0.55, dmg: 10, xp: 1,  scrap: 0.25, color: 0xff4d6d, y: 0.55, max: 520 },
+  runner:  { hp: 11,   speed: 5.9, r: 0.42, dmg: 6,  xp: 1,  scrap: 0.2,  color: 0xffd23f, y: 0.5,  max: 300 },
+  spitter: { hp: 38,   speed: 2.7, r: 0.6,  dmg: 8,  xp: 2,  scrap: 1,    color: 0xff8c42, y: 1.0,  max: 120 },
+  brute:   { hp: 210,  speed: 2.0, r: 1.15, dmg: 25, xp: 6,  scrap: 4,    color: 0x9b5de5, y: 1.15, max: 80 },
+  boss:    { hp: 2600, speed: 2.5, r: 2.3,  dmg: 35, xp: 60, scrap: 0,    color: 0xf72585, y: 2.4,  max: 6 },
 };
 
 export const ENEMY_TYPES = Object.keys(ENEMIES) as EnemyType[];

@@ -4,6 +4,7 @@ import { SHOULDERS, WEAPONS, WEAPON_LEVELS, type ShoulderId, type WeaponId } fro
 import { mouse } from './input';
 import { freeShoulderSlot, installShoulder } from './shoulders';
 import { G, P, S, armWeapons, magSize } from './state';
+import { upgradeUnlocked } from './tech';
 import { $ } from './utils';
 import { freeArmSlot, giveWeapon, levelBarrels } from './weapons';
 
@@ -88,7 +89,8 @@ const levelOf = (u: Upgrade): number => u.level?.() ?? G.upLv[u.id] ?? 0;
 let choices: Upgrade[] = [];
 
 function rollChoices(): Upgrade[] {
-  const pool = UPGRADES.filter(u => levelOf(u) < u.max && (u.avail?.() ?? true));
+  // the debug "all upgrades" mode also ignores the tech tree
+  const pool = UPGRADES.filter(u => levelOf(u) < u.max && (u.avail?.() ?? true) && (G.allUps || upgradeUnlocked(u.id)));
   if (G.allUps) return pool.length ? pool : [FALLBACK];
   const out: Upgrade[] = [];
   while (out.length < 3 && pool.length) {

@@ -2,6 +2,7 @@
 import './style.css';
 import { updateAura } from './abilities';
 import { initAudio, toggleMute } from './audio';
+import { closeBase, openBase, renderBase } from './base';
 import { updateBullets } from './combat';
 import { MECHS, MECH_ORDER, type MechId } from './config';
 import { spawnDirector, updateEnemies, updateEnemyShots } from './enemies';
@@ -15,7 +16,9 @@ import { tryDash, updatePlayer, updateTrails } from './player';
 import { camTarget, renderWorld, updateCamera } from './render';
 import { camera, renderer, scene } from './scene';
 import { installShoulder, removeAllDrones, updateShoulders } from './shoulders';
+import { persist, resetSave, save } from './save';
 import { G, P, S, aim, resetState } from './state';
+import { applyTech, mechUnlocked } from './tech';
 import { choose, openLevelUp } from './upgrades';
 import { watchForUpdates } from './update';
 import { $, fmtTime } from './utils';
@@ -27,6 +30,7 @@ function resetGame(): void {
   removeAllPickups();
   removeAllDrones();
   resetState();
+  applyTech();
   rebuildMech();
   camTarget.set(0, 0, 0);
   clearNumbers();
@@ -41,6 +45,7 @@ function showOnly(id: 'start' | 'levelup' | 'pause' | 'over' | null): void {
 function startGame(): void {
   initAudio();
   resetGame();
+  closeBase();
   showOnly(null);
   $('hud').hidden = false;
   document.body.classList.remove('menu');
@@ -57,14 +62,45 @@ function setPause(on: boolean): void {
   mouse.down = false;
 }
 
-function gameOver(): void {
+/** Ends the run either way: everything picked up goes to the save. */
+function endRun(won: boolean): void {
   G.state = 'over';
   mouse.down = false;
   document.body.classList.add('menu');
+  save.scrap += G.loot.scrap;
+  save.cores += G.loot.cores;
+  save.runs++;
+  if (won) save.wins++;
+  persist();
+  const title = $('oTitle');
+  title.textContent = won ? 'ЭВАКУАЦИЯ' : 'МЕХ УНИЧТОЖЕН';
+  title.className = won ? 'win' : 'dead';
   $('oTime').textContent = fmtTime(G.time);
   $('oKills').textContent = String(G.kills);
   $('oLvl').textContent = String(P.level);
+  $('oScrap').textContent = String(G.loot.scrap);
+  $('oCores').textContent = String(G.loot.cores);
+  $('oNote').textContent = won
+    ? 'Финальный босс повержен. Добыча доставлена на базу.'
+    : `Добыча сохранена. На базе: ${save.scrap} лома, ${save.cores} ядер.`;
   $('over').hidden = false;
+}
+
+function showBase(): void {
+  G.state = 'base';
+  showOnly(null);
+  $('hud').hidden = true;
+  document.body.classList.add('menu');
+  openBase();
+}
+
+function showMenu(): void {
+  closeBase();
+  G.state = 'start';
+  showOnly('start');
+  $('hud').hidden = true;
+  document.body.classList.add('menu');
+  renderMechs();
 }
 
 /** Debug cheat: toggles invulnerability, or sets it when `on` is given. */
@@ -115,6 +151,10 @@ bindInput({
       case 'over':
         if (code === 'Enter') startGame();
         break;
+      case 'base':
+        if (code === 'Escape') showMenu();
+        else if (code === 'Enter') startGame();
+        break;
     }
   },
 });
@@ -125,32 +165,42 @@ const MECH_KEY = 'swarm.mech';
 const mechCards = $('mechs');
 
 function selectMech(id: MechId): void {
+  if (!mechUnlocked(id)) return; // the card itself says where to unlock it
   G.mech = id;
   try { localStorage.setItem(MECH_KEY, id); } catch { /* storage blocked */ }
   for (const c of mechCards.children) c.classList.toggle('on', (c as HTMLElement).dataset.mech === id);
   resetGame(); // rebuilds the model, so the title screen shows the chosen mech
 }
 
-mechCards.replaceChildren(...MECH_ORDER.map((id, i) => {
-  const m = MECHS[id];
-  const b = document.createElement('button');
-  b.className = 'card mech';
-  b.dataset.mech = id;
-  const dash = m.dash.charges > 1 ? `${m.dash.charges} заряда` : '1 заряд';
-  b.innerHTML = `<small class="desk-only">${i + 1}</small><h3>${m.name}</h3><em>${m.role}</em>`
-    + `<p>${m.passive}</p><span class="mono">HP ${m.hp} · рывок ${dash} · плеч ${m.shoulders}</span>`;
-  b.addEventListener('click', () => selectMech(id));
-  return b;
-}));
+function renderMechs(): void {
+  // a mech locked again (save reset) falls back to the starter
+  if (!mechUnlocked(G.mech)) selectMech('guard');
+  mechCards.replaceChildren(...MECH_ORDER.map((id, i) => {
+    const m = MECHS[id];
+    const open = mechUnlocked(id);
+    const b = document.createElement('button');
+    b.className = `card mech${id === G.mech ? ' on' : ''}${open ? '' : ' locked'}`;
+    b.dataset.mech = id;
+    const dash = m.dash.charges > 1 ? `${m.dash.charges} заряда` : '1 заряд';
+    b.innerHTML = `<small class="desk-only">${i + 1}</small><h3>${m.name}</h3><em>${open ? m.role : 'Открывается на базе'}</em>`
+      + `<p>${m.passive}</p><span class="mono">HP ${m.hp} · рывок ${dash} · плеч ${m.shoulders}</span>`;
+    b.addEventListener('click', () => selectMech(id));
+    return b;
+  }));
+}
 
 try {
   const saved = localStorage.getItem(MECH_KEY) as MechId | null;
-  if (saved && saved in MECHS) G.mech = saved;
+  if (saved && saved in MECHS && mechUnlocked(saved)) G.mech = saved;
 } catch { /* storage blocked */ }
-for (const c of mechCards.children) c.classList.toggle('on', (c as HTMLElement).dataset.mech === G.mech);
+renderMechs();
 
 $('startBtn').addEventListener('click', startGame);
 $('againBtn').addEventListener('click', startGame);
+$('baseBtn').addEventListener('click', showBase);
+$('overBaseBtn').addEventListener('click', showBase);
+$('baseBackBtn').addEventListener('click', showMenu);
+$('basePlayBtn').addEventListener('click', startGame);
 $('resumeBtn').addEventListener('click', () => setPause(false));
 $('pauseBtn').addEventListener('click', () => setPause(true));
 $('dashBtn').addEventListener('pointerdown', e => {
@@ -173,6 +223,7 @@ document.body.classList.add('menu');
 
 function update(dt: number): void {
   G.time += dt;
+  if (G.evacT > 0 && (G.evacT -= dt) <= 0) G.won = true;
   updatePlayer(dt);
   updateWeapons(dt);
   spawnDirector(dt);
@@ -211,8 +262,9 @@ function frame(now: number): void {
   updateAim();
   if (G.state === 'play') {
     update(dt);
-    if (P.hp <= 0) gameOver();
-    else if (G.pendingLevels > 0) openLevelUp();
+    if (P.hp <= 0) endRun(false);
+    else if (G.won) endRun(true);
+    else if (G.pendingLevels > 0 && G.evacT <= 0) openLevelUp();
     updateHUD();
   }
   if (G.state === 'play' || G.state === 'over') updateNumbers(dt);
@@ -234,4 +286,12 @@ requestAnimationFrame(frame);
 declare global {
   interface Window { __swarm: unknown }
 }
-window.__swarm = { G, P, S, gainXP, startGame, choose, god, allUps, installShoulder, giveWeapon };
+/** Debug: adds meta currency, e.g. to test the tech tree. */
+function rich(scrap = 5000, cores = 30): void {
+  save.scrap += scrap;
+  save.cores += cores;
+  persist();
+  if (G.state === 'base') renderBase();
+}
+
+window.__swarm = { G, P, S, save, gainXP, startGame, choose, god, allUps, rich, resetSave, installShoulder, giveWeapon };

@@ -7,7 +7,7 @@ import { $, fmtTime } from './utils';
 
 const el = {
   hpfill: $('hpfill'), hptext: $('hptext'), shieldfill: $('shieldfill'), dash: $('dash'), xpfill: $('xpfill'), lvl: $('lvl'),
-  timer: $('timer'), kills: $('kills'), dashfill: $('dashfill'),
+  timer: $('timer'), kills: $('kills'), loot: $('loot'), dashfill: $('dashfill'),
   ammo: $('ammo'), slots: $('slots'), ups: $('ups'),
   reload: $('reload'), rzone: $('rzone'), rmark: $('rmark'),
   boss: $('boss'), bossfill: $('bossfill'), cross: $('cross'),
@@ -36,6 +36,10 @@ export function updateHUD(): void {
   set('lvl', 'УР ' + P.level, v => { el.lvl.textContent = v; });
   set('time', fmtTime(G.time), v => { el.timer.textContent = v; });
   set('kills', G.kills + ' убито', v => { el.kills.textContent = v; });
+  set('loot', `${G.loot.scrap}:${G.loot.cores}`, () => {
+    const cores = G.loot.cores ? ` <span class="cur core"></span>${G.loot.cores}` : '';
+    el.loot.innerHTML = G.loot.scrap || G.loot.cores ? `<span class="cur scrap"></span>${G.loot.scrap}${cores}` : '';
+  });
   // one bar split into charge segments; the recharging charge fills the next segment
   const charges = MECHS[G.mech].dash.charges;
   const partial = P.dashCharges < charges ? 1 - Math.max(0, P.dashCd) / dashCooldown() : 0;

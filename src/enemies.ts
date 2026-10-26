@@ -1,7 +1,7 @@
 // Enemy spawning (director), AI, separation, enemy projectiles.
 import { insidePillar, pushOutPillars } from './arena';
 import { sfx } from './audio';
-import { ARENA, ENEMIES, LIMITS, PACING, type EnemyType } from './config';
+import { ARENA, ENEMIES, LIMITS, LOOT, PACING, type EnemyType } from './config';
 import { showBanner } from './fx';
 import { forNear } from './grid';
 import { hurt } from './player';
@@ -53,6 +53,7 @@ function pickType(): EnemyType {
 }
 
 export function spawnDirector(dt: number): void {
+  if (G.evacT > 0) return;
   G.spawnAcc += Math.min(1.1 + G.time * 0.05, 18) * dt;
   while (G.spawnAcc >= 1) {
     G.spawnAcc -= 1;
@@ -71,16 +72,20 @@ export function spawnDirector(dt: number): void {
     showBanner('ОКРУЖЕНИЕ', 'red', 1.4);
   }
 
-  if (G.time >= G.nextBoss) {
+  if (G.time >= G.nextBoss && G.bossN < PACING.bossCount) {
     G.nextBoss += PACING.bossEvery;
     G.bossN++;
+    const final = G.bossN === PACING.bossCount;
     const [x, z] = spawnPos(22, 26);
     const b = spawnEnemy('boss', x, z);
     if (b) {
-      b.hp = b.maxHp = ENEMIES.boss.hp * (1 + (G.bossN - 1) * 0.9) * (1 + G.time / 600);
+      b.hp = b.maxHp = ENEMIES.boss.hp * (1 + (G.bossN - 1) * 0.9) * (1 + G.time / 600) * (final ? PACING.finalBossHp : 1);
       b.boss = true;
+      b.final = final;
+      b.cores = LOOT.bossCores[Math.min(G.bossN, LOOT.bossCores.length) - 1];
+      if (final) b.r *= 1.35;
     }
-    showBanner('КУЗНЯ ИДЁТ', 'red', 2);
+    showBanner(final ? 'ФИНАЛЬНЫЙ БОСС' : 'КУЗНЯ ИДЁТ', 'red', 2);
     sfx('boss');
     G.shake = 1;
   }

@@ -47,7 +47,8 @@ export function renderWorld(dt: number, playing: boolean): void {
     const hopper = e.type === 'grunt' || e.type === 'runner';
     const bob = hopper ? Math.abs(Math.sin(t * 9 + e.id)) * 0.12 : Math.sin(t * 3 + e.id) * 0.15;
     const spins = e.type === 'boss' || e.type === 'spitter';
-    writeInstance(enemyMeshes[e.type], counts[e.type]++, e.x, e.t.y * spawnK + bob, e.z, spins ? t * 1.5 + e.id : e.rot, spawnK, spawnK, spawnK, tmpC);
+    const s = spawnK * (e.r / e.t.r); // the final boss is bigger than its type
+    writeInstance(enemyMeshes[e.type], counts[e.type]++, e.x, e.t.y * s + bob, e.z, spins ? t * 1.5 + e.id : e.rot, s, s, s, tmpC);
   }
   for (const k of ENEMY_TYPES) commit(enemyMeshes[k], counts[k]);
 
@@ -84,8 +85,14 @@ export function renderWorld(dt: number, playing: boolean): void {
   n = 0;
   for (const g of G.gems) {
     if (g.dead) continue;
-    tmpC.setHex(g.v >= 20 ? 0xff5ef0 : g.v >= 5 ? 0x80ffdb : 0x4cc9f0);
-    const s = g.v >= 20 ? 1.8 : g.v >= 5 ? 1.35 : 1;
+    // XP by value: blue, mint, pink; scrap is pale metal; cores are big violet orbs
+    let s: number;
+    if (g.kind === 'scrap') { tmpC.setHex(0xcfd6e6); s = g.v >= 5 ? 1.2 : 0.85; }
+    else if (g.kind === 'core') { tmpC.setHex(0xb98cff); s = 2.4; }
+    else {
+      tmpC.setHex(g.v >= 20 ? 0xff5ef0 : g.v >= 5 ? 0x80ffdb : 0x4cc9f0);
+      s = g.v >= 20 ? 1.8 : g.v >= 5 ? 1.35 : 1;
+    }
     writeInstance(gemMesh, n++, g.x, 0.45 + Math.sin(t * 4 + g.ph) * 0.12, g.z, t * 2 + g.ph, s, s, s, tmpC);
   }
   commit(gemMesh, n);

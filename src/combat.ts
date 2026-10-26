@@ -1,7 +1,7 @@
 // Player projectiles, damage, explosions, enemy death.
 import { insidePillar } from './arena';
 import { sfx } from './audio';
-import { ARENA, LIMITS } from './config';
+import { ARENA, LIMITS, LOOT, PACING } from './config';
 import { dmgNumber, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { dropGem, spawnPickup } from './pickups';
@@ -81,14 +81,31 @@ export function kill(e: Enemy): void {
   sfx('kill');
   if (e.boss) {
     for (let i = 0; i < 14; i++) dropGem(e.x + rand(-2.5, 2.5), e.z + rand(-2.5, 2.5), 6);
+    const scrap = Math.round(LOOT.bossScrap * S.scrap);
+    for (let i = 0; i < 8; i++) dropGem(e.x + rand(-3, 3), e.z + rand(-3, 3), Math.ceil(scrap / 8), 'scrap');
+    if (e.cores) dropGem(e.x, e.z, e.cores, 'core');
     spawnPickup('heart', e.x + 1, e.z);
     spawnPickup('magnet', e.x - 1, e.z);
     explode(e.x, e.z, 5, 200);
-    showBanner('КУЗНЯ УНИЧТОЖЕНА', 'gold', 1.6);
+    if (e.final) startEvacuation();
+    else showBanner('КУЗНЯ УНИЧТОЖЕНА', 'gold', 1.6);
     return;
   }
   dropGem(e.x, e.z, e.t.xp);
+  // fractional scrap is a chance for one more piece
+  const s = e.t.scrap * S.scrap;
+  const n = Math.floor(s) + (Math.random() < s % 1 ? 1 : 0);
+  if (n > 0) dropGem(e.x + rand(-0.4, 0.4), e.z + rand(-0.4, 0.4), n, 'scrap');
   const r = Math.random();
   if (r < 0.012) spawnPickup('heart', e.x, e.z);
   else if (r < 0.016) spawnPickup('magnet', e.x, e.z);
+}
+
+/** Final boss down: the remaining machines shut down, loot flies to the mech, victory after a short delay. */
+function startEvacuation(): void {
+  G.evacT = PACING.evacDelay;
+  for (const e of G.enemies) if (!e.dead) kill(e);
+  for (const s of G.eshots) s.life = 0;
+  G.shake = 1.2;
+  showBanner('ЭВАКУАЦИЯ', 'blue', PACING.evacDelay);
 }

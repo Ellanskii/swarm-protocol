@@ -1,31 +1,45 @@
-// XP gems, heart and magnet pickups, leveling.
+// XP gems, scrap and cores, heart and magnet pickups, leveling.
 import { sfx } from './audio';
 import { LIMITS, xpFor } from './config';
 import { showBanner } from './fx';
 import { heartTpl, magnetTpl, scene } from './scene';
-import { G, P, S, type Pickup } from './state';
+import { G, P, S, type GemKind, type Pickup } from './state';
 
-export function dropGem(x: number, z: number, v: number): void {
-  // at the cap, merge into a random existing gem instead of dropping XP
+export function dropGem(x: number, z: number, v: number, kind: GemKind = 'xp'): void {
   if (G.gems.length >= LIMITS.gems) {
-    G.gems[(Math.random() * G.gems.length) | 0].v += v;
+    // at the cap: XP merges into a random XP gem, meta currency is credited right away so it is never lost
+    const g = G.gems[(Math.random() * G.gems.length) | 0];
+    if (kind === 'xp' && g.kind === 'xp') g.v += v;
+    else if (kind !== 'xp') collect(kind, v);
     return;
   }
-  G.gems.push({ x, z, v, vel: 0, pull: false, ph: Math.random() * 6, dead: false });
+  G.gems.push({ kind, x, z, v, vel: 0, pull: false, ph: Math.random() * 6, dead: false });
+}
+
+function collect(kind: GemKind, v: number): void {
+  if (kind === 'xp') gainXP(v);
+  else if (kind === 'scrap') G.loot.scrap += v;
+  else G.loot.cores += v;
 }
 
 export function updateGems(dt: number): void {
   for (const g of G.gems) {
     if (g.dead) continue;
     const dx = P.x - g.x, dz = P.z - g.z, d = Math.hypot(dx, dz);
-    if (d < S.magnet) g.pull = true;
+    // during the evacuation everything left on the field flies to the mech
+    if (d < S.magnet || G.evacT > 0) g.pull = true;
     if (g.pull) {
       g.vel = Math.min(g.vel + 45 * dt, 30);
       const step = Math.min(d, g.vel * dt);
       g.x += (dx / (d || 1)) * step;
       g.z += (dz / (d || 1)) * step;
     }
-    if (d < 0.8) { g.dead = true; gainXP(g.v); sfx('pick'); }
+    if (d < 0.8) {
+      g.dead = true;
+      collect(g.kind, g.v);
+      sfx('pick');
+      if (g.kind === 'core') showBanner(`+${g.v} ЯДР${g.v === 1 ? 'О' : 'А'}`, 'gold', 1);
+    }
   }
 }
 

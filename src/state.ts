@@ -7,7 +7,7 @@ import {
 } from './config';
 import type { ArmSlot, SlotId } from './mech';
 
-export type GameState = 'start' | 'play' | 'levelup' | 'pause' | 'over';
+export type GameState = 'start' | 'base' | 'play' | 'levelup' | 'pause' | 'over';
 
 /** Multipliers and flat bonuses granted by upgrades. */
 export interface Stats {
@@ -26,6 +26,8 @@ export interface Stats {
   /** Extra width of the active-reload window. */
   arW: number;
   aura: number;
+  /** Scrap pickup multiplier. */
+  scrap: number;
 }
 
 export interface Player {
@@ -109,6 +111,10 @@ export interface Enemy {
   dead: boolean;
   born: number;
   boss: boolean;
+  /** The final boss: beating it starts the evacuation. */
+  final?: boolean;
+  /** Cores dropped on death (bosses only). */
+  cores?: number;
 }
 
 export interface Bullet {
@@ -134,7 +140,9 @@ export interface Shell { x0: number; z0: number; tx: number; tz: number; x: numb
 export interface TrailPoint { x: number; z: number; life: number; tick: number }
 
 export interface EnemyShot { x: number; z: number; vx: number; vz: number; dmg: number; life: number }
-export interface Gem { x: number; z: number; v: number; vel: number; pull: boolean; ph: number; dead: boolean }
+/** Magnet-collected drop: XP, or meta currency (scrap, cores). */
+export type GemKind = 'xp' | 'scrap' | 'core';
+export interface Gem { kind: GemKind; x: number; z: number; v: number; vel: number; pull: boolean; ph: number; dead: boolean }
 export interface Pickup { kind: 'heart' | 'magnet'; x: number; z: number; mesh: THREE.Object3D; life: number; dead: boolean }
 export interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; col: number; s: number }
 export interface Drone { mesh: THREE.Mesh; cd: number; x: number; z: number }
@@ -157,6 +165,12 @@ export const G = {
   shake: 0,
   nextId: 1,
   pendingLevels: 0,
+  /** Meta currency picked up this run; added to the save when the run ends. */
+  loot: { scrap: 0, cores: 0 },
+  /** Countdown to the victory screen after the final boss dies; 0 while the run goes on. */
+  evacT: 0,
+  /** Set when the evacuation finishes; the main loop then shows the victory screen. */
+  won: false,
   auraT: 0,
   gunKick: 0,
   owned: {} as Partial<Record<WeaponId, WeaponState>>,
@@ -193,7 +207,7 @@ export const armWeapons = (): WeaponState[] => Object.values(G.owned);
 export function resetState(): void {
   Object.assign(S, {
     dmg: 1, rate: 1, mag: 1, reload: 1, pierce: 0, multi: 0, crit: 0.05, explode: 0,
-    speed: 1, magnet: 3.2, regen: 0, dashMul: 1, arW: 0, aura: 0,
+    speed: 1, magnet: 3.2, regen: 0, dashMul: 1, arW: 0, aura: 0, scrap: 1,
   } satisfies Stats);
   const mech = MECHS[G.mech];
   Object.assign(P, {
@@ -204,7 +218,7 @@ export function resetState(): void {
   } satisfies Player);
   Object.assign(G, {
     time: 0, kills: 0, spawnAcc: 0, nextBurst: 45, nextBoss: 120, bossN: 0, shake: 0,
-    pendingLevels: 0, auraT: 0, gunKick: 0,
+    pendingLevels: 0, loot: { scrap: 0, cores: 0 }, evacT: 0, won: false, auraT: 0, gunKick: 0,
     owned: { [mech.start]: mkWeapon(mech.start, 'armR') }, upLv: {},
     reload: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
     enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], drones: [],
