@@ -48,7 +48,8 @@ export function updateShoulders(dt: number): void {
     if (sh.id === 'drone') continue;
     sh.cd -= dt;
     if (sh.cd > 0) continue;
-    const ok = sh.id === 'rockets' ? fireRockets(sh) : sh.id === 'mortar' ? fireMortar(sh) : sh.id === 'mines' ? dropMine(sh) : fireFlak(sh);
+    const ok = sh.id === 'rockets' ? fireRockets(sh) : sh.id === 'mortar' ? fireMortar(sh) : sh.id === 'mines' ? dropMine(sh)
+      : sh.id === 'repair' ? repair(sh) : fireFlak(sh);
     // nothing to shoot at: check again soon instead of waiting a full cycle
     sh.cd = ok ? SHOULDERS[sh.id].cd : 0.3;
   }
@@ -56,6 +57,17 @@ export function updateShoulders(dt: number): void {
   updateShells(dt);
   updateMines(dt);
   updateDrones(dt);
+}
+
+// ---------------- repair drone ----------------
+
+/** Restores HP while the mech is damaged; waits at full health. */
+function repair(sh: ShoulderState): boolean {
+  if (P.hp >= P.maxHp) return false;
+  P.hp = Math.min(P.maxHp, P.hp + volley(sh));
+  sparks(P.x, 1.8, P.z, SHOULDERS.repair.color, 10, 3);
+  sfx('repair');
+  return true;
 }
 
 // ---------------- rockets ----------------

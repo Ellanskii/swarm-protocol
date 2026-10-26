@@ -1,7 +1,7 @@
 // DOM HUD. Every write goes through a cache so unchanged values don't touch the DOM.
-import { HEAT, MECHS, SHOULDERS, WEAPON_ORDER } from './config';
+import { MECHS, SHOULDERS, WEAPON_ORDER } from './config';
 import { dashCooldown } from './player';
-import { G, P, magSize } from './state';
+import { G, P, S, magSize } from './state';
 import { UPGRADES } from './upgrades';
 import { $, fmtTime } from './utils';
 
@@ -50,7 +50,7 @@ export function updateHUD(): void {
   // one row per mounted arm weapon: name, level, ammo or heat
   const r = G.reload, v = G.vent;
   const arms = WEAPON_ORDER.flatMap(id => G.owned[id] ?? []);
-  const heatPct = Math.round(G.heat * 100), hot = G.heat >= HEAT.hot;
+  const heatPct = Math.round(G.heat * 100), hot = G.heat >= S.hotAt;
   const ammo = arms.map(w => w.d.heat
     ? `<div${hot ? ' class="hot"' : ''}><span>${w.d.name} <b>${w.lv}</b></span><span class="mono">${heatPct} <small>% тепла</small></span></div>`
     : `<div><span>${w.d.name} <b>${w.lv}</b></span><span class="mono">${r.on ? '—' : w.ammo} <small>/ ${magSize(w.d)}</small></span></div>`,
@@ -67,6 +67,7 @@ export function updateHUD(): void {
 
   const heated = arms.some(w => w.d.heat);
   set('heated', heated, h => { el.heat.hidden = !h; });
+  set('hotAt', S.hotAt, v => { el.heat.style.setProperty('--hot', v * 100 + '%'); });
   if (heated) {
     el.heatfill.style.width = G.heat * 100 + '%';
     set('heatState', v.on ? 'vent' : hot ? 'hot' : '', s => { el.heat.className = s; });

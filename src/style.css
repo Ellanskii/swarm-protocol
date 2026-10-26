@@ -83,7 +83,7 @@ body.menu { cursor: auto; }
 #vent p { margin: 6px 0 0; font-size: 11px; letter-spacing: .12em; color: var(--muted); }
 /* heat gauge: the hot zone from 70% is marked, the fill turns orange there and red when venting */
 #heat { position: relative; height: 6px; margin: 0 0 8px auto; width: 180px; background: rgba(255, 255, 255, .08); border: 1px solid var(--line); border-radius: 2px; }
-#heat::after { content: ""; position: absolute; left: 70%; top: -3px; bottom: -3px; width: 1px; background: #ff8a3d; }
+#heat::after { content: ""; position: absolute; left: var(--hot, 70%); top: -3px; bottom: -3px; width: 1px; background: #ff8a3d; }
 #heatfill { height: 100%; width: 0; background: #ff4df0; }
 #heat.hot #heatfill { background: #ff8a3d; box-shadow: 0 0 10px #ff8a3d; }
 #heat.vent #heatfill { background: var(--hp); }

@@ -3,8 +3,8 @@
 import { sfx } from './audio';
 import { insidePillar } from './arena';
 import { damage, explode, spawnBullet } from './combat';
-import { HEAT, WEAPON_LEVELS, type WeaponId } from './config';
-import { showBanner, sparks, steam } from './fx';
+import { HEAT, LIMITS, OVERLOAD, WEAPON_LEVELS, type WeaponId } from './config';
+import { ringBurst, showBanner, sparks, steam } from './fx';
 import { fireHeld, manualFire } from './input';
 import { muzzleOffset, setSlotPart, type ArmSlot } from './mech';
 import { hurt } from './player';
@@ -78,7 +78,9 @@ function fire(w: WeaponState): void {
       : base + (i - (n - 1) / 2) * 0.1 + rand(-d.spread, d.spread);
     const speed = d.speed * rand(0.92, 1.05);
     const life = (d.range / d.speed) * rand(0.9, 1.1);
-    spawnBullet(mx, mz, y, Math.sin(ang), Math.cos(ang), speed, dmg, life, S.pierce + d.pierce, color, d.size);
+    // rockets don't pierce: they burst on the first machine
+    const pierce = d.blast ? 0 : S.pierce + d.pierce;
+    spawnBullet(mx, mz, y, Math.sin(ang), Math.cos(ang), speed, dmg, life, pierce, color, d.size, d.blast ?? 0, S.pen);
   }
 
   muzzle.position.set(mx, y + 0.2, mz);
@@ -89,7 +91,10 @@ function fire(w: WeaponState): void {
   sfx(w.id);
 }
 
-/** Laser: hitscan line from the arm, stops at a pillar, hits every machine on it. */
+/**
+ * Hitscan line from the arm, stops at a pillar, hits every machine on it.
+ * Laser (energy): runs on heat, burns through shield auras. Railgun (ballistic): runs on ammo, gets the perfect reload and armor piercing.
+ */
 function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number): void {
   const d = w.d, dx = Math.sin(ang), dz = Math.cos(ang);
   let len = d.range;
@@ -97,9 +102,13 @@ function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number
     if (insidePillar(mx + dx * s, mz + dz * s)) { len = s; break; }
   }
   // extra barrels widen the beam instead of adding projectiles
-  const width = 0.15 + 0.12 * (S.multi + levelBarrels(w.lv));
-  const hot = G.heat >= HEAT.hot;
-  const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * (hot ? HEAT.hotDmg : 1);
+  const width = 0.15 * d.size + 0.12 * (S.multi + levelBarrels(w.lv));
+  const energy = !!d.heat;
+  const hot = energy && G.heat >= S.hotAt;
+  const perfect = !energy && G.reload.perfect;
+  const mult = hot ? S.hotDmg : perfect ? PERFECT_BONUS : 1;
+  const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * mult;
+  const push = energy ? 0.4 : 5;
   for (const e of G.enemies) {
     if (e.dead) continue;
     const ox = e.x - mx, oz = e.z - mz;
@@ -107,15 +116,25 @@ function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number
     if (along < 0 || along > len + e.r) continue;
     const side = Math.abs(ox * dz - oz * dx);
     if (side > e.r + width) continue;
-    damage(e, dmg, dx * 0.4 / e.r, dz * 0.4 / e.r, true, true);
-    if (Math.random() < 0.3) sparks(e.x, 1, e.z, d.color, 1, 3);
+    damage(e, dmg, dx * push / e.r, dz * push / e.r, true, energy, energy ? 0 : S.pen);
+    if (!energy) sparks(e.x, 1, e.z, d.color, 6, 6);
+    else if (Math.random() < 0.3) sparks(e.x, 1, e.z, d.color, 1, 3);
   }
-  const color = hot ? HOT_COLOR : d.color;
-  Object.assign(G.beam, { x1: mx, z1: mz, x2: mx + dx * len, z2: mz + dz * len, y, t: 0.06, col: color });
+  const color = hot ? HOT_COLOR : perfect ? PERFECT_COLOR : d.color;
+  if (G.beams.length < LIMITS.beams) {
+    G.beams.push({
+      x1: mx, z1: mz, x2: mx + dx * len, z2: mz + dz * len, y, col: color,
+      life: energy ? 0.06 : 0.3, max: energy ? 0.06 : 0.3, w: energy ? 0.14 : width, flicker: energy,
+    });
+  }
   muzzle.position.set(mx, y + 0.2, mz);
-  muzzle.intensity = 25;
+  muzzle.intensity = energy ? 25 : 60;
   muzzle.color.setHex(color);
-  sfx('laser');
+  if (!energy) {
+    G.shake = Math.min(1.2, G.shake + d.kick * 0.3);
+    G.gunKick = 1;
+  }
+  sfx(w.id);
 }
 
 // ---------------- reload and vent ----------------
@@ -163,11 +182,26 @@ function heatUp(amount: number): void {
   G.heatIdle = 0;
   if (G.heat < 1) return;
   G.heat = 1;
-  hurt(HEAT.overDmg);
-  showBanner('ПЕРЕГРЕВ', 'red', 0.9);
+  if (S.overload) overload();
+  else {
+    hurt(HEAT.overDmg);
+    showBanner('ПЕРЕГРЕВ', 'red', 0.9);
+  }
   sparks(P.x, 1.6, P.z, HOT_COLOR, 14, 6);
   sfx('overheat');
   startVent(true);
+}
+
+/** Overload: the overheat discharges as lightning into every machine around instead of into the mech. */
+function overload(): void {
+  ringBurst(P.x, P.z, OVERLOAD.r);
+  for (const e of G.enemies) {
+    if (e.dead || (e.x - P.x) ** 2 + (e.z - P.z) ** 2 > (OVERLOAD.r + e.r) ** 2) continue;
+    damage(e, OVERLOAD.dmg * S.dmg, 0, 0, true, true);
+    sparks(e.x, 1.2, e.z, 0x9fe8ff, 6, 6);
+  }
+  G.shake = Math.min(1.2, G.shake + 0.5);
+  showBanner('ПЕРЕГРУЗКА', 'blue', 0.9);
 }
 
 /** Perfect vent: instant cooldown and a steam blast, stronger the hotter the guns were. */
@@ -231,7 +265,7 @@ export function updateWeapons(dt: number): void {
   } else {
     G.heatIdle += dt;
     if (G.heatIdle > HEAT.coolDelay) G.heat = Math.max(0, G.heat - HEAT.cool * S.cool * dt);
-    if (G.heat >= HEAT.hot && Math.random() < dt * 6) steam(P.x, 1.6, P.z, 1);
+    if (G.heat >= S.hotAt && Math.random() < dt * 6) steam(P.x, 1.6, P.z, 1);
   }
 
   const held = fireHeld();

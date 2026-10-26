@@ -88,6 +88,25 @@ const PART_BUILDERS: Record<PartId, (trim: number) => PartBuild> = {
     g.add(lens);
     return { mesh: g, len: 0.95 };
   },
+  railgun: trim => {
+    // two long rails with glowing coils between them
+    const g = new THREE.Group();
+    g.add(box(0.26, 0.26, 0.5, darkMat, 0, 0, 0.05), box(0.05, 0.1, 1.1, darkMat, -0.08, 0, 0.6), box(0.05, 0.1, 1.1, darkMat, 0.08, 0, 0.6));
+    for (const z of [0.3, 0.55, 0.8]) g.add(box(0.12, 0.05, 0.05, glowMat(0x9fd8ff), 0, 0, z));
+    g.add(box(0.28, 0.05, 0.3, trimMat(trim), 0, 0.15, 0));
+    return { mesh: g, len: 1.15 };
+  },
+  launcher: trim => {
+    // a fat tube with an orange-lit mouth
+    const g = new THREE.Group();
+    const tube = barrel(0.15, 0.85, darkMat, 0, 0.02, 0.15);
+    g.add(box(0.28, 0.26, 0.4, darkMat, 0, 0, 0), tube, box(0.3, 0.06, 0.2, trimMat(trim), 0, 0.2, 0.05));
+    const mouth = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.02, 12), glowMat(0xff8c42));
+    mouth.rotation.x = Math.PI / 2;
+    mouth.position.set(0, 0.02, 1);
+    g.add(mouth);
+    return { mesh: g, len: 1 };
+  },
   rockets: trim => {
     const g = new THREE.Group();
     g.add(box(0.46, 0.36, 0.5, darkMat, 0, 0.1, 0), box(0.48, 0.06, 0.52, trimMat(trim), 0, 0.3, 0));
@@ -135,6 +154,15 @@ const PART_BUILDERS: Record<PartId, (trim: number) => PartBuild> = {
     ring.rotation.x = Math.PI / 2;
     ring.position.y = 0.06;
     g.add(pad, ring);
+    return { mesh: g, len: 0 };
+  },
+  repair: trim => {
+    // a small dock with a green cross: the repair drone hovers over it
+    const g = new THREE.Group();
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.12, 12), darkMat);
+    pad.castShadow = true;
+    g.add(pad, box(0.26, 0.04, 0.08, glowMat(0x7dff9a), 0, 0.08, 0), box(0.08, 0.04, 0.26, glowMat(0x7dff9a), 0, 0.08, 0));
+    g.add(box(0.3, 0.03, 0.06, trimMat(trim), 0, 0.02, -0.2));
     return { mesh: g, len: 0 };
   },
 };

@@ -2,7 +2,7 @@
 // instead of reassigning exports, so everyone sees the same data.
 import * as THREE from 'three';
 import {
-  ENEMY_TYPES, MECHS, WEAPONS, xpFor,
+  ENEMY_TYPES, HEAT, MECHS, WEAPONS, xpFor,
   type EnemyDef, type EnemyType, type MechId, type ShoulderId, type WeaponDef, type WeaponId,
 } from './config';
 import type { ArmSlot, SlotId } from './mech';
@@ -34,6 +34,17 @@ export interface Stats {
   cool: number;
   /** Heat per shot multiplier. */
   heat: number;
+  /** Heat from which energy weapons run hot, and their damage multiplier there. */
+  hotAt: number;
+  hotDmg: number;
+  /** Armor ignored by ballistic hits. */
+  pen: number;
+  /** Levels of branch modifiers; 0 = not taken. */
+  reactive: number;
+  cluster: number;
+  napalm: number;
+  overload: number;
+  mark: number;
 }
 
 export interface Player {
@@ -121,6 +132,10 @@ export interface Enemy {
   mrot: number;
   /** Inside a shield bearer's aura this frame. */
   shielded: boolean;
+  /** Seconds left on a target designator mark. */
+  mark: number;
+  /** Last dash that hit this machine, so a ram or phase dash hits it once. */
+  dashHit: number;
   dead: boolean;
   born: number;
   boss: boolean;
@@ -144,6 +159,10 @@ export interface Bullet {
   last: number;
   /** Visual size. */
   s: number;
+  /** Explodes on impact with this radius; 0 = plain shot. */
+  blast: number;
+  /** Armor ignored on hit. */
+  pen: number;
 }
 
 export interface ShoulderState { id: ShoulderId; lv: number; cd: number; slot: SlotId }
@@ -153,10 +172,14 @@ export interface Shell { x0: number; z0: number; tx: number; tz: number; x: numb
 export interface TrailPoint { x: number; z: number; life: number; tick: number }
 /** Dropped mine: arms after a moment, blows up when a machine comes close. */
 export interface Mine { x: number; z: number; arm: number; life: number; dmg: number; blast: number; dead: boolean }
-/** Last laser shot, drawn for a few frames. */
-export interface Beam { x1: number; z1: number; x2: number; z2: number; y: number; t: number; col: number }
+/** Hitscan shot (laser, railgun), drawn for a moment and fading out. */
+export interface Beam { x1: number; z1: number; x2: number; z2: number; y: number; life: number; max: number; w: number; col: number; flicker: boolean }
 /** Dash variants from the tech branches; a mech carries one. */
-export type DashMod = 'dash' | 'jump';
+export type DashMod = 'dash' | 'jump' | 'ram' | 'phase' | 'decoy';
+/** Burning ground from napalm. */
+export interface Fire { x: number; z: number; r: number; life: number; tick: number; dps: number }
+/** Cluster bomblet waiting to go off. */
+export interface Bomblet { x: number; z: number; t: number; r: number; dmg: number }
 
 export interface EnemyShot { x: number; z: number; vx: number; vz: number; dmg: number; life: number }
 /** Magnet-collected drop: XP, or meta currency (scrap, cores). */
@@ -225,7 +248,15 @@ export const G = {
   shells: [] as Shell[],
   trails: [] as TrailPoint[],
   mines: [] as Mine[],
-  beam: { x1: 0, z1: 0, x2: 0, z2: 0, y: 0, t: 0, col: 0 } as Beam,
+  beams: [] as Beam[],
+  fires: [] as Fire[],
+  bomblets: [] as Bomblet[],
+  /** Decoy hologram; `life` 0 = none. */
+  decoy: { x: 0, z: 0, life: 0 },
+  designT: 0,
+  reactiveCd: 0,
+  /** Counts dashes, see Enemy.dashHit. */
+  dashId: 0,
   dashMod: 'dash' as DashMod,
   typeCount: {} as Record<EnemyType, number>,
   /** Debug invulnerability. Not touched by resetState(), so it survives restarts. */
@@ -248,6 +279,7 @@ export function resetState(): void {
   Object.assign(S, {
     dmg: 1, rate: 1, mag: 1, reload: 1, pierce: 0, multi: 0, crit: 0.05, explode: 0,
     speed: 1, magnet: 3.2, regen: 0, dashMul: 1, arW: 0, aura: 0, scrap: 1, blast: 1, cool: 1, heat: 1,
+    hotAt: HEAT.hot, hotDmg: HEAT.hotDmg, pen: 0, reactive: 0, cluster: 0, napalm: 0, overload: 0, mark: 0,
   } satisfies Stats);
   const mech = MECHS[G.mech];
   Object.assign(P, {
@@ -265,7 +297,7 @@ export function resetState(): void {
     vent: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
     enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], debris: [], wrecks: [], strikes: [], drones: [],
     shoulders: [], rockets: [], shells: [], trails: [], mines: [], dashMod: 'dash',
-    beam: { x1: 0, z1: 0, x2: 0, z2: 0, y: 0, t: 0, col: 0 },
+    beams: [], fires: [], bomblets: [], decoy: { x: 0, z: 0, life: 0 }, designT: 0, reactiveCd: 0, dashId: 0,
   });
   for (const k of ENEMY_TYPES) G.typeCount[k] = 0;
 }

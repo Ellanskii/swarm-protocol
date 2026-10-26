@@ -2,7 +2,7 @@
 import { insidePillar, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, selfDestruct } from './combat';
-import { ARENA, ARTILLERY, ENEMIES, LIMITS, LOOT, PACING, SHIELD_AURA, type EnemyType } from './config';
+import { ARENA, ARTILLERY, DECOY, ENEMIES, LIMITS, LOOT, PACING, SHIELD_AURA, type EnemyType } from './config';
 import { ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { hurt } from './player';
@@ -16,7 +16,7 @@ export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null 
   const hp = t.hp * (1 + (G.time / 60) * PACING.hpPerMinute);
   const e: Enemy = {
     id: G.nextId++, type, t, x, z, kx: 0, kz: 0, hp, maxHp: hp, r: t.r,
-    flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0, mrot: 0, shielded: false,
+    flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0, mrot: 0, shielded: false, mark: 0, dashHit: 0,
     dead: false, born: G.time, boss: false,
   };
   G.enemies.push(e);
@@ -99,6 +99,9 @@ function fireEShot(x: number, z: number, dx: number, dz: number, speed: number, 
   G.eshots.push({ x, z, vx: dx * speed, vz: dz * speed, dmg, life: 4 });
 }
 
+/** Machines that walk into the mech; the decoy only fools these. */
+const MELEE = new Set<EnemyType>(['grunt', 'runner', 'brute']);
+
 export function updateEnemies(dt: number): void {
   const dmgMul = 1 + G.time / PACING.dmgDoubleEvery;
   const kDecay = Math.exp(-8 * dt);
@@ -113,9 +116,13 @@ export function updateEnemies(dt: number): void {
     });
   }
 
+  const dc = G.decoy;
   for (const e of G.enemies) {
     if (e.dead) continue;
-    const dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz) || 0.001;
+    // melee machines near a decoy go for it instead of the mech
+    let gx = P.x, gz = P.z;
+    if (dc.life > 0 && MELEE.has(e.type) && (dc.x - e.x) ** 2 + (dc.z - e.z) ** 2 < DECOY.pull ** 2) { gx = dc.x; gz = dc.z; }
+    const dx = gx - e.x, dz = gz - e.z, d = Math.hypot(dx, dz) || 0.001;
     const nx = dx / d, nz = dz / d;
     let mx = nx, mz = nz;
 
@@ -174,14 +181,15 @@ export function updateEnemies(dt: number): void {
     }
     e.flash -= dt;
 
-    if (d < e.r + 0.5 && e.type === 'runner') {
-      // kamikaze: one hit, then it is gone
-      hurt(e.t.dmg * dmgMul);
+    const toMech = gx === P.x && gz === P.z ? d : Math.hypot(P.x - e.x, P.z - e.z) || 0.001;
+    if (e.type === 'runner' && d < e.r + 0.5) {
+      // kamikaze: one hit, then it is gone (a decoy takes the blast for the mech)
+      if (toMech < e.r + 0.5) hurt(e.t.dmg * dmgMul);
       selfDestruct(e);
-    } else if (d < e.r + 0.5) {
+    } else if (toMech < e.r + 0.5) {
       hurt(e.t.dmg * dmgMul);
-      e.kx -= nx * 6;
-      e.kz -= nz * 6;
+      e.kx -= (P.x - e.x) / toMech * 6;
+      e.kz -= (P.z - e.z) / toMech * 6;
     }
   }
 }

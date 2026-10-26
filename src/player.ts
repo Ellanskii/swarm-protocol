@@ -2,12 +2,12 @@
 import { pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode } from './combat';
-import { ARENA, JUMP, MECHS, SHIELD, TRAIL } from './config';
+import { ARENA, DECOY, JUMP, MECHS, PHASE, RAM, REACTIVE, SHIELD, TRAIL } from './config';
 import { flashVignette, sparks } from './fx';
 import { forNear } from './grid';
 import { moveInput } from './input';
 import { jumpHeight, muzzleOffset } from './mech';
-import { G, P, S, aim } from './state';
+import { G, P, S, aim, type DashMod } from './state';
 import { clamp } from './utils';
 
 const RADIUS = 0.5;
@@ -29,13 +29,39 @@ export function tryDash(): void {
   else { dx /= l; dz /= l; }
   P.ddx = dx;
   P.ddz = dz;
-  // jump jets: a longer, invulnerable leap instead of the ground dash
-  const jump = G.dashMod === 'jump';
-  P.dashT = P.dashMax = jump ? JUMP.time : DASH_TIME;
+  // jump jets: a longer, invulnerable leap; phase: a short blink
+  const mod = G.dashMod;
+  const time = mod === 'jump' ? JUMP.time : mod === 'phase' ? PHASE.time : DASH_TIME;
+  P.dashT = P.dashMax = time;
   if (P.dashCharges-- === MECHS[G.mech].dash.charges) P.dashCd = dashCooldown();
-  P.inv = Math.max(P.inv, jump ? JUMP.time + 0.1 : 0.25);
+  P.inv = Math.max(P.inv, mod === 'dash' ? 0.25 : time + 0.15);
   P.trailT = 0;
+  G.dashId++;
+  if (mod === 'phase' && !G.vent.on) G.heat = Math.max(0, G.heat - PHASE.vent);
+  if (mod === 'decoy') Object.assign(G.decoy, { x: P.x, z: P.z, life: DECOY.life });
   sfx('dash');
+}
+
+const DASH_SPEED_BY: Record<DashMod, number> = { dash: DASH_SPEED, decoy: DASH_SPEED, ram: DASH_SPEED, jump: JUMP.speed, phase: PHASE.speed };
+
+/** Ram and phase dashes hit every machine they pass, once per dash. */
+function dashHits(): void {
+  const ram = G.dashMod === 'ram';
+  const reach = ram ? RAM.r : PHASE.r;
+  for (const e of G.enemies) {
+    if (e.dead || e.dashHit === G.dashId) continue;
+    if ((e.x - P.x) ** 2 + (e.z - P.z) ** 2 > (reach + e.r) ** 2) continue;
+    e.dashHit = G.dashId;
+    if (ram) {
+      // a steel ram: armor does not help, light machines fly off
+      damage(e, RAM.dmg * S.dmg, P.ddx * RAM.push / e.r, P.ddz * RAM.push / e.r, true, false, 99);
+      sparks(e.x, 0.8, e.z, 0xffd166, 8, 7);
+      G.shake = Math.min(1.2, G.shake + 0.15);
+    } else {
+      damage(e, PHASE.dmg * S.dmg, 0, 0, true, true);
+      sparks(e.x, 1, e.z, 0xb98cff, 6, 5);
+    }
+  }
 }
 
 export function updatePlayer(dt: number): void {
@@ -51,17 +77,20 @@ export function updatePlayer(dt: number): void {
   }
   P.inv -= dt;
   P.blink -= dt;
+  G.reactiveCd -= dt;
   P.calm += dt;
   if (P.maxShield && P.calm >= SHIELD.delay) P.shield = Math.min(P.maxShield, P.shield + SHIELD.regen * dt);
 
   let vx: number, vz: number;
   if (P.dashT > 0) {
     P.dashT -= dt;
-    const jump = G.dashMod === 'jump';
-    const sp = jump ? JUMP.speed : DASH_SPEED;
+    const mod = G.dashMod;
+    const sp = DASH_SPEED_BY[mod];
     vx = P.ddx * sp;
     vz = P.ddz * sp;
-    if (jump) {
+    if (mod === 'ram' || mod === 'phase') dashHits();
+    if (mod === 'phase') sparks(P.x, 1, P.z, 0xb98cff, 3, 2);
+    else if (mod === 'jump') {
       sparks(P.x, jumpHeight() + 0.6, P.z, 0xff8c42, 2, 3);
       if (P.dashT <= 0) {
         // landing slam
@@ -125,6 +154,10 @@ export function updateTrails(dt: number): void {
 export function hurt(amount: number): void {
   if (P.inv > 0 || G.state !== 'play' || G.evacT > 0) return;
   P.calm = 0;
+  if (S.reactive && G.reactiveCd <= 0) {
+    G.reactiveCd = REACTIVE.cd;
+    explode(P.x, P.z, REACTIVE.r, REACTIVE.dmg * (1 + 0.5 * (S.reactive - 1)) * S.dmg);
+  }
   const soak = Math.min(P.shield, amount);
   P.shield -= soak;
   amount -= soak;

@@ -11,6 +11,7 @@ import { buildGrid } from './grid';
 import { resetHUD, updateHUD } from './hud';
 import { bindInput, mouse, toggleAutoAim, touch, updateAim } from './input';
 import { rebuildMech } from './mech';
+import { updateModules } from './modules';
 import { gainXP, removeAllPickups, updateGems, updatePickups } from './pickups';
 import { tryDash, updatePlayer, updateTrails } from './player';
 import { camTarget, renderWorld, updateCamera } from './render';
@@ -234,6 +235,7 @@ function update(dt: number): void {
   updateStrikes(dt);
   updateShoulders(dt);
   updateTrails(dt);
+  updateModules(dt);
   updateAura(dt);
   updateGems(dt);
   updatePickups(dt);
@@ -256,6 +258,9 @@ function update(dt: number): void {
   G.wrecks = G.wrecks.filter(w => w.life > 0);
   G.strikes = G.strikes.filter(s => s.t < s.dur);
   G.mines = G.mines.filter(m => !m.dead);
+  G.beams = G.beams.filter(b => b.life > 0);
+  G.fires = G.fires.filter(f => f.life > 0);
+  G.bomblets = G.bomblets.filter(b => b.t > 0);
 }
 
 let last = performance.now();

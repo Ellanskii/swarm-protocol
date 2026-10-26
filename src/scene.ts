@@ -215,20 +215,26 @@ export const mineMesh = pool(
   64,
 );
 
-/** The laser: one stretched glowing box, shown for a few frames after each shot. */
-export const beamMesh = new THREE.Mesh(
+/** Hitscan shots (laser, railgun): stretched glowing boxes, additive so they fade by darkening. */
+export const beamMesh = pool(
   new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5),
-  new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+  new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
+  LIMITS.beams,
 );
-beamMesh.visible = false;
-beamMesh.frustumCulled = false;
-scene.add(beamMesh);
 
-/** Flat rings on the ground: artillery warnings. Additive, so a dim color reads as faint. */
+/** Decoy hologram: a ghostly column the size of a mech. */
+export const decoyMesh = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.55, 0.7, 2.2, 10, 1, true).translate(0, 1.1, 0),
+  new THREE.MeshBasicMaterial({ color: 0x80ffdb, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+);
+decoyMesh.visible = false;
+scene.add(decoyMesh);
+
+/** Flat rings on the ground: artillery warnings, napalm, designator marks, the decoy. Additive, so a dim color reads as faint. */
 export const groundRingMesh = pool(
   new THREE.RingGeometry(0.9, 1, 48).rotateX(-Math.PI / 2).translate(0, 0.06, 0),
   new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
-  LIMITS.strikes * 2,
+  LIMITS.strikes * 2 + LIMITS.fires * 2 + 24,
 );
 
 /** Shield bearer domes: a flattened hemisphere that is clear in the middle and glows at the rim, with scan bands running up. */

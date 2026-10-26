@@ -30,6 +30,8 @@ const WEAPON_DESC: Record<WeaponId, string> = {
   cannon: 'Ручное оружие. Тяжёлые снаряды прошивают врага насквозь',
   shotgun: 'Ручное оружие. Семь дробин, вблизи разносит всё',
   laser: 'Ручное оружие. Непрерывный луч прожигает всех на линии и игнорирует щиты, но вязнет в броне',
+  railgun: 'Ручное оружие. Редкий мощный выстрел прошивает всё на линии, броня ему почти не мешает',
+  launcher: 'Ручное оружие. Ракеты взрываются при попадании и бьют по площади',
 };
 
 /** Needs a free arm unless already mounted, then it levels up. */
@@ -77,20 +79,49 @@ export const UPGRADES: Upgrade[] = [
   { id: 'hp', name: 'Бронепластины', desc: '+25 к максимуму HP и полное лечение', max: 6, apply: () => { P.maxHp += 25; P.hp = P.maxHp; } },
   { id: 'regen', name: 'Ремонтные наниты', desc: '+1 HP в секунду', max: 5, apply: () => { S.regen += 1; } },
   { id: 'magnet', name: 'Магнит', desc: '+50% к радиусу сбора опыта', max: 4, apply: () => { S.magnet *= 1.5; } },
+  { id: 'pen', name: 'Подкалиберные', desc: 'Пули и снаряды игнорируют 3 единицы брони', max: 3, avail: hasAmmoWeapon, apply: () => { S.pen += 3; } },
+  { id: 'reactive', name: 'Реактивная броня', desc: 'Получив удар, броня взрывается вокруг меха (не чаще раза в 3 с). Уровень усиливает взрыв', max: 3, apply: () => { S.reactive++; } },
+  { id: 'cluster', name: 'Кассетные', desc: 'Каждый взрыв разбрасывает малые бомбы: +1 за уровень', max: 3, apply: () => { S.cluster++; } },
+  { id: 'napalm', name: 'Напалм', desc: 'Взрывы оставляют горящую землю. Уровень усиливает огонь', max: 3, apply: () => { S.napalm++; } },
+  {
+    id: 'eshield', name: 'Энергощит', desc: '+30 к щиту. Щит принимает урон первым и восстанавливается через 3 с без попаданий', max: 4,
+    apply: () => { P.maxShield += 30; P.shield += 30; },
+  },
+  {
+    id: 'capacitors', name: 'Конденсаторы', desc: 'Горячая зона нагрева начинается на 10% раньше, урон в ней ещё +10%', max: 3, avail: hasHeatWeapon,
+    apply: () => { S.hotAt -= 0.1; S.hotDmg += 0.1; },
+  },
+  { id: 'overload', name: 'Перегрузка', desc: 'Перегрев не ранит меха, а бьёт молнией всех вокруг', max: 1, avail: hasHeatWeapon, apply: () => { S.overload = 1; } },
+  { id: 'designator', name: 'Целеуказатель', desc: 'Метит самую крепкую машину рядом: она получает +30% урона. +1 цель за уровень', max: 3, apply: () => { S.mark++; } },
   { id: 'dash', name: 'Ускоритель', desc: 'Рывок перезаряжается на 25% быстрее', max: 3, apply: () => { S.dashMul *= 0.75; } },
   weaponUp('mg'),
   weaponUp('cannon'),
   weaponUp('shotgun'),
   weaponUp('laser'),
+  weaponUp('railgun'),
+  weaponUp('launcher'),
   shoulderUp('rockets'),
   shoulderUp('mortar'),
   shoulderUp('drone'),
   shoulderUp('mines'),
   shoulderUp('flak'),
+  shoulderUp('repair'),
   // dash modules replace the plain dash; a mech carries only one
   {
     id: 'jump', name: 'Прыжковые двигатели', desc: 'Рывок становится прыжком: неуязвимость в полёте и удар по площади при приземлении',
     max: 1, kind: 'dash', avail: () => G.dashMod === 'dash', apply: () => { G.dashMod = 'jump'; },
+  },
+  {
+    id: 'ram', name: 'Таран', desc: 'Рывок сносит машины на пути: урон без учёта брони и отброс',
+    max: 1, kind: 'dash', avail: () => G.dashMod === 'dash', apply: () => { G.dashMod = 'ram'; },
+  },
+  {
+    id: 'phase', name: 'Фазовый рывок', desc: 'Мгновенный скачок сквозь машины: прожигает их и сбрасывает 30% тепла',
+    max: 1, kind: 'dash', avail: () => G.dashMod === 'dash', apply: () => { G.dashMod = 'phase'; },
+  },
+  {
+    id: 'decoy', name: 'Приманка', desc: 'Рывок оставляет голограмму: она стягивает ближних машин и через 3 с взрывается',
+    max: 1, kind: 'dash', avail: () => G.dashMod === 'dash', apply: () => { G.dashMod = 'decoy'; },
   },
 ];
 

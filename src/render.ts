@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ENEMY_TYPES, LIMITS, SHIELD_AURA, SHOULDERS } from './config';
 import { animateMech } from './mech';
 import {
-  ENEMY_HOVER, beamMesh, bulletMesh, camera, debrisMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
+  ENEMY_HOVER, beamMesh, bulletMesh, camera, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
   groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
 } from './scene';
 import { G, P, aim } from './state';
@@ -97,6 +97,32 @@ export function renderWorld(dt: number, playing: boolean): void {
     tmpC.setHex(0xffb347).multiplyScalar(0.8);
     writeInstance(groundRingMesh, n++, st.x, 0, st.z, 0, st.r * p, 1, st.r * p, tmpC);
   }
+  const cap = groundRingMesh.instanceMatrix.count;
+  // napalm: a flickering edge and a hot core
+  for (const f of G.fires) {
+    if (f.life <= 0 || n + 2 > cap) continue;
+    const k = Math.min(1, f.life / 0.5);
+    tmpC.setHex(0xff6b1a).multiplyScalar(k * (0.7 + 0.3 * Math.sin(t * 17 + f.x)));
+    writeInstance(groundRingMesh, n++, f.x, 0, f.z, 0, f.r, 1, f.r, tmpC);
+    tmpC.setHex(0xffb347).multiplyScalar(k * 0.6);
+    writeInstance(groundRingMesh, n++, f.x, 0, f.z, 0, f.r * 0.55, 1, f.r * 0.55, tmpC);
+  }
+  // designator marks: a red ring that tightens around the target
+  tmpC.setHex(0xff3b3b);
+  for (const e of G.enemies) {
+    if (e.dead || e.mark <= 0 || n >= cap) continue;
+    const r = e.r + 0.35 + 0.15 * Math.sin(t * 8);
+    writeInstance(groundRingMesh, n++, e.x, 0, e.z, 0, r, 1, r, tmpC);
+  }
+  const dc = G.decoy;
+  decoyMesh.visible = dc.life > 0;
+  if (dc.life > 0) {
+    decoyMesh.position.set(dc.x, 0, dc.z);
+    decoyMesh.material.opacity = 0.25 + 0.15 * Math.sin(t * 20);
+    tmpC.setHex(0x80ffdb).multiplyScalar(0.6);
+    const r = 1.2 + ((t * 2) % 1) * 1.5;
+    if (n < cap) writeInstance(groundRingMesh, n++, dc.x, 0, dc.z, 0, r, 1, r, tmpC);
+  }
   commit(groundRingMesh, n);
 
   // shield domes flicker when a bearer is hit; they grow in with the machine
@@ -119,17 +145,17 @@ export function renderWorld(dt: number, playing: boolean): void {
   }
   commit(mineMesh, n);
 
-  // laser beam flickers in width for a few frames after each shot
-  const b = G.beam;
-  beamMesh.visible = b.t > 0;
-  if (b.t > 0) {
-    b.t -= dt;
-    const len = Math.hypot(b.x2 - b.x1, b.z2 - b.z1), w = rand(0.1, 0.18);
-    beamMesh.position.set(b.x1, b.y, b.z1);
-    beamMesh.rotation.set(0, Math.atan2(b.x2 - b.x1, b.z2 - b.z1), 0);
-    beamMesh.scale.set(w, w, len);
-    beamMesh.material.color.setHex(b.col);
+  // beams: the laser flickers in width, the railgun slug trail thins and fades
+  n = 0;
+  for (const b of G.beams) {
+    if (b.life <= 0) continue;
+    const k = b.life / b.max;
+    const len = Math.hypot(b.x2 - b.x1, b.z2 - b.z1), w = b.w * (b.flicker ? rand(0.7, 1.2) : k);
+    tmpC.setHex(b.col).multiplyScalar(b.flicker ? 1 : 0.3 + 0.7 * k);
+    writeInstance(beamMesh, n++, b.x1, b.y, b.z1, Math.atan2(b.x2 - b.x1, b.z2 - b.z1), w, w, len, tmpC);
+    b.life -= dt;
   }
+  commit(beamMesh, n);
 
   // projectiles
   // rockets and mortar shells share the bullet pool
