@@ -41,7 +41,7 @@ export const TECH: TechNode[] = [
   { id: 'railgun', name: 'Рельсотрон', desc: 'В забеге выпадает рельсотрон: редкий мощный выстрел насквозь через всю линию', branch: 'ballistics', x: 4, y: -1, parent: 'pierce', max: 1, scrap: 200, cores: 1, unlocks: ['railgun'] },
   { id: 'pen', name: 'Подкалиберные', desc: 'В забеге выпадает апгрейд «Подкалиберные»: баллистика игнорирует часть брони', branch: 'ballistics', x: 5, y: -1, parent: 'railgun', max: 1, scrap: 180, unlocks: ['pen'] },
   { id: 'reactive', name: 'Реактивная броня', desc: 'В забеге выпадает реактивная броня: удар по меху взрывает броню вокруг', branch: 'ballistics', x: 4, y: 1, parent: 'multi', max: 1, scrap: 150, unlocks: ['reactive'] },
-  { id: 'bastion', name: 'Прототип «Бастион»', desc: 'Открывает Бастиона: тяжёлый мех с дробовиком, гасит урон и отбрасывает машины', branch: 'ballistics', x: 5, y: 1, parent: 'reactive', max: 1, scrap: 200, cores: 2, mech: 'bastion' },
+  { id: 'bastion', name: 'Прототип «Бастион»', desc: 'Открывает Бастиона: тяжёлый мех с дробовиком, гасит урон и отбрасывает машины', branch: 'ballistics', x: 2, y: 2, parent: 'shotgun', max: 1, scrap: 200, cores: 2, mech: 'bastion' },
   { id: 'ram', name: 'Таран', desc: 'В забеге выпадает модуль рывка: таран сносит машины на пути, не глядя на броню', branch: 'ballistics', x: 5, y: 0, parent: 'belts', max: 1, scrap: 150, cores: 1, unlocks: ['ram'] },
 
   // rockets (up): area damage, cooldowns, jump jets
@@ -50,7 +50,7 @@ export const TECH: TechNode[] = [
   { id: 'jump', name: 'Прыжковые двигатели', desc: 'В забеге выпадает модуль рывка: прыжок с неуязвимостью и ударом при приземлении', branch: 'rockets', x: -1, y: -3, parent: 'rockets', max: 1, scrap: 150, cores: 1, unlocks: ['jump'] },
   { id: 'explode', name: 'Разрывные', desc: 'В забеге выпадает апгрейд «Разрывные»: попадания взрываются', branch: 'rockets', x: 0, y: -3, parent: 'rockets', max: 1, scrap: 200, unlocks: ['explode'] },
   { id: 'launcher', name: 'Ракетница', desc: 'В забеге выпадает ракетница: ручное оружие, ракеты взрываются при попадании', branch: 'rockets', x: 1, y: -1, parent: 'warheads', max: 1, scrap: 80, cores: 1, unlocks: ['launcher'] },
-  { id: 'artillery', name: 'Прототип «Артиллерист»', desc: 'Открывает Артиллериста: ракетница и миномёт, стоя на месте бьёт сильнее', branch: 'rockets', x: -1, y: -4, parent: 'jump', max: 1, scrap: 200, cores: 2, mech: 'artillery' },
+  { id: 'artillery', name: 'Прототип «Артиллерист»', desc: 'Открывает Артиллериста: ракетница и миномёт, стоя на месте бьёт сильнее', branch: 'rockets', x: 1, y: -2, parent: 'launcher', max: 1, scrap: 200, cores: 2, mech: 'artillery' },
   { id: 'cluster', name: 'Кассетные', desc: 'В забеге выпадает апгрейд «Кассетные»: взрывы разбрасывают малые бомбы', branch: 'rockets', x: 0, y: -4, parent: 'explode', max: 1, scrap: 220, unlocks: ['cluster'] },
   { id: 'napalm', name: 'Напалм', desc: 'В забеге выпадает апгрейд «Напалм»: взрывы оставляют горящую землю', branch: 'rockets', x: 1, y: -4, parent: 'mortar', max: 1, scrap: 200, unlocks: ['napalm'] },
   { id: 'mortar', name: 'Миномёт', desc: 'В забеге выпадает плечевой миномёт', branch: 'rockets', x: 1, y: -3, parent: 'rockets', max: 1, scrap: 150, cores: 2, unlocks: ['mortar'] },
@@ -73,9 +73,9 @@ export const TECH: TechNode[] = [
   { id: 'crit', name: 'Слабые места', desc: 'В забеге выпадает апгрейд на шанс крита', branch: 'robotics', x: -1, y: 3, parent: 'drone', max: 1, scrap: 150, unlocks: ['crit'] },
   { id: 'regen', name: 'Ремонтные наниты', desc: 'В забеге выпадает регенерация HP', branch: 'robotics', x: 0, y: 3, parent: 'mines', max: 1, scrap: 120, unlocks: ['regen'] },
 
-  { id: 'repair', name: 'Ремонтный дрон', desc: 'В забеге выпадает плечевой ремонтный дрон: чинит меха', branch: 'robotics', x: -2, y: 2, parent: 'drone', max: 1, scrap: 120, cores: 1, unlocks: ['repair'] },
+  { id: 'repair', name: 'Ремонтный дрон', desc: 'В забеге выпадает плечевой ремонтный дрон: чинит меха', branch: 'robotics', x: -3, y: 2, parent: 'carrier', max: 1, scrap: 120, cores: 1, unlocks: ['repair'] },
   { id: 'designator', name: 'Целеуказатель', desc: 'В забеге выпадает целеуказатель: помеченные машины получают больше урона', branch: 'robotics', x: -2, y: 3, parent: 'crit', max: 1, scrap: 180, unlocks: ['designator'] },
-  { id: 'carrier', name: 'Прототип «Носитель»', desc: 'Открывает Носителя: ангар с двумя боевыми дронами', branch: 'robotics', x: -1, y: 4, parent: 'crit', max: 1, scrap: 200, cores: 2, mech: 'carrier' },
+  { id: 'carrier', name: 'Прототип «Носитель»', desc: 'Открывает Носителя: ангар с двумя боевыми дронами', branch: 'robotics', x: -2, y: 2, parent: 'drone', max: 1, scrap: 200, cores: 2, mech: 'carrier' },
   { id: 'decoy', name: 'Приманка', desc: 'В забеге выпадает модуль рывка: голограмма стягивает машины и взрывается', branch: 'robotics', x: 0, y: 4, parent: 'regen', max: 1, scrap: 150, cores: 1, unlocks: ['decoy'] },
 
   // hull (down-right, shared): useful whatever branch you play
