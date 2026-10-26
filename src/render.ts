@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ENEMY_TYPES, LIMITS, SHIELD_AURA, SHOULDERS } from './config';
 import { animateMech } from './mech';
 import {
-  ENEMY_HOVER, beamMesh, bulletMesh, camera, debrisMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
+  ENEMY_HOVER, beamMesh, bulletMesh, camera, debrisMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
   groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
 } from './scene';
 import { G, P, aim } from './state';
@@ -87,7 +87,7 @@ export function renderWorld(dt: number, playing: boolean): void {
   }
   commit(wreckMesh, n);
 
-  // ground rings: artillery warnings (outer edge + filling disc) and shield auras
+  // ground rings: artillery warnings (outer edge + filling disc)
   n = 0;
   for (const st of G.strikes) {
     if (st.t >= st.dur) continue;
@@ -97,12 +97,18 @@ export function renderWorld(dt: number, playing: boolean): void {
     tmpC.setHex(0xffb347).multiplyScalar(0.8);
     writeInstance(groundRingMesh, n++, st.x, 0, st.z, 0, st.r * p, 1, st.r * p, tmpC);
   }
-  tmpC.copy(shieldTint).multiplyScalar(0.22 + Math.sin(t * 3) * 0.06);
-  for (const e of G.enemies) {
-    if (e.dead || e.type !== 'shield' || n >= groundRingMesh.instanceMatrix.count) continue;
-    writeInstance(groundRingMesh, n++, e.x, 0, e.z, 0, SHIELD_AURA.r, 1, SHIELD_AURA.r, tmpC);
-  }
   commit(groundRingMesh, n);
+
+  // shield domes flicker when a bearer is hit; they grow in with the machine
+  n = 0;
+  domeMat.uniforms.uTime.value = t;
+  for (const e of G.enemies) {
+    if (e.dead || e.type !== 'shield' || n >= domeMesh.instanceMatrix.count) continue;
+    tmpC.copy(shieldTint).multiplyScalar(0.8 + Math.sin(t * 3 + e.id) * 0.15 + (e.flash > 0 ? 0.8 : 0));
+    const r = SHIELD_AURA.r * Math.min(1, (t - e.born) * 2);
+    writeInstance(domeMesh, n++, e.x, 0, e.z, 0, r, r * 0.55, r, tmpC);
+  }
+  commit(domeMesh, n);
 
   // mines: dark while arming, blinking red once live
   n = 0;

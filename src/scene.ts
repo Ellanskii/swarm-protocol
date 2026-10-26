@@ -224,12 +224,43 @@ beamMesh.visible = false;
 beamMesh.frustumCulled = false;
 scene.add(beamMesh);
 
-/** Flat rings on the ground: artillery warnings and shield auras. Additive, so a dim color reads as faint. */
+/** Flat rings on the ground: artillery warnings. Additive, so a dim color reads as faint. */
 export const groundRingMesh = pool(
   new THREE.RingGeometry(0.9, 1, 48).rotateX(-Math.PI / 2).translate(0, 0.06, 0),
   new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
-  LIMITS.strikes * 2 + ENEMIES.shield.max,
+  LIMITS.strikes * 2,
 );
+
+/** Shield bearer domes: a flattened hemisphere that is clear in the middle and glows at the rim, with scan bands running up. */
+export const domeMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 } },
+  vertexShader: `
+    varying float vRim;
+    varying float vY;
+    varying vec3 vCol;
+    void main() {
+      vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0);
+      vec3 n = normalize(mat3(modelMatrix * instanceMatrix) * normal);
+      vRim = 1.0 - abs(dot(n, normalize(cameraPosition - wp.xyz)));
+      vY = position.y;
+      vCol = instanceColor;
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }`,
+  fragmentShader: `
+    uniform float uTime;
+    varying float vRim;
+    varying float vY;
+    varying vec3 vCol;
+    void main() {
+      float band = smoothstep(0.85, 1.0, sin(vY * 26.0 - uTime * 3.0));
+      float k = 0.07 + pow(vRim, 3.0) * 0.9 + band * 0.12 + smoothstep(0.12, 0.0, vY) * 0.5;
+      gl_FragColor = vec4(vCol * k, 1.0);
+    }`,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+export const domeMesh = pool(new THREE.SphereGeometry(1, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), domeMat, ENEMIES.shield.max);
 
 const glow = () => new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
 export const bulletMesh = pool(new THREE.BoxGeometry(0.13, 0.13, 0.75), glow(), LIMITS.bullets);
