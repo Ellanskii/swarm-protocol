@@ -1,5 +1,6 @@
 // Renderer, camera, lights, static arena and all reusable meshes.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ARENA, ENEMIES, ENEMY_TYPES, LIMITS, type EnemyType } from './config';
 
 export const canvas = document.getElementById('c') as HTMLCanvasElement;
@@ -98,27 +99,118 @@ function pool(geo: THREE.BufferGeometry, mat: THREE.Material, max: number, shado
   return m;
 }
 
-const runnerGeo = new THREE.ConeGeometry(0.5, 1.1, 4);
-runnerGeo.rotateX(Math.PI / 2); // tip points forward (+Z)
-const ENEMY_GEOMETRY: Record<EnemyType, THREE.BufferGeometry> = {
-  grunt: new THREE.BoxGeometry(1, 1.1, 1),
-  runner: runnerGeo,
-  spitter: new THREE.OctahedronGeometry(0.72),
-  brute: new THREE.DodecahedronGeometry(1.2),
-  boss: new THREE.IcosahedronGeometry(2.3, 0),
+// ---------------- enemy machines ----------------
+// Each machine is a few instanced parts sharing one transform. Static parts of one material are merged,
+// so a type costs 3-5 draw calls whatever the crowd size. Geometry is in machine space: ground at y = 0, facing +Z.
+
+/** How a part moves: faces the player (default), follows the hull, steps like a leg, or spins. */
+export type PartAnim = 'face' | 'hull' | 'legL' | 'legR' | 'rotor';
+export type PartMat = 'body' | 'dark' | 'glow';
+
+export interface EnemyPart {
+  mesh: THREE.InstancedMesh;
+  mat: PartMat;
+  anim: PartAnim;
+  /** Fixed color of glow parts; body parts take the type color, dark parts a dark metal. */
+  glow: THREE.Color;
+}
+
+const bx = (w: number, h: number, d: number, x = 0, y = 0, z = 0) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
+/** Cylinder lying along +Z, starting at z. */
+const barrelGeo = (r: number, len: number, x: number, y: number, z: number) =>
+  new THREE.CylinderGeometry(r, r, len, 10).rotateX(Math.PI / 2).translate(x, y, z + len / 2);
+
+interface PartSpec { mat: PartMat; anim?: PartAnim; glow?: number; geos: THREE.BufferGeometry[] }
+
+const ENEMY_PARTS_SPEC: Record<EnemyType, PartSpec[]> = {
+  // walking assembler: boxy body, two stepping legs, claws, one visor slit
+  grunt: [
+    { mat: 'body', geos: [bx(0.8, 0.55, 0.75, 0, 0.78, 0)] },
+    { mat: 'dark', geos: [bx(0.5, 0.2, 0.42, 0, 1.15, -0.05), bx(0.12, 0.12, 0.45, -0.5, 0.72, 0.15), bx(0.12, 0.12, 0.45, 0.5, 0.72, 0.15)] },
+    { mat: 'glow', glow: 0xffe066, geos: [bx(0.42, 0.08, 0.05, 0, 0.85, 0.39)] },
+    { mat: 'dark', anim: 'legL', geos: [bx(0.18, 0.52, 0.24, -0.24, 0.26, 0)] },
+    { mat: 'dark', anim: 'legR', geos: [bx(0.18, 0.52, 0.24, 0.24, 0.26, 0)] },
+  ],
+  // kamikaze drone: flat hull on four rotors, red warhead glowing at the nose
+  runner: [
+    { mat: 'body', geos: [new THREE.OctahedronGeometry(0.42).scale(1, 0.45, 1.35)] },
+    { mat: 'dark', anim: 'rotor', geos: [bx(1.1, 0.05, 0.08), bx(0.08, 0.05, 1.1), ...[[-0.5, 0], [0.5, 0], [0, -0.5], [0, 0.5]].map(([x, z]) => new THREE.CylinderGeometry(0.2, 0.2, 0.03, 10).translate(x, 0.06, z))] },
+    { mat: 'glow', glow: 0xff3b3b, geos: [new THREE.SphereGeometry(0.14, 10, 8).translate(0, -0.02, 0.42)] },
+  ],
+  // light tank: hull and tracks follow the movement, the turret tracks the player
+  spitter: [
+    { mat: 'body', anim: 'hull', geos: [bx(0.9, 0.34, 1.1, 0, 0.4, 0)] },
+    { mat: 'dark', anim: 'hull', geos: [bx(0.24, 0.32, 1.22, -0.53, 0.2, 0), bx(0.24, 0.32, 1.22, 0.53, 0.2, 0)] },
+    { mat: 'body', geos: [bx(0.56, 0.26, 0.56, 0, 0.7, -0.05)] },
+    { mat: 'dark', geos: [barrelGeo(0.07, 0.68, 0, 0.72, 0.2)] },
+    { mat: 'glow', glow: 0xff8c42, geos: [bx(0.3, 0.06, 0.04, 0, 0.75, 0.24)] },
+  ],
+  // heavy tank: wide armored hull, big turret, long barrel
+  brute: [
+    { mat: 'body', anim: 'hull', geos: [bx(1.7, 0.6, 2.0, 0, 0.62, 0)] },
+    { mat: 'dark', anim: 'hull', geos: [bx(0.42, 0.56, 2.2, -0.98, 0.3, 0), bx(0.42, 0.56, 2.2, 0.98, 0.3, 0), bx(1.74, 0.12, 0.5, 0, 0.98, 0.78)] },
+    { mat: 'body', geos: [bx(1.0, 0.45, 1.0, 0, 1.15, -0.1)] },
+    { mat: 'dark', geos: [barrelGeo(0.13, 1.4, 0, 1.18, 0.38)] },
+    { mat: 'glow', glow: 0xff3b3b, geos: [bx(0.5, 0.08, 0.05, 0, 1.24, 0.41)] },
+  ],
+  // artillery platform: four struts and a barrel raised at the sky
+  artillery: [
+    { mat: 'body', geos: [bx(1.2, 0.4, 1.2, 0, 0.78, 0)] },
+    { mat: 'dark', geos: [
+      ...[[-0.52, -0.52], [0.52, -0.52], [-0.52, 0.52], [0.52, 0.52]].map(([x, z]) => bx(0.14, 0.78, 0.14, x, 0.39, z)),
+      new THREE.CylinderGeometry(0.13, 0.15, 1.5, 10).translate(0, 0.75, 0).rotateX(0.75).translate(0, 0.9, -0.15),
+    ] },
+    { mat: 'glow', glow: 0xffb347, geos: [bx(0.6, 0.08, 0.05, 0, 0.82, 0.61)] },
+  ],
+  // shield bearer: walker carrying a glowing emitter on a mast
+  shield: [
+    { mat: 'body', geos: [bx(0.92, 0.7, 0.82, 0, 0.88, 0)] },
+    { mat: 'dark', geos: [new THREE.CylinderGeometry(0.06, 0.06, 0.55, 8).translate(0, 1.5, 0)] },
+    { mat: 'glow', glow: 0x9fe8ff, geos: [new THREE.IcosahedronGeometry(0.22, 0).translate(0, 1.86, 0), bx(0.5, 0.07, 0.05, 0, 0.98, 0.42)] },
+    { mat: 'dark', anim: 'legL', geos: [bx(0.22, 0.55, 0.28, -0.3, 0.27, 0)] },
+    { mat: 'dark', anim: 'legR', geos: [bx(0.22, 0.55, 0.28, 0.3, 0.27, 0)] },
+  ],
+  // the Forge: a walking factory with chimneys and an open furnace
+  boss: [
+    { mat: 'body', geos: [bx(3.2, 2.0, 3.0, 0, 2.3, 0)] },
+    { mat: 'dark', geos: [new THREE.CylinderGeometry(0.32, 0.36, 1.6, 10).translate(-0.9, 4.0, -0.8), new THREE.CylinderGeometry(0.32, 0.36, 1.6, 10).translate(0.9, 4.0, -0.8), bx(3.3, 0.25, 3.1, 0, 3.35, 0)] },
+    { mat: 'glow', glow: 0xff6b1a, geos: [bx(1.8, 0.8, 0.05, 0, 2.1, 1.53), new THREE.CylinderGeometry(0.26, 0.26, 0.08, 10).translate(-0.9, 4.82, -0.8), new THREE.CylinderGeometry(0.26, 0.26, 0.08, 10).translate(0.9, 4.82, -0.8)] },
+    { mat: 'dark', anim: 'legL', geos: [bx(0.6, 1.35, 0.6, -1.3, 0.67, 1.1), bx(0.6, 1.35, 0.6, 1.3, 0.67, -1.1)] },
+    { mat: 'dark', anim: 'legR', geos: [bx(0.6, 1.35, 0.6, 1.3, 0.67, 1.1), bx(0.6, 1.35, 0.6, -1.3, 0.67, -1.1)] },
+  ],
 };
 
-export const enemyMeshes = {} as Record<EnemyType, THREE.InstancedMesh>;
+/** Hover height of flying machines. */
+export const ENEMY_HOVER: Partial<Record<EnemyType, number>> = { runner: 0.8 };
+
+const enemyMats: Record<PartMat, THREE.Material> = {
+  body: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.25 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.5 }),
+  glow: new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }),
+};
+
+export const enemyParts = {} as Record<EnemyType, EnemyPart[]>;
 export const enemyColors = {} as Record<EnemyType, THREE.Color>;
 for (const k of ENEMY_TYPES) {
   enemyColors[k] = new THREE.Color(ENEMIES[k].color);
-  enemyMeshes[k] = pool(
-    ENEMY_GEOMETRY[k],
-    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.1 }),
-    ENEMIES[k].max,
-    true,
-  );
+  enemyParts[k] = ENEMY_PARTS_SPEC[k].map(p => ({
+    mesh: pool(mergeGeometries(p.geos.map(g => (g.index ? g.toNonIndexed() : g))), enemyMats[p.mat], ENEMIES[k].max, p.mat === 'body'),
+    mat: p.mat,
+    anim: p.anim ?? 'face',
+    glow: new THREE.Color(p.glow ?? 0xffffff),
+  }));
 }
+
+/** Lit chunks of destroyed machines and their burnt-out hulls. */
+export const debrisMesh = pool(new THREE.BoxGeometry(0.24, 0.12, 0.32), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.4 }), LIMITS.debris);
+export const wreckMesh = pool(bx(1.3, 0.45, 1.5, 0, 0.22, 0), new THREE.MeshStandardMaterial({ color: 0x1b1f2e, roughness: 0.9, metalness: 0.2 }), LIMITS.wrecks);
+
+/** Flat rings on the ground: artillery warnings and shield auras. Additive, so a dim color reads as faint. */
+export const groundRingMesh = pool(
+  new THREE.RingGeometry(0.9, 1, 48).rotateX(-Math.PI / 2).translate(0, 0.06, 0),
+  new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+  LIMITS.strikes * 2 + ENEMIES.shield.max,
+);
 
 const glow = () => new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
 export const bulletMesh = pool(new THREE.BoxGeometry(0.13, 0.13, 0.75), glow(), LIMITS.bullets);

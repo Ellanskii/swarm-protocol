@@ -5,6 +5,9 @@ export const ARENA = 60;
 
 export const LIMITS = {
   bullets: 900,
+  debris: 500,
+  wrecks: 40,
+  strikes: 24,
   enemyShots: 300,
   gems: 1200,
   particles: 1600,
@@ -167,7 +170,11 @@ export const SHOULDERS: Record<ShoulderId, ShoulderDef> = {
 
 // ---------------- enemies ----------------
 
-export type EnemyType = 'grunt' | 'runner' | 'spitter' | 'brute' | 'boss';
+/**
+ * Factory machines. grunt — walking assembler, runner — kamikaze drone, spitter — light tank,
+ * brute — heavy tank, artillery — shells a marked zone, shield — protects its neighbours, boss — the Forge.
+ */
+export type EnemyType = 'grunt' | 'runner' | 'spitter' | 'brute' | 'artillery' | 'shield' | 'boss';
 
 export interface EnemyDef {
   hp: number;
@@ -176,25 +183,46 @@ export interface EnemyDef {
   r: number;
   /** Contact damage. */
   dmg: number;
+  /** Flat damage taken off every hit, down to 25% of it: light rapid fire barely scratches heavy armor. */
+  armor: number;
   xp: number;
   /** Average scrap per kill; the fraction is rolled as a chance for one more. */
   scrap: number;
   color: number;
-  /** Height of the mesh center above ground. */
+  /** Height of the body center above ground, for effects. */
   y: number;
   /** Max simultaneous instances. */
   max: number;
 }
 
 export const ENEMIES: Record<EnemyType, EnemyDef> = {
-  grunt:   { hp: 26,   speed: 3.3, r: 0.55, dmg: 10, xp: 1,  scrap: 0.25, color: 0xff4d6d, y: 0.55, max: 520 },
-  runner:  { hp: 11,   speed: 5.9, r: 0.42, dmg: 6,  xp: 1,  scrap: 0.2,  color: 0xffd23f, y: 0.5,  max: 300 },
-  spitter: { hp: 38,   speed: 2.7, r: 0.6,  dmg: 8,  xp: 2,  scrap: 1,    color: 0xff8c42, y: 1.0,  max: 120 },
-  brute:   { hp: 210,  speed: 2.0, r: 1.15, dmg: 25, xp: 6,  scrap: 4,    color: 0x9b5de5, y: 1.15, max: 80 },
-  boss:    { hp: 2600, speed: 2.5, r: 2.3,  dmg: 35, xp: 60, scrap: 0,    color: 0xf72585, y: 2.4,  max: 6 },
+  grunt:     { hp: 26,   speed: 3.3, r: 0.55, dmg: 10, armor: 0, xp: 1,  scrap: 0.25, color: 0xff4d6d, y: 0.75, max: 520 },
+  runner:    { hp: 11,   speed: 5.9, r: 0.42, dmg: 14, armor: 0, xp: 1,  scrap: 0.2,  color: 0xffd23f, y: 0.8,  max: 300 },
+  spitter:   { hp: 38,   speed: 2.7, r: 0.6,  dmg: 8,  armor: 2, xp: 2,  scrap: 1,    color: 0xff8c42, y: 0.6,  max: 120 },
+  brute:     { hp: 210,  speed: 2.0, r: 1.15, dmg: 25, armor: 6, xp: 6,  scrap: 4,    color: 0xc0392b, y: 0.9,  max: 80 },
+  artillery: { hp: 70,   speed: 1.6, r: 0.85, dmg: 8,  armor: 3, xp: 4,  scrap: 2,    color: 0xffb347, y: 0.8,  max: 24 },
+  shield:    { hp: 90,   speed: 2.6, r: 0.75, dmg: 10, armor: 3, xp: 4,  scrap: 2,    color: 0xf4a259, y: 0.9,  max: 30 },
+  boss:      { hp: 2600, speed: 2.5, r: 2.3,  dmg: 35, armor: 8, xp: 60, scrap: 0,    color: 0xf72585, y: 2.2,  max: 6 },
 };
 
 export const ENEMY_TYPES = Object.keys(ENEMIES) as EnemyType[];
+
+/** Artillery platform: keeps its distance and shells the spot the player stands on. */
+export const ARTILLERY = {
+  /** Preferred distance band to the player. */
+  near: 12,
+  far: 18,
+  /** Fires when the player is closer than this. */
+  range: 24,
+  every: 4.5,
+  /** Warning time between marking the zone and the hit, seconds. */
+  warn: 1.3,
+  r: 2.6,
+  dmg: 18,
+} as const;
+
+/** Shield bearer: machines near it take reduced damage. */
+export const SHIELD_AURA = { r: 5, mult: 0.5 } as const;
 
 /** XP needed to go from `level` to `level + 1`. */
 export const xpFor = (level: number): number => Math.round(6 + (level - 1) * 5 + Math.pow(level - 1, 1.6));

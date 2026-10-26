@@ -10,7 +10,7 @@ let noiseBuf: AudioBuffer | null = null;
 let muted = false;
 const lastPlayed: Partial<Record<Sfx, number>> = {};
 /** Minimum gap between repeats, ms — keeps hordes from turning into white noise. */
-const THROTTLE: Partial<Record<Sfx, number>> = { hit: 40, pick: 35, kill: 30, drone: 60 };
+const THROTTLE: Partial<Record<Sfx, number>> = { hit: 40, pick: 35, kill: 30, drone: 60, boom: 50 };
 
 /** Must be called from a user gesture. */
 export function initAudio(): void {

@@ -11,8 +11,47 @@ export function sparks(x: number, y: number, z: number, col: number, n: number, 
     G.parts.push({
       x, y, z,
       vx: rand(-1, 1) * spd, vy: rand(0.4, 1.4) * spd * 0.6, vz: rand(-1, 1) * spd,
-      life, max: life, col, s: rand(0.6, 1.3),
+      g: 22, life, max: life, col, s: rand(0.6, 1.3),
     });
+  }
+}
+
+/** Slow grey puff rising from a wreck. */
+export function smoke(x: number, y: number, z: number): void {
+  if (G.parts.length >= LIMITS.particles) return;
+  const life = rand(0.8, 1.4);
+  G.parts.push({
+    x: x + rand(-0.3, 0.3), y, z: z + rand(-0.3, 0.3),
+    vx: rand(-0.4, 0.4), vy: rand(1, 1.8), vz: rand(-0.4, 0.4),
+    g: -0.6, life, max: life, col: 0x4a4f63, s: rand(1.6, 2.4),
+  });
+}
+
+const DEBRIS_DARK = 0x2a2f45;
+
+/**
+ * A machine blows apart: lit chunks in its color and dark metal, a flash ring, shake by size.
+ * Bigger machines also leave a smoking wreck behind.
+ */
+export function machineDeath(x: number, y: number, z: number, r: number, col: number, rot: number): void {
+  const n = Math.round(3 + r * 6);
+  for (let i = 0; i < n && G.debris.length < LIMITS.debris; i++) {
+    const a = Math.random() * Math.PI * 2, sp = rand(2, 6) * (0.6 + r * 0.4);
+    const life = rand(1.4, 2.4);
+    G.debris.push({
+      x: x + rand(-r, r) * 0.5, y: y * rand(0.6, 1.2), z: z + rand(-r, r) * 0.5,
+      vx: Math.sin(a) * sp, vy: rand(4, 9), vz: Math.cos(a) * sp,
+      ry: Math.random() * 6, spin: rand(-12, 12), life, max: life,
+      col: Math.random() < 0.5 ? col : DEBRIS_DARK, s: rand(0.7, 1.3) * (0.7 + r * 0.5),
+    });
+  }
+  if (r >= 0.6) {
+    ringBurst(x, z, r * 1.8);
+    G.shake = Math.min(1.2, G.shake + Math.min(0.5, r * 0.15));
+    if (G.wrecks.length < LIMITS.wrecks) {
+      const life = r > 2 ? 6 : 3;
+      G.wrecks.push({ x, z, rot, s: r * 0.9, life, max: life, smokeT: 0 });
+    }
   }
 }
 
@@ -27,11 +66,37 @@ export function ringBurst(x: number, z: number, r: number): void {
 export function updateParticles(dt: number): void {
   for (const p of G.parts) {
     p.life -= dt;
-    p.vy -= 22 * dt;
+    p.vy -= p.g * dt;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     p.z += p.vz * dt;
     if (p.y < 0.08) { p.y = 0.08; p.vy *= -0.3; p.vx *= 0.6; p.vz *= 0.6; }
+  }
+  // debris tumbles until it lands, then slides to a stop
+  for (const d of G.debris) {
+    d.life -= dt;
+    if (d.y > 0.07 || d.vy > 0) {
+      d.vy -= 22 * dt;
+      d.ry += d.spin * dt;
+    }
+    d.x += d.vx * dt;
+    d.y += d.vy * dt;
+    d.z += d.vz * dt;
+    if (d.y < 0.06) {
+      d.y = 0.06;
+      d.vy = Math.abs(d.vy) > 3 ? -d.vy * 0.3 : 0;
+      d.vx *= 0.5;
+      d.vz *= 0.5;
+      d.spin *= 0.5;
+    }
+  }
+  for (const w of G.wrecks) {
+    w.life -= dt;
+    if ((w.smokeT -= dt) <= 0 && w.life > 0.8) {
+      w.smokeT = 0.09;
+      smoke(w.x, 0.5 * w.s, w.z);
+      if (Math.random() < 0.3) sparks(w.x, 0.4, w.z, 0xff8c42, 1, 2);
+    }
   }
   for (const r of rings) {
     if (r.life <= 0) continue;

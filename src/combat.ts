@@ -1,8 +1,8 @@
 // Player projectiles, damage, explosions, enemy death.
 import { insidePillar } from './arena';
 import { sfx } from './audio';
-import { ARENA, LIMITS, LOOT, PACING } from './config';
-import { dmgNumber, ringBurst, showBanner, sparks } from './fx';
+import { ARENA, LIMITS, LOOT, PACING, SHIELD_AURA } from './config';
+import { dmgNumber, machineDeath, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { dropGem, spawnPickup } from './pickups';
 import { G, S, type Enemy } from './state';
@@ -52,6 +52,9 @@ export function damage(e: Enemy, amount: number, kx: number, kz: number, canCrit
   if (e.dead) return;
   let crit = false;
   if (canCrit && Math.random() < S.crit) { amount *= CRIT_MULT; crit = true; }
+  // armor takes a flat bite out of every hit (never more than 75%), the shield aura halves what is left
+  if (e.t.armor) amount = Math.max(amount * 0.25, amount - e.t.armor);
+  if (e.shielded) amount *= SHIELD_AURA.mult;
   e.hp -= amount;
   e.flash = 0.08;
   e.kx += kx;
@@ -78,7 +81,8 @@ export function kill(e: Enemy): void {
   e.dead = true;
   G.kills++;
   sparks(e.x, e.t.y, e.z, e.t.color, Math.round(6 + e.r * 8), 7);
-  sfx('kill');
+  machineDeath(e.x, e.t.y * (e.r / e.t.r), e.z, e.r, e.t.color, e.rot);
+  sfx(e.r >= 0.6 ? 'boom' : 'kill');
   if (e.boss) {
     for (let i = 0; i < 14; i++) dropGem(e.x + rand(-2.5, 2.5), e.z + rand(-2.5, 2.5), 6);
     const scrap = Math.round(LOOT.bossScrap * S.scrap);
@@ -108,4 +112,14 @@ function startEvacuation(): void {
   for (const s of G.eshots) s.life = 0;
   G.shake = 1.2;
   showBanner('ЭВАКУАЦИЯ', 'blue', PACING.evacDelay);
+}
+
+/** Kamikaze drone hits the mech: blows up without loot, it was not shot down. */
+export function selfDestruct(e: Enemy): void {
+  e.dead = true;
+  ringBurst(e.x, e.z, 1.6);
+  sparks(e.x, 0.8, e.z, 0xff3b3b, 14, 8);
+  machineDeath(e.x, 0.8, e.z, e.r, e.t.color, e.rot);
+  G.shake = Math.min(1.2, G.shake + 0.25);
+  sfx('boom');
 }

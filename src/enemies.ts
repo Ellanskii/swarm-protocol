@@ -1,8 +1,9 @@
 // Enemy spawning (director), AI, separation, enemy projectiles.
 import { insidePillar, pushOutPillars } from './arena';
 import { sfx } from './audio';
-import { ARENA, ENEMIES, LIMITS, LOOT, PACING, type EnemyType } from './config';
-import { showBanner } from './fx';
+import { selfDestruct } from './combat';
+import { ARENA, ARTILLERY, ENEMIES, LIMITS, LOOT, PACING, SHIELD_AURA, type EnemyType } from './config';
+import { ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { hurt } from './player';
 import { G, P, type Enemy } from './state';
@@ -15,7 +16,7 @@ export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null 
   const hp = t.hp * (1 + (G.time / 60) * PACING.hpPerMinute);
   const e: Enemy = {
     id: G.nextId++, type, t, x, z, kx: 0, kz: 0, hp, maxHp: hp, r: t.r,
-    flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0,
+    flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0, mrot: 0, shielded: false,
     dead: false, born: G.time, boss: false,
   };
   G.enemies.push(e);
@@ -44,6 +45,8 @@ function pickType(): EnemyType {
     ['runner', t > 25 ? 0.55 : 0],
     ['spitter', t > 55 ? 0.2 : 0],
     ['brute', t > 85 ? 0.08 + t / 1800 : 0],
+    ['artillery', t > 150 ? 0.05 : 0],
+    ['shield', t > 180 ? 0.05 : 0],
   ];
   let sum = 0;
   for (const [, w] of weights) sum += w;
@@ -99,6 +102,16 @@ function fireEShot(x: number, z: number, dx: number, dz: number, speed: number, 
 export function updateEnemies(dt: number): void {
   const dmgMul = 1 + G.time / PACING.dmgDoubleEvery;
   const kDecay = Math.exp(-8 * dt);
+  const hullTurn = 1 - Math.exp(-4 * dt);
+
+  // shield bearers protect everyone around them (but not each other's bearer status)
+  for (const e of G.enemies) e.shielded = false;
+  for (const b of G.enemies) {
+    if (b.dead || b.type !== 'shield') continue;
+    forNear(b.x, b.z, o => {
+      if (o !== b && !o.dead && (o.x - b.x) ** 2 + (o.z - b.z) ** 2 < SHIELD_AURA.r ** 2) o.shielded = true;
+    });
+  }
 
   for (const e of G.enemies) {
     if (e.dead) continue;
@@ -111,6 +124,16 @@ export function updateEnemies(dt: number): void {
       if (d < 9) { mx = -nx; mz = -nz; } else if (d < 13) { mx = -nz * e.side; mz = nx * e.side; }
       e.cd -= dt;
       if (e.cd <= 0 && d < 18) { e.cd = rand(2, 3.2); fireEShot(e.x, e.z, nx, nz, 9, 8 * dmgMul); }
+    } else if (e.type === 'artillery') {
+      // hold a firing distance and shell the spot the player stands on
+      if (d > ARTILLERY.far) { mx = nx; mz = nz; } else if (d < ARTILLERY.near) { mx = -nx; mz = -nz; } else { mx = 0; mz = 0; }
+      e.cd -= dt;
+      if (e.cd <= 0 && d < ARTILLERY.range) {
+        e.cd = ARTILLERY.every * rand(0.85, 1.15);
+        if (G.strikes.length < LIMITS.strikes) G.strikes.push({ x: P.x, z: P.z, t: 0, dur: ARTILLERY.warn, r: ARTILLERY.r, dmg: ARTILLERY.dmg * dmgMul });
+        sparks(e.x, 1.6, e.z, 0xffb347, 4, 4);
+        sfx('mortar');
+      }
     } else if (e.type === 'boss') {
       // radial bullet ring
       e.cd -= dt;
@@ -144,13 +167,36 @@ export function updateEnemies(dt: number): void {
     e.x = clamp(e.x, -ARENA + e.r, ARENA - e.r);
     e.z = clamp(e.z, -ARENA + e.r, ARENA - e.r);
     e.rot = Math.atan2(nx, nz);
+    // hulls turn smoothly toward where they drive
+    if (mx || mz) {
+      const want = Math.atan2(mx, mz);
+      e.mrot += Math.atan2(Math.sin(want - e.mrot), Math.cos(want - e.mrot)) * hullTurn;
+    }
     e.flash -= dt;
 
-    if (d < e.r + 0.5) {
+    if (d < e.r + 0.5 && e.type === 'runner') {
+      // kamikaze: one hit, then it is gone
+      hurt(e.t.dmg * dmgMul);
+      selfDestruct(e);
+    } else if (d < e.r + 0.5) {
       hurt(e.t.dmg * dmgMul);
       e.kx -= nx * 6;
       e.kz -= nz * 6;
     }
+  }
+}
+
+/** Artillery shells: the marked zone explodes when the warning runs out. */
+export function updateStrikes(dt: number): void {
+  for (const s of G.strikes) {
+    if (s.t >= s.dur) continue;
+    s.t += dt;
+    if (s.t < s.dur) continue;
+    ringBurst(s.x, s.z, s.r);
+    sparks(s.x, 0.5, s.z, 0xff8c42, 16, 9);
+    G.shake = Math.min(1.2, G.shake + 0.2);
+    sfx('boom');
+    if (Math.hypot(P.x - s.x, P.z - s.z) < s.r + 0.4) hurt(s.dmg);
   }
 }
 

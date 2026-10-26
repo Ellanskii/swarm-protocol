@@ -5,7 +5,7 @@ import { initAudio, toggleMute } from './audio';
 import { closeBase, openBase, renderBase } from './base';
 import { updateBullets } from './combat';
 import { MECHS, MECH_ORDER, type MechId } from './config';
-import { spawnDirector, updateEnemies, updateEnemyShots } from './enemies';
+import { spawnDirector, spawnEnemy, updateEnemies, updateEnemyShots, updateStrikes } from './enemies';
 import { clearNumbers, showBanner, updateNumbers, updateParticles } from './fx';
 import { buildGrid } from './grid';
 import { resetHUD, updateHUD } from './hud';
@@ -231,6 +231,7 @@ function update(dt: number): void {
   updateEnemies(dt);
   updateBullets(dt);
   updateEnemyShots(dt);
+  updateStrikes(dt);
   updateShoulders(dt);
   updateTrails(dt);
   updateAura(dt);
@@ -251,6 +252,9 @@ function update(dt: number): void {
   G.rockets = G.rockets.filter(r => r.life > 0);
   G.shells = G.shells.filter(s => s.life > 0);
   G.trails = G.trails.filter(t => t.life > 0);
+  G.debris = G.debris.filter(d => d.life > 0);
+  G.wrecks = G.wrecks.filter(w => w.life > 0);
+  G.strikes = G.strikes.filter(s => s.t < s.dur);
 }
 
 let last = performance.now();
@@ -294,4 +298,4 @@ function rich(scrap = 5000, cores = 30): void {
   if (G.state === 'base') renderBase();
 }
 
-window.__swarm = { G, P, S, save, gainXP, startGame, choose, god, allUps, rich, resetSave, installShoulder, giveWeapon };
+window.__swarm = { G, P, S, save, gainXP, startGame, choose, god, allUps, rich, resetSave, installShoulder, giveWeapon, spawnEnemy };

@@ -107,7 +107,12 @@ export interface Enemy {
   flash: number;
   cd: number;
   side: number;
+  /** Facing toward the player (turrets, walkers). */
   rot: number;
+  /** Facing along the movement (tank hulls). */
+  mrot: number;
+  /** Inside a shield bearer's aura this frame. */
+  shielded: boolean;
   dead: boolean;
   born: number;
   boss: boolean;
@@ -144,7 +149,14 @@ export interface EnemyShot { x: number; z: number; vx: number; vz: number; dmg: 
 export type GemKind = 'xp' | 'scrap' | 'core';
 export interface Gem { kind: GemKind; x: number; z: number; v: number; vel: number; pull: boolean; ph: number; dead: boolean }
 export interface Pickup { kind: 'heart' | 'magnet'; x: number; z: number; mesh: THREE.Object3D; life: number; dead: boolean }
-export interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; col: number; s: number }
+/** `g` is gravity: sparks fall, smoke (negative g) rises. */
+export interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; g: number; life: number; max: number; col: number; s: number }
+/** Lit chunk of a destroyed machine: tumbles, lands, fades. */
+export interface Debris { x: number; y: number; z: number; vx: number; vy: number; vz: number; ry: number; spin: number; life: number; max: number; col: number; s: number }
+/** Burnt-out hull left by a bigger machine; smokes, then sinks. */
+export interface Wreck { x: number; z: number; rot: number; s: number; life: number; max: number; smokeT: number }
+/** Artillery shell on its way: the zone is marked until it lands. */
+export interface Strike { x: number; z: number; t: number; dur: number; r: number; dmg: number }
 export interface Drone { mesh: THREE.Mesh; cd: number; x: number; z: number }
 
 export const S = {} as Stats;
@@ -182,6 +194,9 @@ export const G = {
   gems: [] as Gem[],
   pickups: [] as Pickup[],
   parts: [] as Particle[],
+  debris: [] as Debris[],
+  wrecks: [] as Wreck[],
+  strikes: [] as Strike[],
   drones: [] as Drone[],
   shoulders: [] as ShoulderState[],
   rockets: [] as Rocket[],
@@ -221,7 +236,7 @@ export function resetState(): void {
     pendingLevels: 0, loot: { scrap: 0, cores: 0 }, evacT: 0, won: false, auraT: 0, gunKick: 0,
     owned: { [mech.start]: mkWeapon(mech.start, 'armR') }, upLv: {},
     reload: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
-    enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], drones: [],
+    enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], debris: [], wrecks: [], strikes: [], drones: [],
     shoulders: [], rockets: [], shells: [], trails: [],
   });
   for (const k of ENEMY_TYPES) G.typeCount[k] = 0;

@@ -1,10 +1,10 @@
 // Pushes simulation state into meshes and moves the camera.
 import * as THREE from 'three';
-import { ENEMY_TYPES, LIMITS, SHOULDERS } from './config';
+import { ENEMY_TYPES, LIMITS, SHIELD_AURA, SHOULDERS } from './config';
 import { animateMech } from './mech';
 import {
-  bulletMesh, camera, enemyColors, enemyMeshes, eshotMesh, gemMesh,
-  laser, laserGeo, muzzle, partMesh, sun,
+  ENEMY_HOVER, bulletMesh, camera, debrisMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
+  groundRingMesh, laser, laserGeo, muzzle, partMesh, sun, wreckMesh,
 } from './scene';
 import { G, P, aim } from './state';
 import { rand } from './utils';
@@ -12,6 +12,11 @@ import { rand } from './utils';
 const dummy = new THREE.Object3D();
 const tmpC = new THREE.Color();
 const white = new THREE.Color(1, 1, 1);
+const darkMetal = new THREE.Color(0x2a2f45);
+const shieldTint = new THREE.Color(0x9fe8ff);
+const bodyC = new THREE.Color();
+const darkC = new THREE.Color();
+const glowC = new THREE.Color();
 
 function writeInstance(
   mesh: THREE.InstancedMesh, i: number,
@@ -37,24 +42,71 @@ const counts = Object.fromEntries(ENEMY_TYPES.map(k => [k, 0])) as Record<(typeo
 export function renderWorld(dt: number, playing: boolean): void {
   const t = G.time;
 
-  // enemies
+  // enemy machines: every part of a machine shares its transform, plus its own small animation
   for (const k of ENEMY_TYPES) counts[k] = 0;
   for (const e of G.enemies) {
     if (e.dead) continue;
-    tmpC.copy(enemyColors[e.type]);
-    if (e.flash > 0) tmpC.lerp(white, 0.85);
-    const spawnK = Math.min(1, (t - e.born) * 4); // grow in
-    const hopper = e.type === 'grunt' || e.type === 'runner';
-    const bob = hopper ? Math.abs(Math.sin(t * 9 + e.id)) * 0.12 : Math.sin(t * 3 + e.id) * 0.15;
-    const spins = e.type === 'boss' || e.type === 'spitter';
-    const s = spawnK * (e.r / e.t.r); // the final boss is bigger than its type
-    writeInstance(enemyMeshes[e.type], counts[e.type]++, e.x, e.t.y * s + bob, e.z, spins ? t * 1.5 + e.id : e.rot, s, s, s, tmpC);
+    const i = counts[e.type]++;
+    bodyC.copy(enemyColors[e.type]);
+    darkC.copy(darkMetal);
+    if (e.shielded) bodyC.lerp(shieldTint, 0.3);
+    if (e.flash > 0) { bodyC.lerp(white, 0.85); darkC.lerp(white, 0.6); }
+    const s = Math.min(1, (t - e.born) * 4) * (e.r / e.t.r); // grow in; the final boss is bigger than its type
+    const hover = ENEMY_HOVER[e.type];
+    const y = hover ? (hover + Math.sin(t * 5 + e.id) * 0.1) * s : 0;
+    const step = Math.sin(t * 9 + e.id);
+    for (const part of enemyParts[e.type]) {
+      let py = y, ry = e.rot;
+      if (part.anim === 'hull') ry = e.mrot;
+      else if (part.anim === 'rotor') ry = t * 14 + e.id;
+      else if (part.anim === 'legL') py += Math.max(0, step) * 0.16 * s;
+      else if (part.anim === 'legR') py += Math.max(0, -step) * 0.16 * s;
+      const col = part.mat === 'body' ? bodyC : part.mat === 'dark' ? darkC : e.flash > 0 ? white : glowC.copy(part.glow);
+      writeInstance(part.mesh, i, e.x, py, e.z, ry, s, s, s, col);
+    }
   }
-  for (const k of ENEMY_TYPES) commit(enemyMeshes[k], counts[k]);
+  for (const k of ENEMY_TYPES) for (const part of enemyParts[k]) commit(part.mesh, counts[k]);
+
+  // debris chunks shrink away at the end of their life
+  let n = 0;
+  for (const d of G.debris) {
+    if (d.life <= 0) continue;
+    tmpC.setHex(d.col);
+    const k = d.s * Math.min(1, d.life / 0.4);
+    writeInstance(debrisMesh, n++, d.x, d.y, d.z, d.ry, k, k, k, tmpC);
+  }
+  commit(debrisMesh, n);
+
+  // wrecks sink into the ground before they vanish
+  n = 0;
+  tmpC.setRGB(1, 1, 1);
+  for (const w of G.wrecks) {
+    if (w.life <= 0) continue;
+    const sink = Math.max(0, 0.8 - w.life) * 0.6;
+    writeInstance(wreckMesh, n++, w.x, -sink, w.z, w.rot, w.s, w.s, w.s, tmpC);
+  }
+  commit(wreckMesh, n);
+
+  // ground rings: artillery warnings (outer edge + filling disc) and shield auras
+  n = 0;
+  for (const st of G.strikes) {
+    if (st.t >= st.dur) continue;
+    const p = st.t / st.dur;
+    tmpC.setHex(0xff5a36).multiplyScalar(0.6 + 0.4 * Math.sin(t * 20));
+    writeInstance(groundRingMesh, n++, st.x, 0, st.z, 0, st.r, 1, st.r, tmpC);
+    tmpC.setHex(0xffb347).multiplyScalar(0.8);
+    writeInstance(groundRingMesh, n++, st.x, 0, st.z, 0, st.r * p, 1, st.r * p, tmpC);
+  }
+  tmpC.copy(shieldTint).multiplyScalar(0.22 + Math.sin(t * 3) * 0.06);
+  for (const e of G.enemies) {
+    if (e.dead || e.type !== 'shield' || n >= groundRingMesh.instanceMatrix.count) continue;
+    writeInstance(groundRingMesh, n++, e.x, 0, e.z, 0, SHIELD_AURA.r, 1, SHIELD_AURA.r, tmpC);
+  }
+  commit(groundRingMesh, n);
 
   // projectiles
   // rockets and mortar shells share the bullet pool
-  let n = 0;
+  n = 0;
   for (const b of G.bullets) {
     if (b.life <= 0) continue;
     tmpC.setHex(b.col);
