@@ -219,6 +219,8 @@ export const ARTILLERY = {
   warn: 1.3,
   r: 2.6,
   dmg: 18,
+  /** Shells hit machines too, this many times harder than the mech: lure the swarm under the fire. */
+  friendlyMult: 2.5,
 } as const;
 
 /** Shield bearer: machines near it take reduced damage. */

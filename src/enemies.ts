@@ -1,7 +1,7 @@
 // Enemy spawning (director), AI, separation, enemy projectiles.
 import { insidePillar, pushOutPillars } from './arena';
 import { sfx } from './audio';
-import { selfDestruct } from './combat';
+import { damage, selfDestruct } from './combat';
 import { ARENA, ARTILLERY, ENEMIES, LIMITS, LOOT, PACING, SHIELD_AURA, type EnemyType } from './config';
 import { ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
@@ -186,7 +186,7 @@ export function updateEnemies(dt: number): void {
   }
 }
 
-/** Artillery shells: the marked zone explodes when the warning runs out. */
+/** Artillery shells: the marked zone explodes when the warning runs out, hitting the mech and machines alike. */
 export function updateStrikes(dt: number): void {
   for (const s of G.strikes) {
     if (s.t >= s.dur) continue;
@@ -197,6 +197,12 @@ export function updateStrikes(dt: number): void {
     G.shake = Math.min(1.2, G.shake + 0.2);
     sfx('boom');
     if (Math.hypot(P.x - s.x, P.z - s.z) < s.r + 0.4) hurt(s.dmg);
+    // friendly fire: armor and shields still apply, kills count as the player's with their loot
+    for (const e of G.enemies) {
+      if (e.dead) continue;
+      const ox = e.x - s.x, oz = e.z - s.z, d = Math.hypot(ox, oz) || 1;
+      if (d < s.r + e.r) damage(e, s.dmg * ARTILLERY.friendlyMult, (ox / d) * 8 / e.r, (oz / d) * 8 / e.r, false);
+    }
   }
 }
 
