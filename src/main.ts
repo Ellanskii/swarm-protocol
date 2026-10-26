@@ -18,7 +18,7 @@ import { installShoulder, removeAllDrones, updateShoulders } from './shoulders';
 import { G, P, S, aim, resetState } from './state';
 import { choose, openLevelUp } from './upgrades';
 import { $, fmtTime } from './utils';
-import { cycleWeapon, giveWeapon, reloadPressed, switchTo, syncGunModel, updateWeapons } from './weapons';
+import { cycleWeapon, firePressed, giveWeapon, reloadPressed, switchTo, syncGunModel, updateWeapons } from './weapons';
 
 // ---------------- flow ----------------
 
@@ -89,6 +89,7 @@ bindInput({
     switch (G.state) {
       case 'play':
         if (code in DIGITS) switchTo(WEAPON_ORDER[DIGITS[code]]);
+        else if (code === 'MouseLeft') firePressed();
         else if (code === 'KeyR' || code === 'MouseRight' || code === 'TouchReload') reloadPressed();
         else if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') tryDash();
         else if (code === 'Escape' || code === 'KeyP') setPause(true);

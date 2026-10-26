@@ -122,7 +122,8 @@ export function bindInput(h: InputHandlers): void {
     if (fromTouch()) return;
     if (e.button === 0) mouse.down = true;
     h.onGesture();
-    // right button goes through the key handler, so it can be bound like a key
+    // buttons go through the key handler, so they can be bound like keys
+    if (e.button === 0) h.onKey('MouseLeft');
     if (e.button === 2) h.onKey('MouseRight');
   });
   addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });

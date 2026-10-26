@@ -11,6 +11,8 @@ import { clamp, rand } from './utils';
 
 const PERFECT_BONUS = 1.5;
 const PERFECT_COLOR = 0xffd166;
+/** Fire-button presses this early in a reload are leftover shots, not active-reload attempts. */
+const CLICK_GRACE = 0.15;
 
 export function giveWeapon(id: WeaponId): void {
   G.owned[id] = mkWeapon(id);
@@ -89,7 +91,7 @@ function finishReload(w: WeaponState): void {
   sfx('reload');
 }
 
-/** Second R press during reload: inside the window — instant + bonus; outside — jam. */
+/** Active-reload attempt during reload: inside the window — instant + bonus; outside — jam. */
 function tryActive(w: WeaponState): void {
   if (!w.reloading || w.arUsed) return;
   w.arUsed = true;
@@ -110,6 +112,12 @@ export function reloadPressed(): void {
   const w = curWeapon();
   if (w.reloading) tryActive(w);
   else startReload(w);
+}
+
+/** Fire button pressed: during a reload it is the active-reload attempt, like a tap on touch. */
+export function firePressed(): void {
+  const w = curWeapon();
+  if (w.reloading && w.t > CLICK_GRACE) tryActive(w);
 }
 
 export function updateWeapons(dt: number): void {
