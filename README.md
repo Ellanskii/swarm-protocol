@@ -22,7 +22,7 @@ npm run typecheck  # только tsc
 
 ## Деплой
 
-`Dockerfile` собирает игру и раздаёт `dist/` через nginx (`nginx.conf`, порт 80). В Coolify: New Resource → приложение из GitHub через GitHub App → этот репозиторий, ветка `main`, Build Pack — Dockerfile, порт 80, свой домен. Каждый пуш в `main` разворачивается автоматически.
+`Dockerfile` собирает игру и раздаёт `dist/` через nginx (`nginx.conf`, порт 80). Healthcheck — `GET /healthz`, он же прописан в `HEALTHCHECK` образа. В Coolify: New Resource → приложение из GitHub через GitHub App → этот репозиторий, ветка `main`, Build Pack — Dockerfile, порт 80, свой домен. Каждый пуш в `main` разворачивается автоматически.
 
 ## Управление
 
