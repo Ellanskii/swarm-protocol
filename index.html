@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Swarm Protocol</title>
   <meta name="claude:viewport-fit-sides" content="cover">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,18 +28,25 @@
     </div>
     <div id="reload" hidden>
       <div id="rtrack"><div id="rzone"></div><div id="rmark"></div></div>
-      <p>R или ПКМ в жёлтой зоне — идеальная перезарядка</p>
+      <p class="desk-only">R или ПКМ в жёлтой зоне — идеальная перезарядка</p>
+      <p class="touch-only">Тап справа в жёлтой зоне — идеальная перезарядка</p>
     </div>
     <div id="banner"></div>
     <div id="nums"></div>
     <div id="vignette"></div>
+    <div id="touch">
+      <div class="stick" id="stickL"><i></i></div>
+      <div class="stick" id="stickR"><i></i></div>
+      <button class="tbtn" id="dashBtn">РЫВОК</button>
+      <button class="tbtn" id="pauseBtn" aria-label="Пауза">II</button>
+    </div>
   </div>
   <div id="cross"></div>
 
   <div id="start" class="screen">
     <h1>SWARM<br><em>PROTOCOL</em></h1>
     <p>Арена, бесконечные орды и прокачка за каждый уровень. Каждые 45 секунд тебя окружают, каждые 2 минуты приходит Матка. Продержись как можно дольше.</p>
-    <div class="keys">
+    <div class="keys desk-only">
       <kbd>WASD</kbd><span>движение</span>
       <kbd>Мышь</kbd><span>прицел, ЛКМ — огонь</span>
       <kbd>R / ПКМ</kbd><span>перезарядка; ещё раз в жёлтой зоне — мгновенно и +50% урона</span>
@@ -47,19 +54,21 @@
       <kbd>1 2 3 / колесо</kbd><span>смена оружия</span>
       <kbd>Esc / P</kbd><span>пауза, M — звук</span>
     </div>
+    <p class="touch-only">Левый палец — движение. Правый — прицел и огонь, короткий тап — перезарядка; второй тап в жёлтой зоне — мгновенно и +50% урона.</p>
+    <button class="toggle touch-only" data-autoaim>Автоприцел: ВЫКЛ</button>
     <button class="btn" id="startBtn">В БОЙ</button>
-    <p class="note">Нужны клавиатура и мышь.</p>
   </div>
 
   <div id="levelup" class="screen" hidden>
     <h2>НОВЫЙ УРОВЕНЬ</h2>
     <div id="cards"></div>
-    <p>Клик по карточке или 1 / 2 / 3</p>
+    <p class="desk-only">Клик по карточке или 1 / 2 / 3</p>
   </div>
 
   <div id="pause" class="screen" hidden>
     <h2>ПАУЗА</h2>
     <button class="btn" id="resumeBtn">ПРОДОЛЖИТЬ</button>
+    <button class="toggle touch-only" data-autoaim>Автоприцел: ВЫКЛ</button>
   </div>
 
   <div id="over" class="screen" hidden>

@@ -3,7 +3,7 @@ import { sfx } from './audio';
 import { spawnBullet } from './combat';
 import { WEAPONS, WEAPON_ORDER, type WeaponId } from './config';
 import { showBanner } from './fx';
-import { mouse } from './input';
+import { fireHeld } from './input';
 import { gun, muzzle } from './scene';
 import { G, P, S, aim, curWeapon, magSize, mkWeapon, type WeaponState } from './state';
 import { clamp, rand } from './utils';
@@ -121,7 +121,7 @@ export function updateWeapons(dt: number): void {
     w.t += dt;
     if (w.t >= w.dur) finishReload(w);
   }
-  if (mouse.down && G.fireCd <= 0 && !w.reloading) {
+  if (fireHeld() && G.fireCd <= 0 && !w.reloading) {
     if (w.ammo <= 0) startReload(w);
     else {
       fire(w);

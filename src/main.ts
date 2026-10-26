@@ -7,7 +7,7 @@ import { spawnDirector, updateEnemies, updateEnemyShots } from './enemies';
 import { clearNumbers, showBanner, updateNumbers, updateParticles } from './fx';
 import { buildGrid } from './grid';
 import { resetHUD, updateHUD } from './hud';
-import { bindInput, mouse, updateAim } from './input';
+import { bindInput, mouse, toggleAutoAim, touch, updateAim } from './input';
 import { gainXP, removeAllPickups, updateGems, updatePickups } from './pickups';
 import { tryDash, updatePlayer } from './player';
 import { camTarget, renderWorld, updateCamera } from './render';
@@ -87,7 +87,7 @@ bindInput({
         if (code === 'Digit1') switchTo('pistol');
         else if (code === 'Digit2') switchTo('shotgun');
         else if (code === 'Digit3') switchTo('smg');
-        else if (code === 'KeyR' || code === 'MouseRight') reloadPressed();
+        else if (code === 'KeyR' || code === 'MouseRight' || code === 'TouchReload') reloadPressed();
         else if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') tryDash();
         else if (code === 'Escape' || code === 'KeyP') setPause(true);
         else if (code === 'KeyG' && import.meta.env.DEV) god();
@@ -111,6 +111,21 @@ bindInput({
 $('startBtn').addEventListener('click', startGame);
 $('againBtn').addEventListener('click', startGame);
 $('resumeBtn').addEventListener('click', () => setPause(false));
+$('pauseBtn').addEventListener('click', () => setPause(true));
+$('dashBtn').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (G.state === 'play') tryDash();
+});
+
+const autoAimBtns = document.querySelectorAll<HTMLButtonElement>('[data-autoaim]');
+function syncAutoAimBtns(): void {
+  for (const b of autoAimBtns) {
+    b.textContent = `Автоприцел: ${touch.autoAim ? 'ВКЛ' : 'ВЫКЛ'}`;
+    b.classList.toggle('on', touch.autoAim);
+  }
+}
+for (const b of autoAimBtns) b.addEventListener('click', () => { toggleAutoAim(); syncAutoAimBtns(); });
+syncAutoAimBtns();
 document.body.classList.add('menu');
 
 // ---------------- simulation ----------------
