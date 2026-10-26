@@ -1,7 +1,7 @@
 // Enemy spawning (director), AI, separation, enemy projectiles.
 import { insidePillar, pushOutPillars } from './arena';
 import { sfx } from './audio';
-import { damage, selfDestruct } from './combat';
+import { damage, explode, selfDestruct } from './combat';
 import { ARENA, ARTILLERY, DECOY, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
 import { ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
@@ -208,6 +208,12 @@ export function updateStrikes(dt: number): void {
     if (s.t >= s.dur) continue;
     s.t += dt;
     if (s.t < s.dur) continue;
+    if (s.friendly) {
+      // orbital strike: a column of light, machines only
+      sparks(s.x, 3, s.z, 0x9fe8ff, 20, 10);
+      explode(s.x, s.z, s.r, s.dmg);
+      continue;
+    }
     ringBurst(s.x, s.z, s.r);
     sparks(s.x, 0.5, s.z, 0xff8c42, 16, 9);
     G.shake = Math.min(1.2, G.shake + 0.2);

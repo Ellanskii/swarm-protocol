@@ -1,9 +1,9 @@
 // Arm weapons: every mounted gun fires at once. Ballistic guns share one SYNTHETIK-style active reload,
 // energy weapons share one heat gauge that vents with the same timing window.
-import { sfx } from './audio';
+import { sfx, type Sfx } from './audio';
 import { insidePillar } from './arena';
-import { damage, explode, spawnBullet } from './combat';
-import { HEAT, LIMITS, OVERLOAD, WEAPON_LEVELS, type WeaponId } from './config';
+import { beamHit, damage, explode, spawnBullet } from './combat';
+import { HEAT, LIMITS, OVERLOAD, WEAPON_LEVELS, type BaseWeaponId, type EvoWeaponId, type WeaponId } from './config';
 import { ringBurst, showBanner, sparks, steam } from './fx';
 import { fireHeld, manualFire } from './input';
 import { muzzleOffset, setSlotPart, type ArmSlot } from './mech';
@@ -12,13 +12,15 @@ import { muzzle } from './scene';
 import { G, P, S, armWeapons, magSize, mkWeapon, type ReloadState, type WeaponState } from './state';
 import { clamp, rand } from './utils';
 
-const PERFECT_BONUS = 1.5;
 const PERFECT_COLOR = 0xffd166;
 /** Energy weapons glow orange while running hot. */
 const HOT_COLOR = 0xff8a3d;
 /** Fire-button presses this early in a reload are leftover shots, not active-reload attempts. */
 const CLICK_GRACE = 0.15;
 const ARM_SLOTS: ArmSlot[] = ['armR', 'armL'];
+/** Evolved weapons sound like their base. */
+const EVO_SOUND: Record<EvoWeaponId, BaseWeaponId> = { plasma: 'shotgun', siege: 'cannon', minigun: 'mg', arclauncher: 'launcher' };
+const sound = (id: WeaponId): Sfx => (id in EVO_SOUND ? EVO_SOUND[id as EvoWeaponId] : (id as BaseWeaponId));
 
 const ammoWeapons = (): WeaponState[] => armWeapons().filter(w => !w.d.heat);
 export const heatWeapons = (): WeaponState[] => armWeapons().filter(w => !!w.d.heat);
@@ -38,6 +40,16 @@ export function giveWeapon(id: WeaponId): void {
   if (!slot) return;
   G.owned[id] = mkWeapon(id, slot);
   setSlotPart(slot, G.owned[id].d.part);
+}
+
+/** Swaps a maxed weapon for its evolution in the same arm. */
+export function evolveWeapon(base: WeaponId, into: EvoWeaponId): void {
+  const w = G.owned[base];
+  if (!w) return;
+  delete G.owned[base];
+  G.owned[into] = { ...mkWeapon(into, w.slot), lv: w.lv };
+  setSlotPart(w.slot, G.owned[into].d.part);
+  showBanner(G.owned[into].d.name.toUpperCase(), 'gold', 1.2);
 }
 
 export function syncArms(): void {
@@ -68,7 +80,7 @@ function fire(w: WeaponState): void {
   const perfect = G.reload.perfect;
   const isShotgun = d.pellets > 1;
   const n = d.pellets + (S.multi + levelBarrels(w.lv)) * (isShotgun ? 2 : 1);
-  const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * (perfect ? PERFECT_BONUS : 1);
+  const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * (perfect ? S.perfect : 1);
   const color = perfect ? PERFECT_COLOR : d.color;
 
   for (let i = 0; i < n; i++) {
@@ -80,7 +92,9 @@ function fire(w: WeaponState): void {
     const life = (d.range / d.speed) * rand(0.9, 1.1);
     // rockets don't pierce: they burst on the first machine
     const pierce = d.blast ? 0 : S.pierce + d.pierce;
-    spawnBullet(mx, mz, y, Math.sin(ang), Math.cos(ang), speed, dmg, life, pierce, color, d.size, d.blast ?? 0, S.pen);
+    spawnBullet(mx, mz, y, Math.sin(ang), Math.cos(ang), speed, dmg, life, pierce, color, {
+      size: d.size, blast: d.blast, pen: S.pen, chain: d.chain, energy: d.shieldPierce,
+    });
   }
 
   muzzle.position.set(mx, y + 0.2, mz);
@@ -88,7 +102,7 @@ function fire(w: WeaponState): void {
   muzzle.color.setHex(color);
   G.shake = Math.min(1.2, G.shake + d.kick * 0.3);
   G.gunKick = 1;
-  sfx(w.id);
+  sfx(sound(w.id));
 }
 
 /**
@@ -106,20 +120,13 @@ function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number
   const energy = !!d.heat;
   const hot = energy && G.heat >= S.hotAt;
   const perfect = !energy && G.reload.perfect;
-  const mult = hot ? S.hotDmg : perfect ? PERFECT_BONUS : 1;
+  const mult = hot ? S.hotDmg : perfect ? S.perfect : 1;
   const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * mult;
   const push = energy ? 0.4 : 5;
-  for (const e of G.enemies) {
-    if (e.dead) continue;
-    const ox = e.x - mx, oz = e.z - mz;
-    const along = ox * dx + oz * dz;
-    if (along < 0 || along > len + e.r) continue;
-    const side = Math.abs(ox * dz - oz * dx);
-    if (side > e.r + width) continue;
-    damage(e, dmg, dx * push / e.r, dz * push / e.r, true, energy, energy ? 0 : S.pen);
+  beamHit(mx, mz, dx, dz, len, width, dmg, push, energy, energy ? 0 : S.pen, e => {
     if (!energy) sparks(e.x, 1, e.z, d.color, 6, 6);
     else if (Math.random() < 0.3) sparks(e.x, 1, e.z, d.color, 1, 3);
-  }
+  });
   const color = hot ? HOT_COLOR : perfect ? PERFECT_COLOR : d.color;
   if (G.beams.length < LIMITS.beams) {
     G.beams.push({
@@ -134,7 +141,7 @@ function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number
     G.shake = Math.min(1.2, G.shake + d.kick * 0.3);
     G.gunKick = 1;
   }
-  sfx(w.id);
+  sfx(sound(w.id));
 }
 
 // ---------------- reload and vent ----------------
@@ -231,7 +238,7 @@ function tryActive(r: ReloadState, onPerfect: () => void): void {
 function perfectReload(): void {
   finishReload();
   G.reload.perfect = true;
-  showBanner('ИДЕАЛЬНО · +50% УРОНА', 'gold', 0.9);
+  showBanner(`ИДЕАЛЬНО · +${Math.round((S.perfect - 1) * 100)}% УРОНА`, 'gold', 0.9);
 }
 
 /** The one skill button: reloads and vents, or is the active attempt for whichever bar is running. */

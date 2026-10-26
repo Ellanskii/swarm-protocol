@@ -1,8 +1,8 @@
 // Shoulder systems: auto-firing rockets, mortar and drones mounted in shoulder slots.
 import * as THREE from 'three';
 import { sfx } from './audio';
-import { explode, spawnBullet } from './combat';
-import { ARENA, BRACE, MECHS, SHOULDERS, type ShoulderId } from './config';
+import { beamHit, explode, spawnBullet } from './combat';
+import { ARENA, BRACE, EVOLUTIONS, LIMITS, MECHS, SHOULDERS, type ShoulderId } from './config';
 import { ringBurst, sparks } from './fx';
 import { forNear } from './grid';
 import { setSlotPart, type SlotId } from './mech';
@@ -11,6 +11,8 @@ import { G, P, S, braced, type Enemy, type ShoulderState } from './state';
 import { rand } from './utils';
 
 const SLOT_ORDER: SlotId[] = ['shoulderR', 'shoulderL'];
+/** Evolved shoulder systems cycle this much faster. */
+const EVO_CD = 0.7;
 
 export function freeShoulderSlot(): SlotId | null {
   const slots = SLOT_ORDER.slice(0, MECHS[G.mech].shoulders);
@@ -28,6 +30,12 @@ export function installShoulder(id: ShoulderId): void {
     setSlotPart(slot, id);
   }
   if (id === 'drone') addDrone();
+}
+
+/** Display name: the evolution's once evolved. */
+export function shoulderName(sh: ShoulderState): string {
+  const evo = sh.evo && Object.values(EVOLUTIONS).find(e => e.base === sh.id);
+  return evo ? evo.name : SHOULDERS[sh.id].name;
 }
 
 const volley = (sh: ShoulderState) => SHOULDERS[sh.id].count + (sh.lv - 1) * SHOULDERS[sh.id].perLevel;
@@ -51,7 +59,7 @@ export function updateShoulders(dt: number): void {
     const ok = sh.id === 'rockets' ? fireRockets(sh) : sh.id === 'mortar' ? fireMortar(sh) : sh.id === 'mines' ? dropMine(sh)
       : sh.id === 'repair' ? repair(sh) : fireFlak(sh);
     // nothing to shoot at: check again soon instead of waiting a full cycle
-    sh.cd = ok ? SHOULDERS[sh.id].cd : 0.3;
+    sh.cd = ok ? SHOULDERS[sh.id].cd * (sh.evo ? EVO_CD : 1) : 0.3;
   }
   updateRockets(dt);
   updateShells(dt);
@@ -78,10 +86,15 @@ const ROCKET_Y = 2.4;
 
 function fireRockets(sh: ShoulderState): boolean {
   const d = SHOULDERS.rockets;
-  const targets = aliveInRange(d.range);
+  let targets = aliveInRange(d.range);
   if (!targets.length) return false;
   const [x, z] = launchPoint(sh);
-  const n = volley(sh);
+  // micro-rocket swarm: twice the rockets, marked machines first
+  const n = volley(sh) * (sh.evo ? 2 : 1);
+  if (sh.evo) {
+    const marked = targets.filter(e => e.mark > 0);
+    if (marked.length) targets = marked;
+  }
   for (let i = 0; i < n; i++) {
     // fan out sideways and back first, then home in
     const a = P.ang + Math.PI + (i - (n - 1) / 2) * 0.5 + rand(-0.2, 0.2);
@@ -255,7 +268,7 @@ function fireFlak(sh: ShoulderState): boolean {
 /** Fast flak round from the shoulder; with 0 damage it is only the visual of a shot-down shell. */
 function tracer(x: number, z: number, tx: number, tz: number, dmg: number): void {
   const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1;
-  spawnBullet(x, z, 2.2, dx / l, dz / l, 60, dmg, dmg ? 0.4 : l / 60, 0, SHOULDERS.flak.color, 0.7);
+  spawnBullet(x, z, 2.2, dx / l, dz / l, 60, dmg, dmg ? 0.4 : l / 60, 0, SHOULDERS.flak.color, { size: 0.7 });
 }
 
 // ---------------- drones ----------------
@@ -274,6 +287,7 @@ export function removeAllDrones(): void {
 
 function updateDrones(dt: number): void {
   const n = G.drones.length, def = SHOULDERS.drone;
+  const laserDrones = G.shoulders.some(s => s.id === 'drone' && s.evo);
   G.drones.forEach((dr, i) => {
     const a = G.time * 1.9 + (i / n) * Math.PI * 2;
     dr.x = P.x + Math.sin(a) * DRONE_ORBIT;
@@ -292,7 +306,17 @@ function updateDrones(dt: number): void {
     if (!best) return;
     dr.cd = def.cd / Math.sqrt(S.rate);
     const dx = best.x - dr.x, dz = best.z - dr.z, l = Math.hypot(dx, dz) || 1;
-    spawnBullet(dr.x, dr.z, 1.7, dx / l, dz / l, 40, def.dmg * S.dmg, 0.5, S.pierce, def.color);
-    sfx('drone');
+    if (laserDrones) {
+      // laser drones: a short beam through everything on the line, ignoring shields
+      const len = def.range * 0.8;
+      beamHit(dr.x, dr.z, dx / l, dz / l, len, 0.2, def.dmg * 1.4 * S.dmg, 0.3, true, 0);
+      if (G.beams.length < LIMITS.beams) {
+        G.beams.push({ x1: dr.x, z1: dr.z, x2: dr.x + dx / l * len, z2: dr.z + dz / l * len, y: 1.6, life: 0.1, max: 0.1, w: 0.1, col: 0xff4df0, flicker: true });
+      }
+      sfx('laser');
+    } else {
+      spawnBullet(dr.x, dr.z, 1.7, dx / l, dz / l, 40, def.dmg * S.dmg, 0.5, S.pierce, def.color);
+      sfx('drone');
+    }
   });
 }

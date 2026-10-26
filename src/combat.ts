@@ -1,26 +1,74 @@
 // Player projectiles, damage, explosions, enemy death.
 import { insidePillar } from './arena';
 import { sfx } from './audio';
-import { ARENA, BRACE, CLUSTER, DESIGNATOR, LIMITS, LOOT, NAPALM, PACING, SHIELD_AURA } from './config';
+import { ARENA, BRACE, CHAIN, CLUSTER, DESIGNATOR, LIMITS, LOOT, NAPALM, PACING, SHIELD_AURA } from './config';
 import { dmgNumber, machineDeath, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { dropGem, spawnPickup } from './pickups';
-import { G, S, braced, type Enemy } from './state';
+import { G, S, braced, type Bullet, type Enemy } from './state';
 import { rand } from './utils';
+
+/** Optional shot traits; see Bullet. */
+export interface ShotOpts { size?: number; blast?: number; pen?: number; chain?: number; energy?: boolean }
 
 export function spawnBullet(
   x: number, z: number, y: number,
   dx: number, dz: number, speed: number,
-  dmg: number, life: number, pierce: number, col: number, size = 1, blast = 0, pen = 0,
+  dmg: number, life: number, pierce: number, col: number, o: ShotOpts = {},
 ): void {
   if (G.bullets.length >= LIMITS.bullets) return;
-  G.bullets.push({ x, z, y, vx: dx * speed, vz: dz * speed, dmg, life, pierce, col, last: -1, s: size, blast, pen });
+  G.bullets.push({
+    x, z, y, vx: dx * speed, vz: dz * speed, dmg, life, pierce, col, last: -1,
+    s: o.size ?? 1, blast: o.blast ?? 0, pen: o.pen ?? 0, chain: o.chain ?? 0, energy: o.energy ?? false,
+  });
 }
 
 /** A rocket shot ends: it explodes wherever it stops. */
-function detonate(b: { x: number; z: number; dmg: number; blast: number; life: number }): void {
+function detonate(b: Bullet): void {
   b.life = 0;
   explode(b.x, b.z, b.blast, b.dmg);
+  if (b.chain) chainLightning(b.x, b.z, b.chain, b.dmg * 0.6, CHAIN.jump);
+}
+
+/**
+ * Hits every machine on a line from (x, z) along (dx, dz), `len` long and `width` wide.
+ * `push` scales the knockback; calls `onHit` for effects.
+ */
+export function beamHit(
+  x: number, z: number, dx: number, dz: number, len: number, width: number,
+  dmg: number, push: number, pierceShield: boolean, pen: number, onHit?: (e: Enemy) => void,
+): void {
+  for (const e of G.enemies) {
+    if (e.dead) continue;
+    const ox = e.x - x, oz = e.z - z;
+    const along = ox * dx + oz * dz;
+    if (along < 0 || along > len + e.r) continue;
+    if (Math.abs(ox * dz - oz * dx) > e.r + width) continue;
+    damage(e, dmg, dx * push / e.r, dz * push / e.r, true, pierceShield, pen);
+    onHit?.(e);
+  }
+}
+
+/** Lightning from (x, z) to the nearest machine within `reach`, then on to the next one `jumps` more times. Ignores shields. */
+export function chainLightning(x: number, z: number, jumps: number, dmg: number, reach: number): void {
+  const hit = new Set<Enemy>();
+  for (let i = 0; i <= jumps; i++) {
+    let best: Enemy | null = null, bd = reach * reach;
+    for (const e of G.enemies) {
+      if (e.dead || hit.has(e)) continue;
+      const d2 = (e.x - x) ** 2 + (e.z - z) ** 2;
+      if (d2 < bd) { bd = d2; best = e; }
+    }
+    if (!best) return;
+    hit.add(best);
+    if (G.beams.length < LIMITS.beams) {
+      G.beams.push({ x1: x, z1: z, x2: best.x, z2: best.z, y: 1.1, life: 0.15, max: 0.15, w: 0.12, col: 0x9fe8ff, flicker: true });
+    }
+    sparks(best.x, 1, best.z, 0x9fe8ff, 4, 4);
+    damage(best, dmg, 0, 0, false, true);
+    x = best.x;
+    z = best.z;
+  }
 }
 
 /** Max distance a bullet travels per collision substep — prevents tunnelling through small enemies. */
@@ -46,7 +94,7 @@ export function updateBullets(dt: number): void {
         const ox = e.x - b.x, oz = e.z - b.z, rr = e.r + 0.22;
         if (ox * ox + oz * oz >= rr * rr) return;
         b.last = e.id;
-        damage(e, b.dmg, (b.vx / speed) * 3 / e.r, (b.vz / speed) * 3 / e.r, true, false, b.pen);
+        damage(e, b.dmg, (b.vx / speed) * 3 / e.r, (b.vz / speed) * 3 / e.r, true, b.energy, b.pen);
         sparks(b.x, 1, b.z, e.t.color, 3, 5);
         if (b.blast) { detonate(b); return true; }
         if (S.explode > 0 && Math.random() < S.explode) explode(b.x, b.z, 2.8, b.dmg * 0.8);

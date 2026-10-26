@@ -92,9 +92,9 @@ export function renderWorld(dt: number, playing: boolean): void {
   for (const st of G.strikes) {
     if (st.t >= st.dur) continue;
     const p = st.t / st.dur;
-    tmpC.setHex(0xff5a36).multiplyScalar(0.6 + 0.4 * Math.sin(t * 20));
+    tmpC.setHex(st.friendly ? 0x4cc9f0 : 0xff5a36).multiplyScalar(0.6 + 0.4 * Math.sin(t * 20));
     writeInstance(groundRingMesh, n++, st.x, 0, st.z, 0, st.r, 1, st.r, tmpC);
-    tmpC.setHex(0xffb347).multiplyScalar(0.8);
+    tmpC.setHex(st.friendly ? 0x9fe8ff : 0xffb347).multiplyScalar(0.8);
     writeInstance(groundRingMesh, n++, st.x, 0, st.z, 0, st.r * p, 1, st.r * p, tmpC);
   }
   const cap = groundRingMesh.instanceMatrix.count;

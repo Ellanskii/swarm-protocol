@@ -2,7 +2,7 @@
 // instead of reassigning exports, so everyone sees the same data.
 import * as THREE from 'three';
 import {
-  BRACE, ENEMY_TYPES, HEAT, MECHS, WEAPONS, xpFor,
+  BRACE, CHAIN, ENEMY_TYPES, HEAT, MECHS, ORBITAL, WEAPONS, xpFor,
   type EnemyDef, type EnemyType, type MechId, type ShoulderId, type WeaponDef, type WeaponId,
 } from './config';
 import type { ArmSlot, SlotId } from './mech';
@@ -45,6 +45,12 @@ export interface Stats {
   napalm: number;
   overload: number;
   mark: number;
+  /** Perfect reload damage multiplier. */
+  perfect: number;
+  /** Capstones: orbital strike and chain lightning on/off, extra drones at the start. */
+  orbital: number;
+  chain: number;
+  bay: number;
 }
 
 export interface Player {
@@ -167,9 +173,13 @@ export interface Bullet {
   blast: number;
   /** Armor ignored on hit. */
   pen: number;
+  /** Chain lightning jumps when it explodes. */
+  chain: number;
+  /** Burns through shield auras. */
+  energy: boolean;
 }
 
-export interface ShoulderState { id: ShoulderId; lv: number; cd: number; slot: SlotId }
+export interface ShoulderState { id: ShoulderId; lv: number; cd: number; slot: SlotId; evo?: boolean }
 export interface Rocket { x: number; z: number; y: number; vx: number; vz: number; target: Enemy | null; age: number; life: number; dmg: number; blast: number }
 /** Mortar shell: flies from (x0, z0) to (tx, tz) along an arc over `dur` seconds. */
 export interface Shell { x0: number; z0: number; tx: number; tz: number; x: number; z: number; y: number; t: number; dur: number; dmg: number; blast: number; life: number }
@@ -197,7 +207,8 @@ export interface Debris { x: number; y: number; z: number; vx: number; vy: numbe
 /** Burnt-out hull left by a bigger machine; smokes, then sinks. */
 export interface Wreck { x: number; z: number; rot: number; s: number; life: number; max: number; smokeT: number }
 /** Artillery shell on its way: the zone is marked until it lands. */
-export interface Strike { x: number; z: number; t: number; dur: number; r: number; dmg: number }
+/** A marked zone that blows up after a warning. Enemy artillery hits everyone; `friendly` (orbital strike) only machines. */
+export interface Strike { x: number; z: number; t: number; dur: number; r: number; dmg: number; friendly?: boolean }
 export interface Drone { mesh: THREE.Mesh; cd: number; x: number; z: number }
 
 export const S = {} as Stats;
@@ -259,6 +270,8 @@ export const G = {
   decoy: { x: 0, z: 0, life: 0 },
   designT: 0,
   reactiveCd: 0,
+  orbitalT: 0,
+  chainT: 0,
   /** Counts dashes, see Enemy.dashHit. */
   dashId: 0,
   dashMod: 'dash' as DashMod,
@@ -287,6 +300,7 @@ export function resetState(): void {
     dmg: 1, rate: 1, mag: 1, reload: 1, pierce: 0, multi: 0, crit: 0.05, explode: 0,
     speed: 1, magnet: 3.2, regen: 0, dashMul: 1, arW: 0, aura: 0, scrap: 1, blast: 1, cool: 1, heat: 1,
     hotAt: HEAT.hot, hotDmg: HEAT.hotDmg, pen: 0, reactive: 0, cluster: 0, napalm: 0, overload: 0, mark: 0,
+    perfect: 1.5, orbital: 0, chain: 0, bay: 0,
   } satisfies Stats);
   const mech = MECHS[G.mech];
   Object.assign(P, {
@@ -304,7 +318,7 @@ export function resetState(): void {
     vent: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
     enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], debris: [], wrecks: [], strikes: [], drones: [],
     shoulders: [], rockets: [], shells: [], trails: [], mines: [], dashMod: 'dash',
-    beams: [], fires: [], bomblets: [], decoy: { x: 0, z: 0, life: 0 }, designT: 0, reactiveCd: 0, dashId: 0,
+    beams: [], fires: [], bomblets: [], decoy: { x: 0, z: 0, life: 0 }, designT: 0, reactiveCd: 0, orbitalT: ORBITAL.every, chainT: CHAIN.every, dashId: 0,
   });
   for (const k of ENEMY_TYPES) G.typeCount[k] = 0;
 }

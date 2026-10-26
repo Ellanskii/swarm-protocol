@@ -39,7 +39,7 @@ function resetGame(): void {
   syncArms();
   const mech = MECHS[G.mech];
   if (mech.startShoulder) installShoulder(mech.startShoulder);
-  for (let i = 0; i < (mech.bay ?? 0); i++) addDrone();
+  for (let i = 0; i < (mech.bay ?? 0) + S.bay; i++) addDrone();
 }
 
 function showOnly(id: 'start' | 'levelup' | 'pause' | 'over' | null): void {

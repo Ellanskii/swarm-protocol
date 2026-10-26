@@ -154,7 +154,10 @@ export const MECH_ORDER: MechId[] = ['guard', 'scout', 'bastion', 'artillery', '
 // ---------------- weapons ----------------
 
 /** Arm weapons. */
-export type WeaponId = 'mg' | 'cannon' | 'shotgun' | 'laser' | 'railgun' | 'launcher';
+export type BaseWeaponId = 'mg' | 'cannon' | 'shotgun' | 'laser' | 'railgun' | 'launcher';
+export type WeaponId = BaseWeaponId | EvoWeaponId;
+/** Weapons that only come from evolutions. */
+export type EvoWeaponId = 'plasma' | 'siege' | 'minigun' | 'arclauncher';
 
 /** Slot-mounted models, see PART_BUILDERS in mech.ts. */
 export type PartId = 'mg' | 'cannon' | 'shotgun' | 'laser' | 'railgun' | 'launcher' | 'rockets' | 'mortar' | 'drone' | 'mines' | 'flak' | 'repair';
@@ -184,6 +187,10 @@ export interface WeaponDef {
   beam?: boolean;
   /** Projectiles explode on impact with this radius. */
   blast?: number;
+  /** Projectiles burn through shield auras. */
+  shieldPierce?: boolean;
+  /** Blasts throw a chain lightning with this many jumps. */
+  chain?: number;
   /** Energy weapon: each shot adds this much heat (1 = overheat) instead of spending ammo; `mag` and `reload` are unused. */
   heat?: number;
   /** Model mounted in the arm slot. */
@@ -198,6 +205,11 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   laser:   { name: 'Лазер',     dmg: 3.2, rate: 20, mag: 0,  reload: 0,   spread: 0,    pellets: 1, speed: 0,  range: 20, pierce: 0, size: 1,   color: 0xff4df0, kick: 0.02, part: 'laser', beam: true, heat: 0.011 },
   // one slow slug through the whole line: armor barely matters at this damage
   railgun: { name: 'Рельсотрон', dmg: 110, rate: 0.8, mag: 4, reload: 1.9, spread: 0,   pellets: 1, speed: 0,  range: 34, pierce: 0, size: 2.4, color: 0x9fd8ff, kick: 0.9,  part: 'railgun', beam: true },
+  // evolutions: replace their base weapon in the same arm, already at max level
+  plasma:  { name: 'Плазменный дробовик', dmg: 14, rate: 1.6, mag: 8, reload: 1.5, spread: 0.32, pellets: 9, speed: 42, range: 16, pierce: 2, size: 1.3, color: 0xc77dff, kick: 0.6, part: 'shotgun', shieldPierce: true },
+  siege:   { name: 'Осадная пушка', dmg: 40, rate: 2.6, mag: 12, reload: 1.4, spread: 0.03, pellets: 1, speed: 40, range: 30, pierce: 0, size: 2, color: 0xffb347, kick: 0.45, part: 'cannon', blast: 3 },
+  minigun: { name: 'Миниган', dmg: 9, rate: 24, mag: 110, reload: 1.8, spread: 0.11, pellets: 1, speed: 55, range: 24, pierce: 0, size: 0.8, color: 0x9ff0ff, kick: 0.05, part: 'mg' },
+  arclauncher: { name: 'Грозовая ракетница', dmg: 34, rate: 1.6, mag: 7, reload: 1.7, spread: 0.04, pellets: 1, speed: 26, range: 26, pierce: 0, size: 2, color: 0x9fe8ff, kick: 0.35, part: 'launcher', blast: 2.8, chain: 4 },
   launcher: { name: 'Ракетница', dmg: 26, rate: 1.5, mag: 6, reload: 1.8, spread: 0.04,  pellets: 1, speed: 24, range: 26, pierce: 0, size: 2,   color: 0xff8c42, kick: 0.35, part: 'launcher', blast: 2.6 },
 };
 
@@ -227,7 +239,7 @@ export const HEAT = {
   autoStop: 0.95,
 } as const;
 
-export const WEAPON_ORDER: WeaponId[] = ['mg', 'cannon', 'shotgun', 'railgun', 'launcher', 'laser'];
+export const WEAPON_ORDER: WeaponId[] = ['mg', 'minigun', 'cannon', 'siege', 'shotgun', 'plasma', 'railgun', 'launcher', 'arclauncher', 'laser'];
 
 /** Arm weapon levels: picking an owned weapon again levels it up. */
 export const WEAPON_LEVELS = {
@@ -237,6 +249,39 @@ export const WEAPON_LEVELS = {
   /** An extra barrel (shotgun: two pellets) every N levels. */
   barrelEvery: 2,
 } as const;
+
+// ---------------- evolutions ----------------
+
+/**
+ * A weapon or shoulder system at max level plus a catalyst from another branch evolves on level-up.
+ * `needs` is a run upgrade id, or an arm weapon id that must be mounted.
+ */
+export interface EvoDef {
+  name: string;
+  desc: string;
+  base: WeaponId | ShoulderId;
+  slot: 'arm' | 'shoulder';
+  /** Arm evolutions swap the weapon for this one. */
+  into?: EvoWeaponId;
+  needs: string;
+  needsName: string;
+}
+
+export const EVOLUTIONS: Record<string, EvoDef> = {
+  evoPlasma:  { name: 'Плазменный дробовик', desc: 'Дробь из плазмы прошивает две машины и игнорирует щиты', base: 'shotgun', slot: 'arm', into: 'plasma', needs: 'eshield', needsName: 'Энергощит' },
+  evoSiege:   { name: 'Осадная пушка', desc: 'Тяжёлые снаряды взрываются при попадании', base: 'cannon', slot: 'arm', into: 'siege', needs: 'explode', needsName: 'Разрывные' },
+  evoMinigun: { name: 'Миниган', desc: 'Вдвое быстрее, магазин на 110 патронов', base: 'mg', slot: 'arm', into: 'minigun', needs: 'crit', needsName: 'Слабые места' },
+  evoArc:     { name: 'Грозовая ракетница', desc: 'Каждый взрыв пускает цепную молнию по четырём машинам', base: 'launcher', slot: 'arm', into: 'arclauncher', needs: 'aura', needsName: 'Тесла-катушка' },
+  evoSwarm:   { name: 'Рой микроракет', desc: 'Вдвое больше ракет, залпы чаще, первыми бьют помеченные цели', base: 'rockets', slot: 'shoulder', needs: 'designator', needsName: 'Целеуказатель' },
+  evoBeams:   { name: 'Лазерные дроны', desc: 'Дроны стреляют лучами: прожигают всех на линии и игнорируют щиты', base: 'drone', slot: 'shoulder', needs: 'laser', needsName: 'Лазер' },
+};
+
+// ---------------- capstones ----------------
+
+/** Rockets capstone: an automatic friendly strike on the densest crowd. */
+export const ORBITAL = { every: 15, warn: 1, r: 5, dmg: 150, range: 22 } as const;
+/** Energy capstone: a lightning bolt that jumps between machines. */
+export const CHAIN = { every: 3, range: 12, jump: 5, jumps: 4, dmg: 40 } as const;
 
 // ---------------- shoulder systems ----------------
 

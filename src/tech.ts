@@ -42,6 +42,7 @@ export const TECH: TechNode[] = [
   { id: 'pen', name: 'Подкалиберные', desc: 'В забеге выпадает апгрейд «Подкалиберные»: баллистика игнорирует часть брони', branch: 'ballistics', x: 5, y: -1, parent: 'railgun', max: 1, scrap: 180, unlocks: ['pen'] },
   { id: 'reactive', name: 'Реактивная броня', desc: 'В забеге выпадает реактивная броня: удар по меху взрывает броню вокруг', branch: 'ballistics', x: 4, y: 1, parent: 'multi', max: 1, scrap: 150, unlocks: ['reactive'] },
   { id: 'bastion', name: 'Прототип «Бастион»', desc: 'Открывает Бастиона: тяжёлый мех с дробовиком, гасит урон и отбрасывает машины', branch: 'ballistics', x: 2, y: 2, parent: 'shotgun', max: 1, scrap: 200, cores: 2, mech: 'bastion' },
+  { id: 'arsenal', name: 'Мастер-оружейник', desc: 'Финал ветки. Идеальная перезарядка даёт +75% урона вместо +50%, жёлтая зона шире', branch: 'ballistics', x: 6, y: 0, parent: 'ram', max: 1, scrap: 400, cores: 3, bonus: () => { S.perfect = 1.75; S.arW += 0.04; } },
   { id: 'ram', name: 'Таран', desc: 'В забеге выпадает модуль рывка: таран сносит машины на пути, не глядя на броню', branch: 'ballistics', x: 5, y: 0, parent: 'belts', max: 1, scrap: 150, cores: 1, unlocks: ['ram'] },
 
   // rockets (up): area damage, cooldowns, jump jets
@@ -52,6 +53,7 @@ export const TECH: TechNode[] = [
   { id: 'launcher', name: 'Ракетница', desc: 'В забеге выпадает ракетница: ручное оружие, ракеты взрываются при попадании', branch: 'rockets', x: 1, y: -1, parent: 'warheads', max: 1, scrap: 80, cores: 1, unlocks: ['launcher'] },
   { id: 'artillery', name: 'Прототип «Артиллерист»', desc: 'Открывает Артиллериста: ракетница и миномёт, стоя на месте бьёт сильнее', branch: 'rockets', x: 1, y: -2, parent: 'launcher', max: 1, scrap: 200, cores: 2, mech: 'artillery' },
   { id: 'cluster', name: 'Кассетные', desc: 'В забеге выпадает апгрейд «Кассетные»: взрывы разбрасывают малые бомбы', branch: 'rockets', x: 0, y: -4, parent: 'explode', max: 1, scrap: 220, unlocks: ['cluster'] },
+  { id: 'orbital', name: 'Орбитальный удар', desc: 'Финал ветки. Каждые 15 секунд удар с орбиты по самой плотной толпе', branch: 'rockets', x: 0, y: -5, parent: 'cluster', max: 1, scrap: 400, cores: 3, bonus: () => { S.orbital = 1; } },
   { id: 'napalm', name: 'Напалм', desc: 'В забеге выпадает апгрейд «Напалм»: взрывы оставляют горящую землю', branch: 'rockets', x: 1, y: -4, parent: 'mortar', max: 1, scrap: 200, unlocks: ['napalm'] },
   { id: 'mortar', name: 'Миномёт', desc: 'В забеге выпадает плечевой миномёт', branch: 'rockets', x: 1, y: -3, parent: 'rockets', max: 1, scrap: 150, cores: 2, unlocks: ['mortar'] },
 
@@ -62,6 +64,7 @@ export const TECH: TechNode[] = [
   { id: 'aura', name: 'Тесла-катушка', desc: 'В забеге выпадает тесла-катушка: бьёт током всех вокруг меха', branch: 'energy', x: -2, y: 1, parent: 'reactor', max: 1, scrap: 80, cores: 1, unlocks: ['aura'] },
   { id: 'capacitors', name: 'Конденсаторы', desc: 'В забеге выпадают конденсаторы: горячая зона нагрева шире и бьёт сильнее', branch: 'energy', x: -3, y: 0, parent: 'radiators', max: 1, scrap: 150, unlocks: ['capacitors'] },
   { id: 'overload', name: 'Перегрузка', desc: 'В забеге выпадает перегрузка: перегрев бьёт молнией по всем вокруг, а не по меху', branch: 'energy', x: -4, y: 0, parent: 'capacitors', max: 1, scrap: 220, unlocks: ['overload'] },
+  { id: 'chain', name: 'Цепная молния', desc: 'Финал ветки. Каждые 3 секунды молния бьёт ближайшую машину и перескакивает ещё на четыре', branch: 'energy', x: -5, y: 0, parent: 'overload', max: 1, scrap: 400, cores: 3, bonus: () => { S.chain = 1; } },
   { id: 'eshield', name: 'Энергощит', desc: 'В забеге выпадает энергощит: щит поверх брони, восстанавливается без попаданий', branch: 'energy', x: -3, y: 1, parent: 'aura', max: 1, scrap: 120, unlocks: ['eshield'] },
   { id: 'phase', name: 'Фазовый рывок', desc: 'В забеге выпадает модуль рывка: скачок сквозь машины, прожигает их и сбрасывает тепло', branch: 'energy', x: -3, y: -2, parent: 'laser', max: 1, scrap: 150, cores: 1, unlocks: ['phase'] },
   { id: 'scout', name: 'Прототип «Скаут»', desc: 'Открывает Скаута: лёгкий мех с двумя рывками и жгучим плазменным следом', branch: 'energy', x: -3, y: -1, parent: 'laser', max: 1, scrap: 200, cores: 2, mech: 'scout' },
@@ -76,6 +79,7 @@ export const TECH: TechNode[] = [
   { id: 'repair', name: 'Ремонтный дрон', desc: 'В забеге выпадает плечевой ремонтный дрон: чинит меха', branch: 'robotics', x: -3, y: 2, parent: 'carrier', max: 1, scrap: 120, cores: 1, unlocks: ['repair'] },
   { id: 'designator', name: 'Целеуказатель', desc: 'В забеге выпадает целеуказатель: помеченные машины получают больше урона', branch: 'robotics', x: -2, y: 3, parent: 'crit', max: 1, scrap: 180, unlocks: ['designator'] },
   { id: 'carrier', name: 'Прототип «Носитель»', desc: 'Открывает Носителя: ангар с двумя боевыми дронами', branch: 'robotics', x: -2, y: 2, parent: 'drone', max: 1, scrap: 200, cores: 2, mech: 'carrier' },
+  { id: 'swarm', name: 'Рой дронов', desc: 'Финал ветки. Каждый забег начинается с двумя боевыми дронами, которые не занимают плечо', branch: 'robotics', x: -3, y: 3, parent: 'designator', max: 1, scrap: 400, cores: 3, bonus: () => { S.bay += 2; } },
   { id: 'decoy', name: 'Приманка', desc: 'В забеге выпадает модуль рывка: голограмма стягивает машины и взрывается', branch: 'robotics', x: 0, y: 4, parent: 'regen', max: 1, scrap: 150, cores: 1, unlocks: ['decoy'] },
 
   // hull (down-right, shared): useful whatever branch you play

@@ -68,6 +68,7 @@ body.menu { cursor: auto; }
 #slots { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
 #slots span { font-size: 11px; padding: 3px 7px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); color: var(--muted); }
 #slots span.sh { border-color: var(--violet); }
+#slots span.sh.evo { border-color: var(--gold); color: var(--gold); }
 #slots b { font-family: var(--mono); color: var(--fg); }
 
 #reload { position: absolute; left: 50%; bottom: calc(120px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(340px, 80vw); text-align: center; }
@@ -159,6 +160,8 @@ body.touch #touch { display: block; }
 .card p { font-size: 14px; color: var(--muted); margin: 0; flex: 1; }
 .card em { font-style: normal; font-size: 12px; letter-spacing: .1em; color: var(--accent); font-family: var(--mono); }
 .card.weapon em { color: var(--violet); }
+.card.evo { border-color: var(--gold); box-shadow: 0 0 18px rgba(255, 209, 102, .25); }
+.card.evo em { color: var(--gold); }
 .stats { display: flex; gap: 28px; font-family: var(--mono); font-size: 15px; }
 .stats b { display: block; font-size: 30px; color: var(--fg); }
 

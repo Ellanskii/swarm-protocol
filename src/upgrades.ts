@@ -1,6 +1,6 @@
 // Upgrade pool and the level-up screen.
 import { sfx } from './audio';
-import { SHOULDERS, WEAPONS, WEAPON_LEVELS, type ShoulderId, type WeaponId } from './config';
+import { EVOLUTIONS, SHOULDERS, WEAPONS, WEAPON_LEVELS, type BaseWeaponId, type EvoDef, type ShoulderId, type WeaponId } from './config';
 import { mouse } from './input';
 import { freeShoulderSlot, installShoulder } from './shoulders';
 import { G, P, S, armWeapons, magSize } from './state';
@@ -9,15 +9,15 @@ const hasAmmoWeapon = (): boolean => armWeapons().some(w => !w.d.heat);
 const hasHeatWeapon = (): boolean => armWeapons().some(w => !!w.d.heat);
 import { upgradeUnlocked } from './tech';
 import { $ } from './utils';
-import { freeArmSlot, giveWeapon, levelBarrels } from './weapons';
+import { evolveWeapon, freeArmSlot, giveWeapon, levelBarrels } from './weapons';
 
 export interface Upgrade {
   id: string;
   name: string;
   desc: string;
   max: number;
-  /** Arm weapon, shoulder system or dash module: shown with its own card style and tag. */
-  kind?: 'weapon' | 'shoulder' | 'dash';
+  /** Arm weapon, shoulder system, dash module or evolution: shown with its own card style and tag. */
+  kind?: 'weapon' | 'shoulder' | 'dash' | 'evo';
   /** Extra condition to appear in the pool. */
   avail?(): boolean;
   /** Current level when it is tracked outside `G.upLv` (mounted weapons and systems). */
@@ -25,7 +25,7 @@ export interface Upgrade {
   apply(): void;
 }
 
-const WEAPON_DESC: Record<WeaponId, string> = {
+const WEAPON_DESC: Record<BaseWeaponId, string> = {
   mg: 'Ручное оружие. Быстрые одиночные выстрелы, большой магазин',
   cannon: 'Ручное оружие. Тяжёлые снаряды прошивают врага насквозь',
   shotgun: 'Ручное оружие. Семь дробин, вблизи разносит всё',
@@ -34,24 +34,36 @@ const WEAPON_DESC: Record<WeaponId, string> = {
   launcher: 'Ручное оружие. Ракеты взрываются при попадании и бьют по площади',
 };
 
-/** Needs a free arm unless already mounted, then it levels up. */
-const weaponUp = (id: WeaponId): Upgrade => ({
+const evoOf = (base: WeaponId | ShoulderId): EvoDef | undefined => Object.values(EVOLUTIONS).find(e => e.base === base);
+/** Catalyst of an evolution: a run upgrade taken, or an arm weapon mounted. */
+const hasCatalyst = (e: EvoDef): boolean => (G.upLv[e.needs] ?? 0) > 0 || !!G.owned[e.needs as WeaponId];
+const evoHint = (base: WeaponId | ShoulderId): string => {
+  const e = evoOf(base);
+  return e ? `. На максимуме вместе с «${e.needsName}» эволюционирует в «${e.name}»` : '';
+};
+
+/** Needs a free arm unless already mounted, then it levels up. Gone once it evolved. */
+const weaponUp = (id: BaseWeaponId): Upgrade => ({
   id, name: WEAPONS[id].name, max: WEAPON_LEVELS.max, kind: 'weapon',
   get desc() {
     const w = G.owned[id];
     if (!w) return WEAPON_DESC[id];
     const more = w.d.beam ? ' и шире луч' : w.d.pellets > 1 ? ' и ещё две дробины' : ' и ещё один ствол';
     const extra = levelBarrels(w.lv + 1) > levelBarrels(w.lv) ? more : '';
-    return `+${WEAPON_LEVELS.dmg * 100}% урона${extra}`;
+    return `+${WEAPON_LEVELS.dmg * 100}% урона${extra}${w.lv + 1 === WEAPON_LEVELS.max ? evoHint(id) : ''}`;
   },
-  avail: () => !!G.owned[id] || freeArmSlot() !== null,
+  avail: () => !G.owned[evoOf(id)?.into ?? id] && (!!G.owned[id] || freeArmSlot() !== null),
   level: () => G.owned[id]?.lv ?? 0,
   apply: () => giveWeapon(id),
 });
 
 /** Needs a free shoulder slot unless already mounted, then it levels up. */
 const shoulderUp = (id: ShoulderId): Upgrade => ({
-  id, name: SHOULDERS[id].name, desc: SHOULDERS[id].desc, max: SHOULDERS[id].max, kind: 'shoulder',
+  id, name: SHOULDERS[id].name, max: SHOULDERS[id].max, kind: 'shoulder',
+  get desc() {
+    const lv = G.shoulders.find(s => s.id === id)?.lv ?? 0;
+    return SHOULDERS[id].desc + (lv + 1 === SHOULDERS[id].max ? evoHint(id) : '');
+  },
   avail: () => G.shoulders.some(s => s.id === id) || freeShoulderSlot() !== null,
   level: () => G.shoulders.find(s => s.id === id)?.lv ?? 0,
   apply: () => installShoulder(id),
@@ -123,11 +135,34 @@ export const UPGRADES: Upgrade[] = [
     id: 'decoy', name: 'Приманка', desc: 'Рывок оставляет голограмму: она стягивает ближних машин и через 3 с взрывается',
     max: 1, kind: 'dash', avail: () => G.dashMod === 'dash', apply: () => { G.dashMod = 'decoy'; },
   },
+  // evolutions: base at max level + a catalyst from another branch
+  ...Object.entries(EVOLUTIONS).map(([id, e]): Upgrade => ({
+    id, name: e.name, max: 1, kind: 'evo',
+    get desc() { return `${e.desc}. ${baseName(e)} + ${e.needsName}`; },
+    avail: () => baseMaxed(e) && hasCatalyst(e),
+    apply: () => {
+      if (e.into) evolveWeapon(e.base as WeaponId, e.into);
+      else {
+        const sh = G.shoulders.find(s => s.id === e.base);
+        if (sh) sh.evo = true;
+      }
+    },
+  })),
 ];
 
+function baseName(e: EvoDef): string {
+  return e.slot === 'arm' ? WEAPONS[e.base as WeaponId].name : SHOULDERS[e.base as ShoulderId].name;
+}
+
+function baseMaxed(e: EvoDef): boolean {
+  if (e.slot === 'arm') return G.owned[e.base as WeaponId]?.lv === WEAPON_LEVELS.max;
+  const sh = G.shoulders.find(s => s.id === e.base);
+  return !!sh && !sh.evo && sh.lv >= SHOULDERS[sh.id].max;
+}
+
 const FALLBACK: Upgrade = { id: 'heal', name: 'Аптечка', desc: 'Полное лечение', max: Infinity, apply: () => { P.hp = P.maxHp; } };
-/** Weapons and shoulder systems show up a bit more often than stat upgrades. */
-const weight = (u: Upgrade) => (u.kind ? 1.6 : 1);
+/** Evolutions are hard to miss once ready; weapons and shoulder systems show up a bit more often than stat upgrades. */
+const weight = (u: Upgrade) => (u.kind === 'evo' ? 4 : u.kind ? 1.6 : 1);
 
 const levelOf = (u: Upgrade): number => u.level?.() ?? G.upLv[u.id] ?? 0;
 
@@ -159,8 +194,8 @@ export function openLevelUp(): void {
   cards.replaceChildren(...choices.map((u, i) => {
     const lv = levelOf(u);
     const b = document.createElement('button');
-    b.className = 'card' + (u.kind ? ' weapon' : '');
-    const tag = lv ? `УР ${lv} → ${lv + 1}` : u.kind === 'weapon' ? 'НОВОЕ ОРУЖИЕ · РУКА' : u.kind === 'shoulder' ? 'НОВОЕ · ПЛЕЧО' : u.kind === 'dash' ? 'МОДУЛЬ РЫВКА' : 'НОВОЕ';
+    b.className = 'card' + (u.kind === 'evo' ? ' evo' : u.kind ? ' weapon' : '');
+    const tag = lv ? `УР ${lv} → ${lv + 1}` : u.kind === 'weapon' ? 'НОВОЕ ОРУЖИЕ · РУКА' : u.kind === 'shoulder' ? 'НОВОЕ · ПЛЕЧО' : u.kind === 'dash' ? 'МОДУЛЬ РЫВКА' : u.kind === 'evo' ? 'ЭВОЛЮЦИЯ' : 'НОВОЕ';
     b.innerHTML = `<small>${i + 1}</small><h3>${u.name}</h3><p>${u.desc}</p><em>${tag}</em>`;
     b.addEventListener('click', () => choose(i));
     return b;

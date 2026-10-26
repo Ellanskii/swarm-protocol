@@ -1,6 +1,7 @@
 // DOM HUD. Every write goes through a cache so unchanged values don't touch the DOM.
-import { MECHS, SHOULDERS, WEAPON_ORDER } from './config';
+import { MECHS, WEAPON_ORDER } from './config';
 import { dashCooldown } from './player';
+import { shoulderName } from './shoulders';
 import { G, P, S, magSize } from './state';
 import { UPGRADES } from './upgrades';
 import { $, fmtTime } from './utils';
@@ -80,8 +81,8 @@ export function updateHUD(): void {
     el.vmark.style.left = Math.min(100, (v.t / v.dur) * 100) + '%';
   }
 
-  set('slots', G.shoulders.map(s => s.id + s.lv).join(','), () => {
-    el.slots.innerHTML = G.shoulders.map(s => `<span class="sh">${SHOULDERS[s.id].name} <b>${s.lv}</b></span>`).join('');
+  set('slots', G.shoulders.map(s => s.id + s.lv + (s.evo ? 'e' : '')).join(','), () => {
+    el.slots.innerHTML = G.shoulders.map(s => `<span class="sh${s.evo ? ' evo' : ''}">${shoulderName(s)} <b>${s.lv}</b></span>`).join('');
   });
 
   const owned = UPGRADES.filter(u => G.upLv[u.id] && !u.kind);
