@@ -219,7 +219,7 @@ export const mineMesh = pool(
 export const beamMesh = pool(
   new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5),
   new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
-  LIMITS.beams,
+  LIMITS.beams + 32, // plus tank sight lines
 );
 
 /** Decoy hologram: a ghostly column the size of a mech. */

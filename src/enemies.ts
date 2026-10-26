@@ -2,11 +2,11 @@
 import { insidePillar, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode, selfDestruct } from './combat';
-import { ARENA, ARTILLERY, DECOY, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
+import { ARENA, ARTILLERY, DECOY, TANK, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
 import { ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { hurt } from './player';
-import { G, P, S, type Enemy } from './state';
+import { G, P, S, type Enemy, type EnemyShot } from './state';
 import { clamp, rand } from './utils';
 
 /** Bosses ignore the crowd limits: a missing final boss would make the run unwinnable. */
@@ -17,7 +17,7 @@ export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null 
   const hp = t.hp * (1 + (G.time / 60) * PACING.hpPerMinute);
   const e: Enemy = {
     id: G.nextId++, type, t, x, z, kx: 0, kz: 0, hp, maxHp: hp, r: t.r,
-    flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0, mrot: 0, shielded: false, mark: 0, dashHit: 0, bump: 0,
+    flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0, mrot: 0, shielded: false, mark: 0, dashHit: 0, bump: 0, aim: 0,
     dead: false, born: G.time, boss: false,
   };
   G.enemies.push(e);
@@ -132,6 +132,24 @@ export function updateEnemies(dt: number): void {
       if (d < 9) { mx = -nx; mz = -nz; } else if (d < 13) { mx = -nz * e.side; mz = nx * e.side; }
       e.cd -= dt;
       if (e.cd <= 0 && d < 18) { e.cd = rand(2, 3.2); fireEShot(e.x, e.z, nx, nz, 9, 8 * dmgMul); }
+    } else if (e.type === 'brute') {
+      // heavy tank: keeps rolling in; every few seconds it halts, aims and fires a slow shell at the mech's spot
+      if (e.aim > 0) {
+        mx = 0; mz = 0;
+        if ((e.aim -= dt) <= 0) {
+          const tx = P.x, tz = P.z, sx = e.x + nx * e.r, sz = e.z + nz * e.r;
+          const dist = Math.hypot(tx - sx, tz - sz) || 0.001;
+          if (G.eshots.length < LIMITS.enemyShots) {
+            G.eshots.push({ x: sx, z: sz, vx: (tx - sx) / dist * TANK.speed, vz: (tz - sz) / dist * TANK.speed, dmg: TANK.dmg * dmgMul, life: 4, blast: TANK.r, left: dist });
+          }
+          e.kx -= nx * 3; e.kz -= nz * 3; // recoil
+          sparks(sx, 1, sz, 0xff6b35, 8, 5);
+          sfx('cannon');
+        }
+      } else if ((e.cd -= dt) <= 0 && gx === P.x && d > TANK.minRange && d < TANK.range) {
+        e.cd = TANK.every * rand(0.85, 1.15);
+        e.aim = TANK.aim;
+      }
     } else if (e.type === 'artillery') {
       // hold a firing distance and shell the spot the player stands on
       if (d > ARTILLERY.far) { mx = nx; mz = nz; } else if (d < ARTILLERY.near) { mx = -nx; mz = -nz; } else { mx = 0; mz = 0; }
@@ -229,12 +247,27 @@ export function updateStrikes(dt: number): void {
   }
 }
 
+function shellBurst(s: EnemyShot): void {
+  s.life = 0;
+  ringBurst(s.x, s.z, s.blast!);
+  sparks(s.x, 0.6, s.z, 0xff6b35, 12, 7);
+  G.shake = Math.min(1.2, G.shake + 0.15);
+  sfx('boom');
+  if (Math.hypot(P.x - s.x, P.z - s.z) < s.blast! + 0.4) hurt(s.dmg);
+}
+
 export function updateEnemyShots(dt: number): void {
   for (const s of G.eshots) {
     if (s.life <= 0) continue;
     s.x += s.vx * dt;
     s.z += s.vz * dt;
     s.life -= dt;
+    if (s.blast) {
+      // tank shell: bursts on its target spot, on a pillar, or on the mech
+      s.left! -= Math.hypot(s.vx, s.vz) * dt;
+      if (s.left! <= 0 || s.life <= 0 || insidePillar(s.x, s.z) || Math.hypot(s.x - P.x, s.z - P.z) < 0.78) shellBurst(s);
+      continue;
+    }
     if (Math.abs(s.x) > ARENA || Math.abs(s.z) > ARENA || insidePillar(s.x, s.z)) { s.life = 0; continue; }
     if (P.inv <= 0 && Math.hypot(s.x - P.x, s.z - P.z) < 0.78) {
       hurt(s.dmg);

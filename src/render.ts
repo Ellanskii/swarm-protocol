@@ -1,6 +1,6 @@
 // Pushes simulation state into meshes and moves the camera.
 import * as THREE from 'three';
-import { ENEMY_TYPES, LIMITS, SHIELD_AURA, SHOULDERS } from './config';
+import { ENEMY_TYPES, LIMITS, SHIELD_AURA, SHOULDERS, TANK } from './config';
 import { animateMech } from './mech';
 import {
   ENEMY_HOVER, beamMesh, bulletMesh, camera, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
@@ -14,6 +14,7 @@ const tmpC = new THREE.Color();
 const white = new THREE.Color(1, 1, 1);
 const darkMetal = new THREE.Color(0x2a2f45);
 const shieldTint = new THREE.Color(0x9fe8ff);
+const tankShell = new THREE.Color(0xff2a2a);
 const bodyC = new THREE.Color();
 const darkC = new THREE.Color();
 const glowC = new THREE.Color();
@@ -147,6 +148,13 @@ export function renderWorld(dt: number, playing: boolean): void {
 
   // beams: the laser flickers in width, the railgun slug trail thins and fades
   n = 0;
+  // aiming tanks: a thin red sight line to the mech that brightens right before the shot
+  for (const e of G.enemies) {
+    if (e.dead || e.aim <= 0 || n >= beamMesh.instanceMatrix.count) continue;
+    const len = Math.hypot(P.x - e.x, P.z - e.z), k = 1 - e.aim / TANK.aim;
+    tmpC.setHex(0xff2a2a).multiplyScalar(0.3 + 0.7 * k);
+    writeInstance(beamMesh, n++, e.x, 1, e.z, Math.atan2(P.x - e.x, P.z - e.z), 0.05 + 0.05 * k, 0.05, len, tmpC);
+  }
   for (const b of G.beams) {
     if (b.life <= 0) continue;
     const k = b.life / b.max;
@@ -182,7 +190,9 @@ export function renderWorld(dt: number, playing: boolean): void {
   const p = 1 + Math.sin(t * 20) * 0.15;
   for (const s of G.eshots) {
     if (s.life <= 0) continue;
-    writeInstance(eshotMesh, n++, s.x, 1, s.z, 0, p, p, p, tmpC);
+    // tank shells are bigger and darker red
+    const k = s.blast ? p * 1.7 : p;
+    writeInstance(eshotMesh, n++, s.x, 1, s.z, 0, k, k, k, s.blast ? tankShell : tmpC);
   }
   commit(eshotMesh, n);
 

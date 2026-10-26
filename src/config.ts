@@ -319,7 +319,7 @@ export const SHOULDERS: Record<ShoulderId, ShoulderDef> = {
 
 /**
  * Factory machines. grunt — walking assembler, runner — kamikaze drone, spitter — light tank,
- * brute — heavy tank, artillery — shells a marked zone, shield — protects its neighbours, boss — the Forge.
+ * brute — heavy tank that stops to fire slow bursting shells, artillery — shells a marked zone, shield — protects its neighbours, boss — the Forge.
  */
 export type EnemyType = 'grunt' | 'runner' | 'spitter' | 'brute' | 'artillery' | 'shield' | 'boss';
 
@@ -353,6 +353,9 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
 };
 
 export const ENEMY_TYPES = Object.keys(ENEMIES) as EnemyType[];
+
+/** Heavy tank: pushes in, now and then stops to aim (a red line shows it) and fires a slow shell that bursts where the mech stood. */
+export const TANK = { every: 4.5, aim: 0.7, minRange: 3, range: 15, speed: 12, dmg: 22, r: 1.8 } as const;
 
 /** Artillery platform: keeps its distance and shells the spot the player stands on. */
 export const ARTILLERY = {

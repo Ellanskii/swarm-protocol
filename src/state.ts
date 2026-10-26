@@ -144,6 +144,8 @@ export interface Enemy {
   mark: number;
   /** Bastion repel cooldown for this machine. */
   bump: number;
+  /** Heavy tank: seconds left aiming before the shot; 0 = not aiming. */
+  aim: number;
   /** Last dash that hit this machine, so a ram or phase dash hits it once. */
   dashHit: number;
   dead: boolean;
@@ -195,7 +197,8 @@ export interface Fire { x: number; z: number; r: number; life: number; tick: num
 /** Cluster bomblet waiting to go off. */
 export interface Bomblet { x: number; z: number; t: number; r: number; dmg: number }
 
-export interface EnemyShot { x: number; z: number; vx: number; vz: number; dmg: number; life: number }
+/** Enemy projectile. Tank shells have `blast` and burst after `left` more distance, or on the mech. */
+export interface EnemyShot { x: number; z: number; vx: number; vz: number; dmg: number; life: number; blast?: number; left?: number }
 /** Magnet-collected drop: XP, or meta currency (scrap, cores). */
 export type GemKind = 'xp' | 'scrap' | 'core';
 export interface Gem { kind: GemKind; x: number; z: number; v: number; vel: number; pull: boolean; ph: number; dead: boolean }
