@@ -31,6 +31,8 @@ export function bindInput(h: InputHandlers): void {
   addEventListener('mousedown', e => {
     if (e.button === 0) mouse.down = true;
     h.onGesture();
+    // right button goes through the key handler, so it can be bound like a key
+    if (e.button === 2) h.onKey('MouseRight');
   });
   addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
   addEventListener('contextmenu', e => e.preventDefault());

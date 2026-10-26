@@ -87,7 +87,7 @@ bindInput({
         if (code === 'Digit1') switchTo('pistol');
         else if (code === 'Digit2') switchTo('shotgun');
         else if (code === 'Digit3') switchTo('smg');
-        else if (code === 'KeyR') reloadPressed();
+        else if (code === 'KeyR' || code === 'MouseRight') reloadPressed();
         else if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') tryDash();
         else if (code === 'Escape' || code === 'KeyP') setPause(true);
         else if (code === 'KeyG' && import.meta.env.DEV) god();
