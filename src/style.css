@@ -121,6 +121,7 @@ body.touch #touch { display: block; }
 .btn { font: 700 18px var(--display); letter-spacing: .12em; padding: 12px 34px; border: 2px solid var(--accent); background: transparent; color: var(--fg); cursor: pointer; border-radius: 3px; }
 .toggle { font: 600 14px var(--mono); letter-spacing: .06em; padding: 8px 16px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); color: var(--muted); cursor: pointer; }
 .toggle.on { border-color: var(--accent); color: var(--fg); }
+.toggle.update { border-color: var(--gold); color: var(--gold); }
 .btn:hover, .btn:focus-visible { background: var(--accent); color: var(--bg); outline: none; }
 #mechs { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
 .card.mech { width: 220px; min-height: 0; }

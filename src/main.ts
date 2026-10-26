@@ -17,6 +17,7 @@ import { camera, renderer, scene } from './scene';
 import { installShoulder, removeAllDrones, updateShoulders } from './shoulders';
 import { G, P, S, aim, resetState } from './state';
 import { choose, openLevelUp } from './upgrades';
+import { watchForUpdates } from './update';
 import { $, fmtTime } from './utils';
 import { firePressed, giveWeapon, reloadPressed, syncArms, updateWeapons } from './weapons';
 
@@ -226,6 +227,7 @@ function frame(now: number): void {
 }
 
 resetGame();
+watchForUpdates();
 requestAnimationFrame(frame);
 
 // debug handle for the console and automated tests
