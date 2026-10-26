@@ -28,6 +28,8 @@ export interface Stats {
   aura: number;
   /** Scrap pickup multiplier. */
   scrap: number;
+  /** Explosion radius multiplier. */
+  blast: number;
 }
 
 export interface Player {
@@ -56,6 +58,8 @@ export interface Player {
   /** Time until the next trail point while dashing. */
   trailT: number;
   dashT: number;
+  /** Length of the current dash, for the jump arc. */
+  dashMax: number;
   ddx: number;
   ddz: number;
   level: number;
@@ -143,6 +147,12 @@ export interface Rocket { x: number; z: number; y: number; vx: number; vz: numbe
 /** Mortar shell: flies from (x0, z0) to (tx, tz) along an arc over `dur` seconds. */
 export interface Shell { x0: number; z0: number; tx: number; tz: number; x: number; z: number; y: number; t: number; dur: number; dmg: number; blast: number; life: number }
 export interface TrailPoint { x: number; z: number; life: number; tick: number }
+/** Dropped mine: arms after a moment, blows up when a machine comes close. */
+export interface Mine { x: number; z: number; arm: number; life: number; dmg: number; blast: number; dead: boolean }
+/** Last laser shot, drawn for a few frames. */
+export interface Beam { x1: number; z1: number; x2: number; z2: number; y: number; t: number; col: number }
+/** Dash variants from the tech branches; a mech carries one. */
+export type DashMod = 'dash' | 'jump';
 
 export interface EnemyShot { x: number; z: number; vx: number; vz: number; dmg: number; life: number }
 /** Magnet-collected drop: XP, or meta currency (scrap, cores). */
@@ -202,6 +212,9 @@ export const G = {
   rockets: [] as Rocket[],
   shells: [] as Shell[],
   trails: [] as TrailPoint[],
+  mines: [] as Mine[],
+  beam: { x1: 0, z1: 0, x2: 0, z2: 0, y: 0, t: 0, col: 0 } as Beam,
+  dashMod: 'dash' as DashMod,
   typeCount: {} as Record<EnemyType, number>,
   /** Debug invulnerability. Not touched by resetState(), so it survives restarts. */
   god: false,
@@ -222,13 +235,13 @@ export const armWeapons = (): WeaponState[] => Object.values(G.owned);
 export function resetState(): void {
   Object.assign(S, {
     dmg: 1, rate: 1, mag: 1, reload: 1, pierce: 0, multi: 0, crit: 0.05, explode: 0,
-    speed: 1, magnet: 3.2, regen: 0, dashMul: 1, arW: 0, aura: 0, scrap: 1,
+    speed: 1, magnet: 3.2, regen: 0, dashMul: 1, arW: 0, aura: 0, scrap: 1, blast: 1,
   } satisfies Stats);
   const mech = MECHS[G.mech];
   Object.assign(P, {
     x: 0, z: 0, ang: 0, legAng: 0, walkPh: 0, tx: 0, tz: 1, hp: mech.hp, maxHp: mech.hp,
     shield: mech.shield, maxShield: mech.shield, calm: 0, inv: 0, blink: 0,
-    dashCharges: mech.dash.charges, dashCd: 0, trailT: 0, dashT: 0, ddx: 0, ddz: 1,
+    dashCharges: mech.dash.charges, dashCd: 0, trailT: 0, dashT: 0, dashMax: 1, ddx: 0, ddz: 1,
     level: 1, xp: 0, xpNext: xpFor(1), mx: 0, my: 1, mz: 0, speed: 0, moving: false,
   } satisfies Player);
   Object.assign(G, {
@@ -237,7 +250,8 @@ export function resetState(): void {
     owned: { [mech.start]: mkWeapon(mech.start, 'armR') }, upLv: {},
     reload: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
     enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], debris: [], wrecks: [], strikes: [], drones: [],
-    shoulders: [], rockets: [], shells: [], trails: [],
+    shoulders: [], rockets: [], shells: [], trails: [], mines: [], dashMod: 'dash',
+    beam: { x1: 0, z1: 0, x2: 0, z2: 0, y: 0, t: 0, col: 0 },
   });
   for (const k of ENEMY_TYPES) G.typeCount[k] = 0;
 }

@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { ENEMY_TYPES, LIMITS, SHIELD_AURA, SHOULDERS } from './config';
 import { animateMech } from './mech';
 import {
-  ENEMY_HOVER, bulletMesh, camera, debrisMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
-  groundRingMesh, laser, laserGeo, muzzle, partMesh, sun, wreckMesh,
+  ENEMY_HOVER, beamMesh, bulletMesh, camera, debrisMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
+  groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
 } from './scene';
 import { G, P, aim } from './state';
 import { rand } from './utils';
@@ -103,6 +103,27 @@ export function renderWorld(dt: number, playing: boolean): void {
     writeInstance(groundRingMesh, n++, e.x, 0, e.z, 0, SHIELD_AURA.r, 1, SHIELD_AURA.r, tmpC);
   }
   commit(groundRingMesh, n);
+
+  // mines: dark while arming, blinking red once live
+  n = 0;
+  for (const m of G.mines) {
+    if (m.dead) continue;
+    tmpC.setHex(m.arm > 0 ? 0x3a3f55 : Math.sin(t * 10 + m.x) > 0 ? 0xff3b3b : 0x5a1a1a);
+    writeInstance(mineMesh, n++, m.x, 0, m.z, 0, 1, 1, 1, tmpC);
+  }
+  commit(mineMesh, n);
+
+  // laser beam flickers in width for a few frames after each shot
+  const b = G.beam;
+  beamMesh.visible = b.t > 0;
+  if (b.t > 0) {
+    b.t -= dt;
+    const len = Math.hypot(b.x2 - b.x1, b.z2 - b.z1), w = rand(0.1, 0.18);
+    beamMesh.position.set(b.x1, b.y, b.z1);
+    beamMesh.rotation.set(0, Math.atan2(b.x2 - b.x1, b.z2 - b.z1), 0);
+    beamMesh.scale.set(w, w, len);
+    beamMesh.material.color.setHex(b.col);
+  }
 
   // projectiles
   // rockets and mortar shells share the bullet pool

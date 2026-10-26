@@ -1,7 +1,7 @@
 // Base screen: the tech tree as a pannable, zoomable graph, plus buying nodes.
 import { sfx } from './audio';
 import { save } from './save';
-import { TECH, buyTech, canBuy, techCost, techLv, techNode, techOpen, type TechNode } from './tech';
+import { TECH, buyTech, canBuy, techCost, techLv, techNode, techOff, techOpen, toggleTechOff, type TechNode } from './tech';
 import { $, clamp } from './utils';
 
 /** Grid cell size on the map, px at zoom 1. */
@@ -18,6 +18,7 @@ const links = document.getElementById('links') as unknown as SVGSVGElement;
 const nodesEl = $('nodes');
 const detail = $('detail');
 const buyBtn = $<HTMLButtonElement>('buyBtn');
+const poolBtn = $<HTMLButtonElement>('poolBtn');
 
 const view = { x: 0, y: 0, z: 1 };
 let selected: TechNode | null = null;
@@ -30,6 +31,7 @@ const fmtCost = (n: TechNode): string => {
 
 function nodeState(n: TechNode): string {
   const lv = techLv(n.id);
+  if (lv > 0 && techOff(n)) return 'maxed off';
   if (lv >= n.max) return 'maxed';
   if (lv > 0) return canBuy(n) ? 'owned afford' : 'owned';
   if (!techOpen(n)) return 'locked';
@@ -63,7 +65,7 @@ export function renderBase(): void {
     el.style.left = `${n.x * CELL_W}px`;
     el.style.top = `${n.y * CELL_H}px`;
     const lv = techLv(n.id);
-    const lvText = n.id === 'core' ? 'БАЗА' : n.max > 1 ? `УР ${lv} / ${n.max}` : lv ? 'ОТКРЫТО' : '';
+    const lvText = n.id === 'core' ? 'БАЗА' : n.max > 1 ? `УР ${lv} / ${n.max}` : lv ? (techOff(n) ? 'ВЫКЛ ИЗ ПУЛА' : 'ОТКРЫТО') : '';
     const cost = lv < n.max && n.id !== 'core' ? `<span class="cost">${fmtCost(n)}</span>` : '';
     el.innerHTML = `<b>${n.name}</b><span class="lv">${lvText}${cost}</span>`;
     el.addEventListener('click', () => {
@@ -89,7 +91,17 @@ function renderDetail(): void {
   buyBtn.hidden = maxed || n.id === 'core';
   buyBtn.disabled = !canBuy(n);
   buyBtn.textContent = lv ? 'УЛУЧШИТЬ' : 'ОТКРЫТЬ';
+  // bought unlocks can be taken out of the run pool
+  poolBtn.hidden = !n.unlocks || lv === 0;
+  poolBtn.textContent = `В пуле: ${techOff(n) ? 'ВЫКЛ' : 'ВКЛ'}`;
+  poolBtn.classList.toggle('on', !techOff(n));
 }
+
+poolBtn.addEventListener('click', () => {
+  if (!selected) return;
+  toggleTechOff(selected);
+  renderBase();
+});
 
 buyBtn.addEventListener('click', () => {
   if (!selected || !buyTech(selected)) return;

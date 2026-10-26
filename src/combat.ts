@@ -30,7 +30,8 @@ export function updateBullets(dt: number): void {
       b.z += b.vz * sdt;
       if (Math.abs(b.x) > ARENA || Math.abs(b.z) > ARENA) { b.life = 0; break; }
       if (insidePillar(b.x, b.z)) { b.life = 0; sparks(b.x, 1, b.z, 0x8899cc, 3, 4); break; }
-      forNear(b.x, b.z, e => {
+      // zero-damage rounds are visual tracers only
+      if (b.dmg > 0) forNear(b.x, b.z, e => {
         if (e.dead || e.id === b.last) return;
         const ox = e.x - b.x, oz = e.z - b.z, rr = e.r + 0.22;
         if (ox * ox + oz * oz >= rr * rr) return;
@@ -48,13 +49,14 @@ export function updateBullets(dt: number): void {
 
 const CRIT_MULT = 2.2;
 
-export function damage(e: Enemy, amount: number, kx: number, kz: number, canCrit: boolean): void {
+/** `pierceShield`: the laser burns through shield auras. */
+export function damage(e: Enemy, amount: number, kx: number, kz: number, canCrit: boolean, pierceShield = false): void {
   if (e.dead) return;
   let crit = false;
   if (canCrit && Math.random() < S.crit) { amount *= CRIT_MULT; crit = true; }
   // armor takes a flat bite out of every hit (never more than 75%), the shield aura halves what is left
   if (e.t.armor) amount = Math.max(amount * 0.25, amount - e.t.armor);
-  if (e.shielded) amount *= SHIELD_AURA.mult;
+  if (e.shielded && !pierceShield) amount *= SHIELD_AURA.mult;
   e.hp -= amount;
   e.flash = 0.08;
   e.kx += kx;
@@ -66,6 +68,7 @@ export function damage(e: Enemy, amount: number, kx: number, kz: number, canCrit
 
 /** Area damage. Explosions never trigger further explosions. */
 export function explode(x: number, z: number, r: number, dmg: number): void {
+  r *= S.blast;
   ringBurst(x, z, r);
   sparks(x, 0.6, z, 0xffb347, 12, 9);
   for (const e of G.enemies) {

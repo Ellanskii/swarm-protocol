@@ -1,6 +1,6 @@
 // Procedural player mech: model assembled from primitives, slot parts, walk animation.
 import * as THREE from 'three';
-import { MECHS, type MechDef, type PartId } from './config';
+import { JUMP, MECHS, type MechDef, type PartId } from './config';
 import { mechRoot } from './scene';
 import { G, P } from './state';
 
@@ -78,6 +78,16 @@ const PART_BUILDERS: Record<PartId, (trim: number) => PartBuild> = {
     g.add(box(0.34, 0.26, 0.5, darkMat, 0, 0, 0.1), barrel(0.075, 0.55, darkMat, -0.08, 0, 0.33), barrel(0.075, 0.55, darkMat, 0.08, 0, 0.33), box(0.36, 0.06, 0.2, trimMat(trim), 0, 0.15, 0.05));
     return { mesh: g, len: 0.9 };
   },
+  laser: trim => {
+    // emitter: slim housing, focusing rings, glowing lens
+    const g = new THREE.Group();
+    g.add(box(0.22, 0.22, 0.5, darkMat, 0, 0, 0.1), barrel(0.05, 0.6, darkMat, 0, 0, 0.3), box(0.26, 0.05, 0.3, trimMat(trim), 0, 0.13, 0.05));
+    for (const z of [0.45, 0.62]) g.add(barrel(0.09, 0.05, darkMat, 0, 0, z));
+    const lens = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), glowMat(0xff4df0));
+    lens.position.z = 0.92;
+    g.add(lens);
+    return { mesh: g, len: 0.95 };
+  },
   rockets: trim => {
     const g = new THREE.Group();
     g.add(box(0.46, 0.36, 0.5, darkMat, 0, 0.1, 0), box(0.48, 0.06, 0.52, trimMat(trim), 0, 0.3, 0));
@@ -95,6 +105,27 @@ const PART_BUILDERS: Record<PartId, (trim: number) => PartBuild> = {
     pivot.position.y = 0.1;
     g.add(box(0.36, 0.18, 0.36, darkMat), pivot);
     return { mesh: g, len: 0.6 };
+  },
+  mines: trim => {
+    // dispenser: a drum feeding a chute that points backward
+    const g = new THREE.Group();
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.4, 12), darkMat);
+    drum.rotation.z = Math.PI / 2;
+    drum.position.y = 0.15;
+    drum.castShadow = true;
+    g.add(drum, box(0.2, 0.12, 0.36, darkMat, 0, 0.05, -0.28), box(0.42, 0.05, 0.12, trimMat(trim), 0, 0.33, 0));
+    g.add(box(0.1, 0.06, 0.02, glowMat(0xff3b3b), 0, 0.15, 0.21));
+    return { mesh: g, len: 0 };
+  },
+  flak: trim => {
+    // twin short barrels on a swivel, raised to the sky
+    const g = new THREE.Group();
+    const pivot = new THREE.Group();
+    pivot.add(box(0.3, 0.2, 0.3, darkMat), barrel(0.045, 0.45, darkMat, -0.07, 0.05, 0.1), barrel(0.045, 0.45, darkMat, 0.07, 0.05, 0.1), box(0.32, 0.04, 0.1, trimMat(trim), 0, 0.12, -0.05));
+    pivot.rotation.x = -0.5;
+    pivot.position.y = 0.18;
+    g.add(box(0.2, 0.16, 0.2, darkMat, 0, 0.05, 0), pivot);
+    return { mesh: g, len: 0 };
   },
   drone: trim => {
     const g = new THREE.Group();
@@ -213,6 +244,13 @@ export function muzzleOffset(slot: ArmSlot): [number, number, number] {
 }
 
 // ---------------- animation ----------------
+/** Height of the mech above ground during a jump-jet leap. */
+export function jumpHeight(): number {
+  if (G.dashMod !== 'jump' || P.dashT <= 0) return 0;
+  const p = 1 - P.dashT / P.dashMax;
+  return 4 * JUMP.height * p * (1 - p);
+}
+
 
 /** Walk cycle: radians of phase per world unit travelled. */
 const STEP_RATE = 2.4;
@@ -220,7 +258,7 @@ const KICK_BACK = 0.2;
 
 export function animateMech(dt: number, playing: boolean): void {
   const r = rig;
-  r.root.position.set(P.x, 0, P.z);
+  r.root.position.set(P.x, jumpHeight(), P.z);
   r.root.rotation.y = P.legAng;
   r.torso.rotation.y = P.ang - P.legAng;
 

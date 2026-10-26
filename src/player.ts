@@ -1,12 +1,12 @@
 // Player movement, dash, mech passives, taking damage.
 import { pushOutPillars } from './arena';
 import { sfx } from './audio';
-import { damage } from './combat';
-import { ARENA, MECHS, SHIELD, TRAIL } from './config';
+import { damage, explode } from './combat';
+import { ARENA, JUMP, MECHS, SHIELD, TRAIL } from './config';
 import { flashVignette, sparks } from './fx';
 import { forNear } from './grid';
 import { moveInput } from './input';
-import { muzzleOffset } from './mech';
+import { jumpHeight, muzzleOffset } from './mech';
 import { G, P, S, aim } from './state';
 import { clamp } from './utils';
 
@@ -20,6 +20,7 @@ const DASH_TIME = 0.17;
 
 export const dashCooldown = (): number => MECHS[G.mech].dash.cd * S.dashMul;
 
+
 export function tryDash(): void {
   if (P.dashCharges <= 0 || P.dashT > 0) return;
   let [dx, dz] = moveInput();
@@ -28,9 +29,11 @@ export function tryDash(): void {
   else { dx /= l; dz /= l; }
   P.ddx = dx;
   P.ddz = dz;
-  P.dashT = DASH_TIME;
+  // jump jets: a longer, invulnerable leap instead of the ground dash
+  const jump = G.dashMod === 'jump';
+  P.dashT = P.dashMax = jump ? JUMP.time : DASH_TIME;
   if (P.dashCharges-- === MECHS[G.mech].dash.charges) P.dashCd = dashCooldown();
-  P.inv = Math.max(P.inv, 0.25);
+  P.inv = Math.max(P.inv, jump ? JUMP.time + 0.1 : 0.25);
   P.trailT = 0;
   sfx('dash');
 }
@@ -54,9 +57,18 @@ export function updatePlayer(dt: number): void {
   let vx: number, vz: number;
   if (P.dashT > 0) {
     P.dashT -= dt;
-    vx = P.ddx * DASH_SPEED;
-    vz = P.ddz * DASH_SPEED;
-    sparks(P.x, 0.5, P.z, 0x4cc9f0, 1, 2);
+    const jump = G.dashMod === 'jump';
+    const sp = jump ? JUMP.speed : DASH_SPEED;
+    vx = P.ddx * sp;
+    vz = P.ddz * sp;
+    if (jump) {
+      sparks(P.x, jumpHeight() + 0.6, P.z, 0xff8c42, 2, 3);
+      if (P.dashT <= 0) {
+        // landing slam
+        explode(P.x, P.z, JUMP.r, JUMP.dmg * S.dmg);
+        G.shake = Math.min(1.2, G.shake + 0.4);
+      }
+    } else sparks(P.x, 0.5, P.z, 0x4cc9f0, 1, 2);
     if (mech.trail && (P.trailT -= dt) <= 0) {
       P.trailT = TRAIL.every;
       G.trails.push({ x: P.x, z: P.z, life: TRAIL.life, tick: 0 });

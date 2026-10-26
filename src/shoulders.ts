@@ -48,12 +48,13 @@ export function updateShoulders(dt: number): void {
     if (sh.id === 'drone') continue;
     sh.cd -= dt;
     if (sh.cd > 0) continue;
-    const ok = sh.id === 'rockets' ? fireRockets(sh) : fireMortar(sh);
+    const ok = sh.id === 'rockets' ? fireRockets(sh) : sh.id === 'mortar' ? fireMortar(sh) : sh.id === 'mines' ? dropMine(sh) : fireFlak(sh);
     // nothing to shoot at: check again soon instead of waiting a full cycle
     sh.cd = ok ? SHOULDERS[sh.id].cd : 0.3;
   }
   updateRockets(dt);
   updateShells(dt);
+  updateMines(dt);
   updateDrones(dt);
 }
 
@@ -176,6 +177,73 @@ function updateShells(dt: number): void {
       explode(s.tx, s.tz, s.blast, s.dmg);
     }
   }
+}
+
+// ---------------- mines ----------------
+
+const MINE_ARM = 0.5;
+const MINE_LIFE = 25;
+
+/** Drops a mine under the mech unless the field is full. */
+function dropMine(sh: ShoulderState): boolean {
+  const d = SHOULDERS.mines;
+  if (G.mines.filter(m => !m.dead).length >= volley(sh)) return false;
+  G.mines.push({ x: P.x, z: P.z, arm: MINE_ARM, life: MINE_LIFE, dmg: d.dmg * S.dmg, blast: d.blast, dead: false });
+  sfx('mine');
+  return true;
+}
+
+function updateMines(dt: number): void {
+  const trigger = SHOULDERS.mines.range;
+  for (const m of G.mines) {
+    if (m.dead) continue;
+    m.arm -= dt;
+    m.life -= dt;
+    if (m.life <= 0) { m.dead = true; continue; }
+    if (m.arm > 0) continue;
+    let hit = false;
+    forNear(m.x, m.z, e => {
+      if (e.dead || (e.x - m.x) ** 2 + (e.z - m.z) ** 2 > (trigger + e.r) ** 2) return;
+      hit = true;
+      return true;
+    });
+    if (hit) {
+      m.dead = true;
+      explode(m.x, m.z, m.blast, m.dmg);
+    }
+  }
+}
+
+// ---------------- flak ----------------
+
+/** Shoots down enemy shells first (they threaten the mech), then kamikaze drones. */
+function fireFlak(sh: ShoulderState): boolean {
+  const d = SHOULDERS.flak, r2 = d.range * d.range;
+  const [x, z] = launchPoint(sh);
+  let n = volley(sh), fired = false;
+  const near = <T extends { x: number; z: number }>(list: T[], ok: (o: T) => boolean): T[] =>
+    list.filter(o => ok(o) && (o.x - P.x) ** 2 + (o.z - P.z) ** 2 < r2)
+      .sort((a, b) => (a.x - P.x) ** 2 + (a.z - P.z) ** 2 - ((b.x - P.x) ** 2 + (b.z - P.z) ** 2));
+  for (const s of near(G.eshots, s => s.life > 0)) {
+    if (n-- <= 0) break;
+    s.life = 0;
+    tracer(x, z, s.x, s.z, 0);
+    sparks(s.x, 1, s.z, d.color, 5, 4);
+    fired = true;
+  }
+  for (const e of near(G.enemies, e => !e.dead && e.type === 'runner')) {
+    if (n-- <= 0) break;
+    tracer(x, z, e.x, e.z, d.dmg * S.dmg);
+    fired = true;
+  }
+  if (fired) sfx('flak');
+  return fired;
+}
+
+/** Fast flak round from the shoulder; with 0 damage it is only the visual of a shot-down shell. */
+function tracer(x: number, z: number, tx: number, tz: number, dmg: number): void {
+  const dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz) || 1;
+  spawnBullet(x, z, 2.2, dx / l, dz / l, 60, dmg, dmg ? 0.4 : l / 60, 0, SHOULDERS.flak.color, 0.7);
 }
 
 // ---------------- drones ----------------

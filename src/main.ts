@@ -255,6 +255,7 @@ function update(dt: number): void {
   G.debris = G.debris.filter(d => d.life > 0);
   G.wrecks = G.wrecks.filter(w => w.life > 0);
   G.strikes = G.strikes.filter(s => s.t < s.dur);
+  G.mines = G.mines.filter(m => !m.dead);
 }
 
 let last = performance.now();

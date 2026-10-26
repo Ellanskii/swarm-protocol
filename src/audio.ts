@@ -1,7 +1,7 @@
 // Tiny WebAudio synth: every sound is generated, no assets.
 
 export type Sfx =
-  | 'mg' | 'cannon' | 'shotgun' | 'rocket' | 'mortar' | 'shield' | 'drone' | 'hit' | 'kill' | 'pick' | 'level' | 'hurt'
+  | 'mg' | 'cannon' | 'shotgun' | 'laser' | 'flak' | 'mine' | 'rocket' | 'mortar' | 'shield' | 'drone' | 'hit' | 'kill' | 'pick' | 'level' | 'hurt'
   | 'boom' | 'perfect' | 'jam' | 'reload' | 'dash' | 'boss';
 
 let actx: AudioContext | null = null;
@@ -10,7 +10,7 @@ let noiseBuf: AudioBuffer | null = null;
 let muted = false;
 const lastPlayed: Partial<Record<Sfx, number>> = {};
 /** Minimum gap between repeats, ms — keeps hordes from turning into white noise. */
-const THROTTLE: Partial<Record<Sfx, number>> = { hit: 40, pick: 35, kill: 30, drone: 60, boom: 50 };
+const THROTTLE: Partial<Record<Sfx, number>> = { hit: 40, pick: 35, kill: 30, drone: 60, boom: 50, laser: 70, flak: 50 };
 
 /** Must be called from a user gesture. */
 export function initAudio(): void {
@@ -72,6 +72,9 @@ export function sfx(n: Sfx): void {
     case 'mg': tone('square', 700, 220, 0.04, 0.03); noise(0.03, 0.05, 4000); break;
     case 'cannon': tone('square', 300, 70, 0.12, 0.06); noise(0.12, 0.16, 1800); break;
     case 'shotgun': noise(0.2, 0.25, 1300); tone('sawtooth', 160, 50, 0.12, 0.08); break;
+    case 'laser': tone('sine', 1900, 1300, 0.06, 0.018); break;
+    case 'flak': noise(0.05, 0.06, 3500); tone('square', 900, 300, 0.03, 0.02); break;
+    case 'mine': tone('square', 220, 160, 0.04, 0.03); break;
     case 'rocket': noise(0.3, 0.08, 2200); tone('sawtooth', 260, 900, 0.22, 0.03); break;
     case 'mortar': tone('sine', 180, 55, 0.22, 0.13); noise(0.1, 0.12, 900); break;
     case 'shield': tone('triangle', 1200, 500, 0.08, 0.05); break;

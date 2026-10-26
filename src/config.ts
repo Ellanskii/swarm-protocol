@@ -90,15 +90,18 @@ export const SHIELD = { delay: 3, regen: 15 } as const;
 /** Scout dash trail. */
 export const TRAIL = { every: 0.04, life: 1.4, tick: 0.3, r: 1.1, dmg: 12 } as const;
 
+/** Jump jets (rockets branch): the dash becomes a jump that slams the ground on landing. */
+export const JUMP = { time: 0.45, speed: 14, height: 2.2, r: 3.2, dmg: 40 } as const;
+
 export const MECH_ORDER: MechId[] = ['guard', 'scout'];
 
 // ---------------- weapons ----------------
 
 /** Arm weapons. */
-export type WeaponId = 'mg' | 'cannon' | 'shotgun';
+export type WeaponId = 'mg' | 'cannon' | 'shotgun' | 'laser';
 
 /** Slot-mounted models, see PART_BUILDERS in mech.ts. */
-export type PartId = 'mg' | 'cannon' | 'shotgun' | 'rockets' | 'mortar' | 'drone';
+export type PartId = 'mg' | 'cannon' | 'shotgun' | 'laser' | 'rockets' | 'mortar' | 'drone' | 'mines' | 'flak';
 
 export interface WeaponDef {
   name: string;
@@ -121,6 +124,8 @@ export interface WeaponDef {
   size: number;
   /** Screen shake per shot. */
   kick: number;
+  /** Hitscan beam instead of projectiles: hits everything on the line up to `range`, ignores shield auras. */
+  beam?: boolean;
   /** Model mounted in the arm slot. */
   part: PartId;
 }
@@ -129,9 +134,11 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   mg:      { name: 'Пулемёт',   dmg: 8,  rate: 11,  mag: 44, reload: 1.5, spread: 0.08, pellets: 1, speed: 52, range: 24, pierce: 0, size: 0.8, color: 0x7fe3ff, kick: 0.08, part: 'mg' },
   cannon:  { name: 'Автопушка', dmg: 22, rate: 3.2, mag: 13, reload: 1.4, spread: 0.03, pellets: 1, speed: 44, range: 30, pierce: 1, size: 1.6, color: 0xffd166, kick: 0.3,  part: 'cannon' },
   shotgun: { name: 'Дробовик',  dmg: 9,  rate: 1.4, mag: 6,  reload: 1.6, spread: 0.3,  pellets: 7, speed: 38, range: 15, pierce: 0, size: 1,   color: 0xffc36b, kick: 0.6,  part: 'shotgun' },
+  // many weak ticks: shreds crowds and shielded machines, barely scratches armor
+  laser:   { name: 'Лазер',     dmg: 3.2, rate: 20, mag: 90, reload: 1.6, spread: 0,    pellets: 1, speed: 0,  range: 20, pierce: 0, size: 1,   color: 0xff4df0, kick: 0.02, part: 'laser', beam: true },
 };
 
-export const WEAPON_ORDER: WeaponId[] = ['mg', 'cannon', 'shotgun'];
+export const WEAPON_ORDER: WeaponId[] = ['mg', 'cannon', 'shotgun', 'laser'];
 
 /** Arm weapon levels: picking an owned weapon again levels it up. */
 export const WEAPON_LEVELS = {
@@ -144,7 +151,7 @@ export const WEAPON_LEVELS = {
 
 // ---------------- shoulder systems ----------------
 
-export type ShoulderId = 'rockets' | 'mortar' | 'drone';
+export type ShoulderId = 'rockets' | 'mortar' | 'drone' | 'mines' | 'flak';
 
 export interface ShoulderDef {
   name: string;
@@ -166,6 +173,10 @@ export const SHOULDERS: Record<ShoulderId, ShoulderDef> = {
   rockets: { name: 'Ракеты',      desc: 'Залп самонаводящихся ракет по ближайшим целям', cd: 3.2, dmg: 24, count: 3, perLevel: 1, range: 22, blast: 2.2, color: 0xff8c42, max: 5 },
   mortar:  { name: 'Миномёт',     desc: 'Навесной выстрел по самой плотной толпе',     cd: 4.5, dmg: 60, count: 1, perLevel: 1, range: 20, blast: 3.6, color: 0xffb347, max: 4 },
   drone:   { name: 'Боевой дрон', desc: 'Дрон кружит рядом и стреляет по ближайшим',   cd: 0.65, dmg: 10, count: 1, perLevel: 1, range: 15, blast: 0,   color: 0x80ffdb, max: 4 },
+  // mines: `count` is how many can lie at once (+perLevel), `range` the trigger radius
+  mines:   { name: 'Минный раскладчик', desc: 'Сбрасывает мины на ходу. Мина взрывается, когда рядом машина', cd: 1.2, dmg: 38, count: 6, perLevel: 3, range: 1.3, blast: 2.6, color: 0xff3b3b, max: 4 },
+  // flak: shoots down enemy shells first, then kamikaze drones; `count` targets per burst
+  flak:    { name: 'Зенитка', desc: 'Сбивает вражеские снаряды и дронов-камикадзе', cd: 0.45, dmg: 14, count: 1, perLevel: 1, range: 11, blast: 0, color: 0xffe066, max: 4 },
 };
 
 // ---------------- enemies ----------------

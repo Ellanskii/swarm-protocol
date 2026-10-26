@@ -1,8 +1,9 @@
 // Arm weapons: every mounted gun fires at once, one shared SYNTHETIK-style active reload.
 import { sfx } from './audio';
-import { spawnBullet } from './combat';
+import { insidePillar } from './arena';
+import { damage, spawnBullet } from './combat';
 import { WEAPON_LEVELS, type WeaponId } from './config';
-import { showBanner } from './fx';
+import { showBanner, sparks } from './fx';
 import { fireHeld } from './input';
 import { muzzleOffset, setSlotPart, type ArmSlot } from './mech';
 import { muzzle } from './scene';
@@ -53,6 +54,10 @@ function fire(w: WeaponState): void {
   const base = Math.atan2(P.tx - mx, P.tz - mz);
 
   const perfect = G.reload.perfect;
+  if (d.beam) {
+    fireBeam(w, mx, y, mz, base, perfect);
+    return;
+  }
   const isShotgun = d.pellets > 1;
   const n = d.pellets + (S.multi + levelBarrels(w.lv)) * (isShotgun ? 2 : 1);
   const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * (perfect ? PERFECT_BONUS : 1);
@@ -74,6 +79,34 @@ function fire(w: WeaponState): void {
   G.shake = Math.min(1.2, G.shake + d.kick * 0.3);
   G.gunKick = 1;
   sfx(w.id);
+}
+
+/** Laser: hitscan line from the arm, stops at a pillar, hits every machine on it. */
+function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number, perfect: boolean): void {
+  const d = w.d, dx = Math.sin(ang), dz = Math.cos(ang);
+  let len = d.range;
+  for (let s = 0.5; s < d.range; s += 0.5) {
+    if (insidePillar(mx + dx * s, mz + dz * s)) { len = s; break; }
+  }
+  // extra barrels widen the beam instead of adding projectiles
+  const width = 0.15 + 0.12 * (S.multi + levelBarrels(w.lv));
+  const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * (perfect ? PERFECT_BONUS : 1);
+  for (const e of G.enemies) {
+    if (e.dead) continue;
+    const ox = e.x - mx, oz = e.z - mz;
+    const along = ox * dx + oz * dz;
+    if (along < 0 || along > len + e.r) continue;
+    const side = Math.abs(ox * dz - oz * dx);
+    if (side > e.r + width) continue;
+    damage(e, dmg, dx * 0.4 / e.r, dz * 0.4 / e.r, true, true);
+    if (Math.random() < 0.3) sparks(e.x, 1, e.z, d.color, 1, 3);
+  }
+  const color = perfect ? PERFECT_COLOR : d.color;
+  Object.assign(G.beam, { x1: mx, z1: mz, x2: mx + dx * len, z2: mz + dz * len, y, t: 0.06, col: color });
+  muzzle.position.set(mx, y + 0.2, mz);
+  muzzle.intensity = 25;
+  muzzle.color.setHex(color);
+  sfx('laser');
 }
 
 // ---------------- reload ----------------

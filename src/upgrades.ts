@@ -13,8 +13,8 @@ export interface Upgrade {
   name: string;
   desc: string;
   max: number;
-  /** New arm weapon or shoulder system: shown with its own card style and tag. */
-  kind?: 'weapon' | 'shoulder';
+  /** Arm weapon, shoulder system or dash module: shown with its own card style and tag. */
+  kind?: 'weapon' | 'shoulder' | 'dash';
   /** Extra condition to appear in the pool. */
   avail?(): boolean;
   /** Current level when it is tracked outside `G.upLv` (mounted weapons and systems). */
@@ -26,6 +26,7 @@ const WEAPON_DESC: Record<WeaponId, string> = {
   mg: 'Ручное оружие. Быстрые одиночные выстрелы, большой магазин',
   cannon: 'Ручное оружие. Тяжёлые снаряды прошивают врага насквозь',
   shotgun: 'Ручное оружие. Семь дробин, вблизи разносит всё',
+  laser: 'Ручное оружие. Непрерывный луч прожигает всех на линии и игнорирует щиты, но вязнет в броне',
 };
 
 /** Needs a free arm unless already mounted, then it levels up. */
@@ -34,7 +35,8 @@ const weaponUp = (id: WeaponId): Upgrade => ({
   get desc() {
     const w = G.owned[id];
     if (!w) return WEAPON_DESC[id];
-    const extra = levelBarrels(w.lv + 1) > levelBarrels(w.lv) ? (w.d.pellets > 1 ? ' и ещё две дробины' : ' и ещё один ствол') : '';
+    const more = w.d.beam ? ' и шире луч' : w.d.pellets > 1 ? ' и ещё две дробины' : ' и ещё один ствол';
+    const extra = levelBarrels(w.lv + 1) > levelBarrels(w.lv) ? more : '';
     return `+${WEAPON_LEVELS.dmg * 100}% урона${extra}`;
   },
   avail: () => !!G.owned[id] || freeArmSlot() !== null,
@@ -66,18 +68,26 @@ export const UPGRADES: Upgrade[] = [
   { id: 'pierce', name: 'Бронебойные', desc: 'Пуля прошивает ещё одного врага', max: 4, apply: () => { S.pierce++; } },
   { id: 'crit', name: 'Слабые места', desc: '+10% шанс крита, крит наносит ×2.2', max: 5, apply: () => { S.crit += 0.1; } },
   { id: 'explode', name: 'Разрывные', desc: '+12% шанс, что попадание взорвётся', max: 5, apply: () => { S.explode += 0.12; } },
-  { id: 'aura', name: 'Статическое поле', desc: 'Бьёт током всех рядом. С каждым уровнем шире и больнее', max: 5, apply: () => { S.aura++; } },
+  { id: 'aura', name: 'Тесла-катушка', desc: 'Бьёт током всех рядом. С каждым уровнем шире и больнее', max: 5, apply: () => { S.aura++; } },
   { id: 'speed', name: 'Сервоприводы', desc: '+10% к скорости бега', max: 5, apply: () => { S.speed *= 1.1; } },
   { id: 'hp', name: 'Бронепластины', desc: '+25 к максимуму HP и полное лечение', max: 6, apply: () => { P.maxHp += 25; P.hp = P.maxHp; } },
-  { id: 'regen', name: 'Нанорегенерация', desc: '+1 HP в секунду', max: 5, apply: () => { S.regen += 1; } },
+  { id: 'regen', name: 'Ремонтные наниты', desc: '+1 HP в секунду', max: 5, apply: () => { S.regen += 1; } },
   { id: 'magnet', name: 'Магнит', desc: '+50% к радиусу сбора опыта', max: 4, apply: () => { S.magnet *= 1.5; } },
   { id: 'dash', name: 'Ускоритель', desc: 'Рывок перезаряжается на 25% быстрее', max: 3, apply: () => { S.dashMul *= 0.75; } },
   weaponUp('mg'),
   weaponUp('cannon'),
   weaponUp('shotgun'),
+  weaponUp('laser'),
   shoulderUp('rockets'),
   shoulderUp('mortar'),
   shoulderUp('drone'),
+  shoulderUp('mines'),
+  shoulderUp('flak'),
+  // dash modules replace the plain dash; a mech carries only one
+  {
+    id: 'jump', name: 'Прыжковые двигатели', desc: 'Рывок становится прыжком: неуязвимость в полёте и удар по площади при приземлении',
+    max: 1, kind: 'dash', avail: () => G.dashMod === 'dash', apply: () => { G.dashMod = 'jump'; },
+  },
 ];
 
 const FALLBACK: Upgrade = { id: 'heal', name: 'Аптечка', desc: 'Полное лечение', max: Infinity, apply: () => { P.hp = P.maxHp; } };
@@ -115,7 +125,7 @@ export function openLevelUp(): void {
     const lv = levelOf(u);
     const b = document.createElement('button');
     b.className = 'card' + (u.kind ? ' weapon' : '');
-    const tag = lv ? `УР ${lv} → ${lv + 1}` : u.kind === 'weapon' ? 'НОВОЕ ОРУЖИЕ · РУКА' : u.kind === 'shoulder' ? 'НОВОЕ · ПЛЕЧО' : 'НОВОЕ';
+    const tag = lv ? `УР ${lv} → ${lv + 1}` : u.kind === 'weapon' ? 'НОВОЕ ОРУЖИЕ · РУКА' : u.kind === 'shoulder' ? 'НОВОЕ · ПЛЕЧО' : u.kind === 'dash' ? 'МОДУЛЬ РЫВКА' : 'НОВОЕ';
     b.innerHTML = `<small>${i + 1}</small><h3>${u.name}</h3><p>${u.desc}</p><em>${tag}</em>`;
     b.addEventListener('click', () => choose(i));
     return b;

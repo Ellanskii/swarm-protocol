@@ -205,6 +205,25 @@ for (const k of ENEMY_TYPES) {
 export const debrisMesh = pool(new THREE.BoxGeometry(0.24, 0.12, 0.32), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.4 }), LIMITS.debris);
 export const wreckMesh = pool(bx(1.3, 0.45, 1.5, 0, 0.22, 0), new THREE.MeshStandardMaterial({ color: 0x1b1f2e, roughness: 0.9, metalness: 0.2 }), LIMITS.wrecks);
 
+/** Mines lying on the ground; their color blinks when armed. */
+export const mineMesh = pool(
+  mergeGeometries([
+    new THREE.CylinderGeometry(0.28, 0.32, 0.12, 12).translate(0, 0.06, 0),
+    new THREE.CylinderGeometry(0.1, 0.1, 0.08, 8).translate(0, 0.15, 0),
+  ]),
+  new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }),
+  64,
+);
+
+/** The laser: one stretched glowing box, shown for a few frames after each shot. */
+export const beamMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5),
+  new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+);
+beamMesh.visible = false;
+beamMesh.frustumCulled = false;
+scene.add(beamMesh);
+
 /** Flat rings on the ground: artillery warnings and shield auras. Additive, so a dim color reads as faint. */
 export const groundRingMesh = pool(
   new THREE.RingGeometry(0.9, 1, 48).rotateX(-Math.PI / 2).translate(0, 0.06, 0),

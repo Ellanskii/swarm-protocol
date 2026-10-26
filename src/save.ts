@@ -9,11 +9,13 @@ export interface SaveData {
   cores: number;
   /** Tech node levels by id; missing means not bought. */
   tech: Record<string, number>;
+  /** Unlock nodes the player took out of the run pool. */
+  off: string[];
   runs: number;
   wins: number;
 }
 
-const fresh = (): SaveData => ({ v: VERSION, scrap: 0, cores: 0, tech: {}, runs: 0, wins: 0 });
+const fresh = (): SaveData => ({ v: VERSION, scrap: 0, cores: 0, tech: {}, off: [], runs: 0, wins: 0 });
 
 function load(): SaveData {
   try {

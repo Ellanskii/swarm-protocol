@@ -155,7 +155,8 @@ body.touch #touch { display: block; }
 #loot { margin-top: 4px; font-size: 13px; color: var(--fg); }
 #loot:empty { display: none; }
 .stats.loot b { display: inline; font-size: 24px; margin-right: 6px; }
-.row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; align-items: center; }
+.row.left { justify-content: flex-start; }
 .btn.ghost { border-color: var(--line); }
 .btn.ghost:hover, .btn.ghost:focus-visible { background: var(--line); color: var(--fg); }
 #oTitle.win { color: var(--accent); }
@@ -187,8 +188,11 @@ body.touch #touch { display: block; }
 .tnode .lv { display: flex; justify-content: space-between; gap: 6px; font: 600 11px var(--mono); letter-spacing: .04em; }
 .tnode.ballistics { --c: var(--gold); }
 .tnode.rockets { --c: #ff8c42; }
-.tnode.energy { --c: #80ffdb; }
-.tnode.hull { --c: var(--accent); }
+.tnode.energy { --c: var(--accent); }
+.tnode.robotics { --c: #80ffdb; }
+.tnode.hull { --c: #cfd6e6; }
+.tnode.off { opacity: .55; }
+.tnode.off .lv { color: var(--muted); }
 .tnode.core { --c: #fff; width: 170px; align-items: center; text-align: center; border-left-width: 1px; border-color: #fff; box-shadow: 0 0 18px rgba(255, 255, 255, .15); }
 .tnode.locked { border-color: #262c4d; border-left-color: color-mix(in srgb, var(--c) 35%, #262c4d); }
 /* dim the content, not the card: links must not show through */
@@ -214,7 +218,7 @@ body.touch #touch { display: block; }
 #detail em { font-style: normal; font: 600 12px var(--mono); color: var(--accent); }
 #detail p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.4; }
 #dCost { font: 600 14px var(--mono); }
-#detail .btn { justify-self: start; padding: 8px 22px; font-size: 15px; }
+#detail .btn { padding: 8px 22px; font-size: 15px; }
 #detail .btn:disabled { opacity: .35; cursor: default; background: transparent; color: var(--fg); }
 @media (max-width: 700px) {
   /* on phones the detail card would cover the action buttons: stack them above it */
