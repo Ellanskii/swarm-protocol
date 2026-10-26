@@ -2,12 +2,12 @@
 import * as THREE from 'three';
 import { sfx } from './audio';
 import { explode, spawnBullet } from './combat';
-import { ARENA, MECHS, SHOULDERS, type ShoulderId } from './config';
+import { ARENA, BRACE, MECHS, SHOULDERS, type ShoulderId } from './config';
 import { ringBurst, sparks } from './fx';
 import { forNear } from './grid';
 import { setSlotPart, type SlotId } from './mech';
 import { droneGeo, droneMat, scene } from './scene';
-import { G, P, S, type Enemy, type ShoulderState } from './state';
+import { G, P, S, braced, type Enemy, type ShoulderState } from './state';
 import { rand } from './utils';
 
 const SLOT_ORDER: SlotId[] = ['shoulderR', 'shoulderL'];
@@ -46,7 +46,7 @@ function aliveInRange(range: number): Enemy[] {
 export function updateShoulders(dt: number): void {
   for (const sh of G.shoulders) {
     if (sh.id === 'drone') continue;
-    sh.cd -= dt;
+    sh.cd -= dt * (braced() ? BRACE.shoulderRate : 1);
     if (sh.cd > 0) continue;
     const ok = sh.id === 'rockets' ? fireRockets(sh) : sh.id === 'mortar' ? fireMortar(sh) : sh.id === 'mines' ? dropMine(sh)
       : sh.id === 'repair' ? repair(sh) : fireFlak(sh);

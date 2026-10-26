@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { JUMP, MECHS, type MechDef, type PartId } from './config';
 import { mechRoot } from './scene';
-import { G, P } from './state';
+import { G, P, braced } from './state';
 
 export type ArmSlot = 'armR' | 'armL';
 export type SlotId = ArmSlot | 'shoulderR' | 'shoulderL';
@@ -280,13 +280,17 @@ export function jumpHeight(): number {
 }
 
 
+let crouch = 0;
+
 /** Walk cycle: radians of phase per world unit travelled. */
 const STEP_RATE = 2.4;
 const KICK_BACK = 0.2;
 
 export function animateMech(dt: number, playing: boolean): void {
   const r = rig;
-  r.root.position.set(P.x, jumpHeight(), P.z);
+  // a braced Artillerist squats onto its supports
+  crouch += ((braced() ? 1 : 0) - crouch) * (1 - Math.exp(-12 * dt));
+  r.root.position.set(P.x, jumpHeight() - crouch * 0.14 * r.def.scale, P.z);
   r.root.rotation.y = P.legAng;
   r.torso.rotation.y = P.ang - P.legAng;
 

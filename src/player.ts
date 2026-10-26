@@ -7,7 +7,7 @@ import { flashVignette, sparks } from './fx';
 import { forNear } from './grid';
 import { moveInput } from './input';
 import { jumpHeight, muzzleOffset } from './mech';
-import { G, P, S, aim, type DashMod } from './state';
+import { G, P, S, aim, braced, type DashMod } from './state';
 import { clamp } from './utils';
 
 const RADIUS = 0.5;
@@ -108,6 +108,13 @@ export function updatePlayer(dt: number): void {
     vz = mz * sp;
   }
   P.moving = !!(mx || mz);
+  // the Artillerist plants its supports after standing still for a moment
+  const wasBraced = braced();
+  P.still = P.moving || P.dashT > 0 ? 0 : P.still + dt;
+  if (!wasBraced && braced()) {
+    for (const s of [-1, 1]) sparks(P.x + Math.cos(P.legAng) * 0.5 * s, 0.1, P.z - Math.sin(P.legAng) * 0.5 * s, 0xff8c42, 5, 3);
+    sfx('brace');
+  }
   P.speed = Math.hypot(vx, vz);
   if (P.speed > 0.1) P.legAng = turnToward(P.legAng, Math.atan2(vx, vz), LEG_TURN * dt);
   P.x += vx * dt;
@@ -154,6 +161,7 @@ export function updateTrails(dt: number): void {
 export function hurt(amount: number): void {
   if (P.inv > 0 || G.state !== 'play' || G.evacT > 0) return;
   P.calm = 0;
+  amount *= 1 - (MECHS[G.mech].armor ?? 0);
   if (S.reactive && G.reactiveCd <= 0) {
     G.reactiveCd = REACTIVE.cd;
     explode(P.x, P.z, REACTIVE.r, REACTIVE.dmg * (1 + 0.5 * (S.reactive - 1)) * S.dmg);

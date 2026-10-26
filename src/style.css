@@ -136,8 +136,13 @@ body.touch #touch { display: block; }
 .toggle.on { border-color: var(--accent); color: var(--fg); }
 .toggle.update { border-color: var(--gold); color: var(--gold); }
 .btn:hover, .btn:focus-visible { background: var(--accent); color: var(--bg); outline: none; }
-#mechs { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-.card.mech { width: 220px; min-height: 0; }
+/* one row of mechs; on narrow screens it scrolls sideways instead of wrapping */
+#mechs { flex: none; display: flex; gap: 10px; max-width: 100%; overflow-x: auto; padding: 6px 4px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+#mechs::before, #mechs::after { content: ""; margin: auto; } /* centers the row while it fits */
+.card.mech { flex: none; width: 176px; min-height: 0; padding: 12px 14px; gap: 5px; scroll-snap-align: center; }
+.card.mech h3 { font-size: 18px; }
+.card.mech span { line-height: 1.4; }
+#mechInfo { min-height: 1.5em; color: var(--fg); font-size: 14px; }
 .card.mech.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(76, 201, 240, .25); }
 .card.mech span { font-size: 12px; color: var(--fg); }
 #cards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 900px; }
@@ -245,6 +250,10 @@ body.touch #touch { display: block; }
   #detail h3 { font-size: 16px; }
   #detail p { font-size: 13px; }
 }
+/* short desktop windows: drop the intro so the mech row and buttons stay on screen */
+@media (max-height: 800px) {
+  #start > p:first-of-type { display: none; }
+}
 /* phones in landscape: the menus must fit without scrolling */
 @media (max-height: 520px) {
   .screen { gap: 10px; }
@@ -254,9 +263,10 @@ body.touch #touch { display: block; }
   .screen h2 { font-size: 26px; }
   .screen p { font-size: 13px; line-height: 1.35; }
   #start > p:first-of-type { display: none; }
-  .card.mech { width: 200px; padding: 10px 12px; gap: 4px; }
-  .card.mech p { display: none; }
-  .card.mech h3 { font-size: 17px; }
+  .card.mech { width: 156px; padding: 8px 10px; gap: 3px; }
+  .card.mech h3 { font-size: 16px; }
+  .card.mech span { font-size: 11px; }
+  #mechInfo { font-size: 12px; }
   .btn { padding: 9px 26px; font-size: 16px; }
   .stats { gap: 18px; }
   .stats b { font-size: 22px; }

@@ -1,11 +1,11 @@
 // Player projectiles, damage, explosions, enemy death.
 import { insidePillar } from './arena';
 import { sfx } from './audio';
-import { ARENA, CLUSTER, DESIGNATOR, LIMITS, LOOT, NAPALM, PACING, SHIELD_AURA } from './config';
+import { ARENA, BRACE, CLUSTER, DESIGNATOR, LIMITS, LOOT, NAPALM, PACING, SHIELD_AURA } from './config';
 import { dmgNumber, machineDeath, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { dropGem, spawnPickup } from './pickups';
-import { G, S, type Enemy } from './state';
+import { G, S, braced, type Enemy } from './state';
 import { rand } from './utils';
 
 export function spawnBullet(
@@ -69,6 +69,7 @@ export function damage(e: Enemy, amount: number, kx: number, kz: number, canCrit
   let crit = false;
   if (canCrit && Math.random() < S.crit) { amount *= CRIT_MULT; crit = true; }
   if (e.mark > 0) amount *= 1 + DESIGNATOR.bonus;
+  if (braced()) amount *= BRACE.dmg;
   // armor takes a flat bite out of every hit (never more than 75%), the shield aura halves what is left
   const armor = e.t.armor - pen;
   if (armor > 0) amount = Math.max(amount * 0.25, amount - armor);

@@ -44,7 +44,7 @@ export const LOOT = {
 
 // ---------------- mechs ----------------
 
-export type MechId = 'guard' | 'scout';
+export type MechId = 'guard' | 'scout' | 'bastion' | 'artillery' | 'carrier';
 
 /** Proportions of the procedural model, world units before `scale`. */
 export interface MechFrame {
@@ -69,6 +69,16 @@ export interface MechDef {
   shield: number;
   /** Dash leaves a damaging trail. */
   trail: boolean;
+  /** Share of incoming damage the hull shrugs off. */
+  armor?: number;
+  /** Machines that ram the mech bounce off and take damage, see REPEL. */
+  repel?: boolean;
+  /** Standing still braces the mech, see BRACE. */
+  brace?: boolean;
+  /** Built-in drones that take no shoulder slot. */
+  bay?: number;
+  /** Shoulder system mounted at the start, on top of `start`. */
+  startShoulder?: ShoulderId;
   scale: number;
   frame: MechFrame;
   /** Armor trim and glow color. */
@@ -86,7 +96,33 @@ export const MECHS: Record<MechId, MechDef> = {
     hp: 75, speed: 8.2, turnRate: 13, dash: { charges: 2, cd: 1.6 }, shoulders: 1, start: 'mg', shield: 0, trail: true,
     scale: 0.92, frame: { hipH: 1.25, legW: 0.18, torso: [0.78, 0.5, 0.66] }, trim: 0x80ffdb,
   },
+  // ballistics tier 3: a walking wall for close fights
+  bastion: {
+    name: 'Бастион', role: 'Тяжёлый, ближний бой', passive: 'Корпус гасит 20% урона, врезавшиеся машины отлетают и получают урон',
+    hp: 170, speed: 5.2, turnRate: 6.5, dash: { charges: 1, cd: 3 }, shoulders: 2, start: 'shotgun', shield: 0, trail: false,
+    armor: 0.2, repel: true,
+    scale: 1.18, frame: { hipH: 1.0, legW: 0.3, torso: [1.2, 0.75, 0.95] }, trim: 0xffd166,
+  },
+  // rockets tier 3: fragile, deadly when planted
+  artillery: {
+    name: 'Артиллерист', role: 'Дальний бой', passive: 'Стоя на месте, упирается опорами: +30% урона, плечи перезаряжаются на 30% быстрее',
+    hp: 85, speed: 6.4, turnRate: 8, dash: { charges: 1, cd: 2.2 }, shoulders: 2, start: 'launcher', startShoulder: 'mortar', shield: 0, trail: false,
+    brace: true,
+    scale: 1.02, frame: { hipH: 1.0, legW: 0.22, torso: [1.05, 0.55, 0.85] }, trim: 0xff8c42,
+  },
+  // robotics tier 3: fights through its drones
+  carrier: {
+    name: 'Носитель', role: 'Поддержка, дроны', passive: 'Ангар с двумя боевыми дронами, которые не занимают плечо',
+    hp: 95, speed: 6.8, turnRate: 9, dash: { charges: 1, cd: 2 }, shoulders: 1, start: 'mg', shield: 0, trail: false,
+    bay: 2,
+    scale: 1.05, frame: { hipH: 1.15, legW: 0.22, torso: [1.1, 0.6, 1.0] }, trim: 0x7dff9a,
+  },
 };
+
+/** Bastion: knockback and damage to a machine that touches the mech, at most once per `cd` per machine. */
+export const REPEL = { push: 14, dmg: 18, cd: 0.6 } as const;
+/** Artillerist: standing still for `delay` seconds braces the mech. */
+export const BRACE = { delay: 0.5, dmg: 1.3, shoulderRate: 1.3 } as const;
 
 /** Guard shield: delay after the last hit, then regen per second. */
 export const SHIELD = { delay: 3, regen: 15 } as const;
@@ -113,7 +149,7 @@ export const OVERLOAD = { r: 5.5, dmg: 70 } as const;
 /** Target designator (robotics): marks the toughest machines nearby, one per level; marked ones take extra damage. */
 export const DESIGNATOR = { every: 1.5, life: 4, range: 18, bonus: 0.3 } as const;
 
-export const MECH_ORDER: MechId[] = ['guard', 'scout'];
+export const MECH_ORDER: MechId[] = ['guard', 'scout', 'bastion', 'artillery', 'carrier'];
 
 // ---------------- weapons ----------------
 

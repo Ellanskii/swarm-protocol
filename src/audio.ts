@@ -2,7 +2,7 @@
 
 export type Sfx =
   | 'mg' | 'cannon' | 'shotgun' | 'laser' | 'railgun' | 'launcher' | 'repair' | 'flak' | 'mine' | 'rocket' | 'mortar' | 'shield' | 'drone' | 'hit' | 'kill' | 'pick' | 'level' | 'hurt'
-  | 'boom' | 'perfect' | 'jam' | 'reload' | 'dash' | 'boss' | 'vent' | 'overheat';
+  | 'boom' | 'perfect' | 'jam' | 'reload' | 'dash' | 'boss' | 'vent' | 'overheat' | 'brace';
 
 let actx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -92,6 +92,7 @@ export function sfx(n: Sfx): void {
     case 'jam': tone('square', 140, 90, 0.22, 0.08); break;
     case 'reload': tone('square', 300, 300, 0.03, 0.03); break;
     case 'dash': noise(0.12, 0.1, 2500); break;
+    case 'brace': tone('square', 160, 90, 0.12, 0.06); noise(0.08, 0.1, 900); break;
     case 'vent': noise(0.4, 0.14, 5000); break;
     case 'overheat': tone('sawtooth', 600, 120, 0.4, 0.09); noise(0.5, 0.16, 3000); break;
     case 'boss': tone('sawtooth', 90, 45, 1.2, 0.18); break;

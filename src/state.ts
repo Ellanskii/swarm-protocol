@@ -2,7 +2,7 @@
 // instead of reassigning exports, so everyone sees the same data.
 import * as THREE from 'three';
 import {
-  ENEMY_TYPES, HEAT, MECHS, WEAPONS, xpFor,
+  BRACE, ENEMY_TYPES, HEAT, MECHS, WEAPONS, xpFor,
   type EnemyDef, type EnemyType, type MechId, type ShoulderId, type WeaponDef, type WeaponId,
 } from './config';
 import type { ArmSlot, SlotId } from './mech';
@@ -87,6 +87,8 @@ export interface Player {
   /** Current speed, world units per second. */
   speed: number;
   moving: boolean;
+  /** Seconds standing still, for the Artillerist brace. */
+  still: number;
 }
 
 export interface WeaponState {
@@ -134,6 +136,8 @@ export interface Enemy {
   shielded: boolean;
   /** Seconds left on a target designator mark. */
   mark: number;
+  /** Bastion repel cooldown for this machine. */
+  bump: number;
   /** Last dash that hit this machine, so a ram or phase dash hits it once. */
   dashHit: number;
   dead: boolean;
@@ -274,6 +278,9 @@ export function mkWeapon(id: WeaponId, slot: ArmSlot): WeaponState {
 
 export const armWeapons = (): WeaponState[] => Object.values(G.owned);
 
+/** Artillerist planted on its supports: more damage, faster shoulders. */
+export const braced = (): boolean => !!MECHS[G.mech].brace && P.still >= BRACE.delay;
+
 /** Resets stats, player and world data. Scene objects must be removed by the caller first. */
 export function resetState(): void {
   Object.assign(S, {
@@ -285,7 +292,7 @@ export function resetState(): void {
   Object.assign(P, {
     x: 0, z: 0, ang: 0, legAng: 0, walkPh: 0, tx: 0, tz: 1, hp: mech.hp, maxHp: mech.hp,
     shield: mech.shield, maxShield: mech.shield, calm: 0, inv: 0, blink: 0,
-    dashCharges: mech.dash.charges, dashCd: 0, trailT: 0, dashT: 0, dashMax: 1, ddx: 0, ddz: 1,
+    dashCharges: mech.dash.charges, dashCd: 0, trailT: 0, dashT: 0, dashMax: 1, ddx: 0, ddz: 1, still: 0,
     level: 1, xp: 0, xpNext: xpFor(1), mx: 0, my: 1, mz: 0, speed: 0, moving: false,
   } satisfies Player);
   Object.assign(G, {

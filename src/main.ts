@@ -16,7 +16,7 @@ import { gainXP, removeAllPickups, updateGems, updatePickups } from './pickups';
 import { tryDash, updatePlayer, updateTrails } from './player';
 import { camTarget, renderWorld, updateCamera } from './render';
 import { camera, renderer, scene } from './scene';
-import { installShoulder, removeAllDrones, updateShoulders } from './shoulders';
+import { addDrone, installShoulder, removeAllDrones, updateShoulders } from './shoulders';
 import { persist, resetSave, save } from './save';
 import { G, P, S, aim, resetState } from './state';
 import { applyTech, mechUnlocked } from './tech';
@@ -37,6 +37,9 @@ function resetGame(): void {
   clearNumbers();
   resetHUD();
   syncArms();
+  const mech = MECHS[G.mech];
+  if (mech.startShoulder) installShoulder(mech.startShoulder);
+  for (let i = 0; i < (mech.bay ?? 0); i++) addDrone();
 }
 
 function showOnly(id: 'start' | 'levelup' | 'pause' | 'over' | null): void {
@@ -120,7 +123,7 @@ function allUps(on = !G.allUps): boolean {
 
 // ---------------- input ----------------
 
-const DIGITS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2 };
+const DIGITS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4 };
 
 bindInput({
   onGesture: initAudio,
@@ -170,6 +173,7 @@ function selectMech(id: MechId): void {
   G.mech = id;
   try { localStorage.setItem(MECH_KEY, id); } catch { /* storage blocked */ }
   for (const c of mechCards.children) c.classList.toggle('on', (c as HTMLElement).dataset.mech === id);
+  $('mechInfo').textContent = MECHS[id].passive;
   resetGame(); // rebuilds the model, so the title screen shows the chosen mech
 }
 
@@ -182,12 +186,14 @@ function renderMechs(): void {
     const b = document.createElement('button');
     b.className = `card mech${id === G.mech ? ' on' : ''}${open ? '' : ' locked'}`;
     b.dataset.mech = id;
-    const dash = m.dash.charges > 1 ? `${m.dash.charges} заряда` : '1 заряд';
+    const extra = (m.dash.charges > 1 ? ` · рывков ${m.dash.charges}` : '') + (m.bay ? ` · дронов ${m.bay}` : '');
+    // the passive of the selected mech is shown once under the row, so five cards fit on one line
     b.innerHTML = `<small class="desk-only">${i + 1}</small><h3>${m.name}</h3><em>${open ? m.role : 'Открывается на базе'}</em>`
-      + `<p>${m.passive}</p><span class="mono">HP ${m.hp} · рывок ${dash} · плеч ${m.shoulders}</span>`;
+      + `<span class="mono">HP ${m.hp} · плеч ${m.shoulders}${extra}</span>`;
     b.addEventListener('click', () => selectMech(id));
     return b;
   }));
+  $('mechInfo').textContent = MECHS[G.mech].passive;
 }
 
 try {

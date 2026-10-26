@@ -2,11 +2,11 @@
 import { insidePillar, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, selfDestruct } from './combat';
-import { ARENA, ARTILLERY, DECOY, ENEMIES, LIMITS, LOOT, PACING, SHIELD_AURA, type EnemyType } from './config';
+import { ARENA, ARTILLERY, DECOY, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
 import { ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { hurt } from './player';
-import { G, P, type Enemy } from './state';
+import { G, P, S, type Enemy } from './state';
 import { clamp, rand } from './utils';
 
 export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null {
@@ -16,7 +16,7 @@ export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null 
   const hp = t.hp * (1 + (G.time / 60) * PACING.hpPerMinute);
   const e: Enemy = {
     id: G.nextId++, type, t, x, z, kx: 0, kz: 0, hp, maxHp: hp, r: t.r,
-    flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0, mrot: 0, shielded: false, mark: 0, dashHit: 0,
+    flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0, mrot: 0, shielded: false, mark: 0, dashHit: 0, bump: 0,
     dead: false, born: G.time, boss: false,
   };
   G.enemies.push(e);
@@ -180,6 +180,7 @@ export function updateEnemies(dt: number): void {
       e.mrot += Math.atan2(Math.sin(want - e.mrot), Math.cos(want - e.mrot)) * hullTurn;
     }
     e.flash -= dt;
+    e.bump -= dt;
 
     const toMech = gx === P.x && gz === P.z ? d : Math.hypot(P.x - e.x, P.z - e.z) || 0.001;
     if (e.type === 'runner' && d < e.r + 0.5) {
@@ -188,6 +189,13 @@ export function updateEnemies(dt: number): void {
       selfDestruct(e);
     } else if (toMech < e.r + 0.5) {
       hurt(e.t.dmg * dmgMul);
+      // Bastion: machines bounce off the hull and get dented
+      if (MECHS[G.mech].repel && e.bump <= 0) {
+        e.bump = REPEL.cd;
+        const ux = (e.x - P.x) / toMech, uz = (e.z - P.z) / toMech;
+        damage(e, REPEL.dmg * S.dmg, ux * REPEL.push / e.r, uz * REPEL.push / e.r, false);
+        sparks(e.x - ux * e.r, 0.8, e.z - uz * e.r, 0xffd166, 6, 5);
+      }
       e.kx -= (P.x - e.x) / toMech * 6;
       e.kz -= (P.z - e.z) / toMech * 6;
     }
