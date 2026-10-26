@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- App icon: front view of the player mech. Square, safe for maskable crops (content within the inner 80%). -->
+  <rect width="512" height="512" fill="#0b0d17"/>
+  <circle cx="256" cy="256" r="190" fill="#141a30"/>
+  <!-- legs -->
+  <rect x="186" y="318" width="44" height="96" rx="6" fill="#dfe8f5"/>
+  <rect x="282" y="318" width="44" height="96" rx="6" fill="#dfe8f5"/>
+  <rect x="172" y="404" width="72" height="20" rx="4" fill="#252b3d"/>
+  <rect x="268" y="404" width="72" height="20" rx="4" fill="#252b3d"/>
+  <!-- pelvis -->
+  <rect x="196" y="298" width="120" height="34" rx="6" fill="#252b3d"/>
+  <!-- torso -->
+  <rect x="166" y="150" width="180" height="150" rx="12" fill="#dfe8f5"/>
+  <rect x="166" y="150" width="180" height="28" rx="12" fill="#4cc9f0"/>
+  <!-- visor -->
+  <rect x="206" y="200" width="100" height="22" rx="4" fill="#ffffff"/>
+  <rect x="206" y="200" width="100" height="22" rx="4" fill="#7fe3ff" opacity=".55"/>
+  <!-- shoulders and arm guns -->
+  <rect x="110" y="168" width="56" height="64" rx="8" fill="#4cc9f0"/>
+  <rect x="346" y="168" width="56" height="64" rx="8" fill="#4cc9f0"/>
+  <rect x="118" y="232" width="40" height="92" rx="5" fill="#252b3d"/>
+  <rect x="354" y="232" width="40" height="92" rx="5" fill="#252b3d"/>
+  <rect x="124" y="318" width="28" height="10" fill="#ffd166"/>
+  <rect x="360" y="318" width="28" height="10" fill="#ffd166"/>
+  <!-- shoulder rockets -->
+  <rect x="200" y="112" width="48" height="38" rx="4" fill="#252b3d"/>
+  <rect x="264" y="112" width="48" height="38" rx="4" fill="#252b3d"/>
+  <circle cx="214" cy="126" r="6" fill="#ff8c42"/>
+  <circle cx="234" cy="126" r="6" fill="#ff8c42"/>
+  <circle cx="278" cy="126" r="6" fill="#ff8c42"/>
+  <circle cx="298" cy="126" r="6" fill="#ff8c42"/>
+</svg>
