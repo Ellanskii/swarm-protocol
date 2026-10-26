@@ -4,7 +4,8 @@ import { MECHS, type MechDef, type PartId } from './config';
 import { mechRoot } from './scene';
 import { G, P } from './state';
 
-export type SlotId = 'armR' | 'armL' | 'shoulderR' | 'shoulderL';
+export type ArmSlot = 'armR' | 'armL';
+export type SlotId = ArmSlot | 'shoulderR' | 'shoulderL';
 
 interface Leg { hip: THREE.Group; knee: THREE.Group }
 
@@ -205,9 +206,9 @@ export function setSlotPart(slot: SlotId, id: PartId | null): void {
   rig.parts[slot] = { id, mesh, len };
 }
 
-/** Right arm muzzle relative to the mech center, in torso space: forward, right, height. */
-export function muzzleOffset(): [number, number, number] {
-  const s = rig.def.scale, arm = rig.slots.armR.position, len = rig.parts.armR?.len ?? 0.3;
+/** Arm muzzle relative to the mech center, in torso space: forward, right, height. */
+export function muzzleOffset(slot: ArmSlot): [number, number, number] {
+  const s = rig.def.scale, arm = rig.slots[slot].position, len = rig.parts[slot]?.len ?? 0.3;
   return [(arm.z + ARM_MOUNT_Z + len) * s, arm.x * s, (rig.torso.position.y + arm.y + ARM_MOUNT_Y) * s];
 }
 
@@ -239,8 +240,10 @@ export function animateMech(dt: number, playing: boolean): void {
   r.torso.rotation.z = Math.sin(ph) * 0.04 * a;
 
   G.gunKick *= Math.exp(-18 * dt);
-  const gun = r.parts.armR?.mesh;
-  if (gun) gun.position.z = ARM_MOUNT_Z - G.gunKick * KICK_BACK;
+  for (const slot of ['armR', 'armL'] as const) {
+    const gun = r.parts[slot]?.mesh;
+    if (gun) gun.position.z = ARM_MOUNT_Z - G.gunKick * KICK_BACK;
+  }
 
   if (P.maxShield) {
     shieldBubble.material.opacity = 0.14 * (P.shield / P.maxShield) * (1 + Math.sin(G.time * 4) * 0.15);

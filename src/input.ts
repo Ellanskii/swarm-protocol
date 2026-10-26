@@ -1,14 +1,13 @@
 // Keyboard / mouse / touch state and aiming.
 import * as THREE from 'three';
 import { camera } from './scene';
-import { G, P, aim, curWeapon, type Enemy } from './state';
+import { G, P, aim, armWeapons, type Enemy } from './state';
 
 export const keys: Record<string, boolean> = {};
 export const mouse = { x: innerWidth / 2, y: innerHeight / 2, down: false };
 
 export interface InputHandlers {
   onKey(code: string): void;
-  onWheel(dir: 1 | -1): void;
   onFocusLost(): void;
   onGesture(): void;
 }
@@ -128,7 +127,6 @@ export function bindInput(h: InputHandlers): void {
   });
   addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
   addEventListener('contextmenu', e => e.preventDefault());
-  addEventListener('wheel', e => h.onWheel(e.deltaY > 0 ? 1 : -1), { passive: true });
 
   addEventListener('pointerdown', e => {
     if (e.pointerType !== 'touch') return;
@@ -223,7 +221,7 @@ export function updateAim(): void {
       const l = Math.hypot(stickR.dx, stickR.dy);
       touchDir.x = stickR.dx / l;
       touchDir.z = stickR.dy / l;
-    } else if (touch.autoAim && !stickR && (target = nearestEnemy(curWeapon().d.range))) {
+    } else if (touch.autoAim && !stickR && (target = nearestEnemy(Math.max(...armWeapons().map(w => w.d.range))))) {
       aim.set(target.x, 1, target.z);
       return;
     } else {

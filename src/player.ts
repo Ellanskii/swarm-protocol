@@ -77,10 +77,10 @@ export function updatePlayer(dt: number): void {
 
   if (S.regen) P.hp = Math.min(P.maxHp, P.hp + S.regen * dt);
 
-  // the torso turns toward the aim point with inertia; muzzle sits on the right arm
+  // the torso turns toward the aim point with inertia; the aim laser starts at the right arm
   P.ang = turnToward(P.ang, Math.atan2(aim.x - P.x, aim.z - P.z), mech.turnRate * dt);
   const fx = Math.sin(P.ang), fz = Math.cos(P.ang);
-  const [fwd, right, y] = muzzleOffset();
+  const [fwd, right, y] = muzzleOffset('armR');
   P.mx = P.x + fx * fwd + fz * right;
   P.mz = P.z + fz * fwd - fx * right;
   P.my = y;

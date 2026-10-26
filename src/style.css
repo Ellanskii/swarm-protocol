@@ -58,16 +58,17 @@ body.menu { cursor: auto; }
 
 /* ---- bottom: weapon, reload ---- */
 #br { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); text-align: right; }
-#wname { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-#ammo { font-size: 44px; font-weight: 600; line-height: 1; }
-#ammo small { font-size: 18px; color: var(--muted); }
-#ammo.perfect { color: var(--gold); text-shadow: 0 0 14px rgba(255, 209, 102, .6); }
+#ammo { display: grid; gap: 4px; }
+#ammo > div { display: flex; justify-content: flex-end; align-items: baseline; gap: 12px; }
+#ammo > div > span:first-child { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+#ammo > div > span:first-child b { color: var(--fg); font-family: var(--mono); }
+#ammo .mono { font-size: 30px; font-weight: 600; line-height: 1; min-width: 4.5ch; }
+#ammo small { font-size: 15px; color: var(--muted); }
+#ammo.perfect .mono { color: var(--gold); text-shadow: 0 0 14px rgba(255, 209, 102, .6); }
 #slots { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
 #slots span { font-size: 11px; padding: 3px 7px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); color: var(--muted); }
-#slots span.on { border-color: var(--accent); color: var(--fg); }
 #slots span.sh { border-color: var(--violet); }
 #slots b { font-family: var(--mono); color: var(--fg); }
-body.touch #slots span[data-w] { pointer-events: auto; padding: 8px 10px; }
 
 #reload { position: absolute; left: 50%; bottom: calc(120px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(340px, 80vw); text-align: center; }
 #rtrack { position: relative; height: 14px; background: rgba(255, 255, 255, .08); border: 1px solid var(--line); border-radius: 2px; }

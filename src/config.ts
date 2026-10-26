@@ -85,10 +85,10 @@ export type PartId = 'mg' | 'cannon' | 'shotgun' | 'rockets' | 'mortar' | 'drone
 
 export interface WeaponDef {
   name: string;
-  key: number;
   dmg: number;
   /** Shots per second. */
   rate: number;
+  /** Sized so every magazine runs dry after about the same time of fire, see the shared reload. */
   mag: number;
   /** Reload time, seconds. */
   reload: number;
@@ -109,12 +109,21 @@ export interface WeaponDef {
 }
 
 export const WEAPONS: Record<WeaponId, WeaponDef> = {
-  mg:      { name: 'Пулемёт',   key: 1, dmg: 8,  rate: 11,  mag: 40, reload: 1.5, spread: 0.08, pellets: 1, speed: 52, range: 24, pierce: 0, size: 0.8, color: 0x7fe3ff, kick: 0.08, part: 'mg' },
-  cannon:  { name: 'Автопушка', key: 2, dmg: 22, rate: 3.2, mag: 14, reload: 1.4, spread: 0.03, pellets: 1, speed: 44, range: 30, pierce: 1, size: 1.6, color: 0xffd166, kick: 0.3,  part: 'cannon' },
-  shotgun: { name: 'Дробовик',  key: 3, dmg: 9,  rate: 1.4, mag: 6,  reload: 1.6, spread: 0.3,  pellets: 7, speed: 38, range: 15, pierce: 0, size: 1,   color: 0xffc36b, kick: 0.6,  part: 'shotgun' },
+  mg:      { name: 'Пулемёт',   dmg: 8,  rate: 11,  mag: 44, reload: 1.5, spread: 0.08, pellets: 1, speed: 52, range: 24, pierce: 0, size: 0.8, color: 0x7fe3ff, kick: 0.08, part: 'mg' },
+  cannon:  { name: 'Автопушка', dmg: 22, rate: 3.2, mag: 13, reload: 1.4, spread: 0.03, pellets: 1, speed: 44, range: 30, pierce: 1, size: 1.6, color: 0xffd166, kick: 0.3,  part: 'cannon' },
+  shotgun: { name: 'Дробовик',  dmg: 9,  rate: 1.4, mag: 6,  reload: 1.6, spread: 0.3,  pellets: 7, speed: 38, range: 15, pierce: 0, size: 1,   color: 0xffc36b, kick: 0.6,  part: 'shotgun' },
 };
 
 export const WEAPON_ORDER: WeaponId[] = ['mg', 'cannon', 'shotgun'];
+
+/** Arm weapon levels: picking an owned weapon again levels it up. */
+export const WEAPON_LEVELS = {
+  max: 5,
+  /** Damage bonus per level above 1. */
+  dmg: 0.25,
+  /** An extra barrel (shotgun: two pellets) every N levels. */
+  barrelEvery: 2,
+} as const;
 
 // ---------------- shoulder systems ----------------
 

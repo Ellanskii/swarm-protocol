@@ -1,70 +1,74 @@
-// Firing, switching and the SYNTHETIK-style active reload.
+// Arm weapons: every mounted gun fires at once, one shared SYNTHETIK-style active reload.
 import { sfx } from './audio';
 import { spawnBullet } from './combat';
-import { WEAPONS, WEAPON_ORDER, type WeaponId } from './config';
+import { WEAPON_LEVELS, type WeaponId } from './config';
 import { showBanner } from './fx';
 import { fireHeld } from './input';
-import { setSlotPart } from './mech';
+import { muzzleOffset, setSlotPart, type ArmSlot } from './mech';
 import { muzzle } from './scene';
-import { G, P, S, curWeapon, magSize, mkWeapon, type WeaponState } from './state';
+import { G, P, S, armWeapons, magSize, mkWeapon, type WeaponState } from './state';
 import { clamp, rand } from './utils';
 
 const PERFECT_BONUS = 1.5;
 const PERFECT_COLOR = 0xffd166;
 /** Fire-button presses this early in a reload are leftover shots, not active-reload attempts. */
 const CLICK_GRACE = 0.15;
+const ARM_SLOTS: ArmSlot[] = ['armR', 'armL'];
 
+export function freeArmSlot(): ArmSlot | null {
+  return ARM_SLOTS.find(s => !armWeapons().some(w => w.slot === s)) ?? null;
+}
+
+/** Mounts a weapon in a free arm, or levels it up if already mounted. */
 export function giveWeapon(id: WeaponId): void {
-  G.owned[id] = mkWeapon(id);
-  switchTo(id);
+  const own = G.owned[id];
+  if (own) {
+    own.lv = Math.min(WEAPON_LEVELS.max, own.lv + 1);
+    return;
+  }
+  const slot = freeArmSlot();
+  if (!slot) return;
+  G.owned[id] = mkWeapon(id, slot);
+  setSlotPart(slot, G.owned[id].d.part);
 }
 
-export function switchTo(id: WeaponId): void {
-  if (!G.owned[id] || id === G.cur) return;
-  curWeapon().reloading = false; // switching cancels the reload
-  G.cur = id;
-  G.fireCd = Math.max(G.fireCd, 0.15);
-  syncGunModel();
+export function syncArms(): void {
+  for (const w of armWeapons()) setSlotPart(w.slot, w.d.part);
 }
 
-export function cycleWeapon(dir: 1 | -1): void {
-  const own = WEAPON_ORDER.filter(id => G.owned[id]);
-  const i = own.indexOf(G.cur);
-  switchTo(own[(i + dir + own.length) % own.length]);
-}
-
-export function syncGunModel(): void {
-  setSlotPart('armR', WEAPONS[G.cur].part);
-}
+/** Extra barrels from levels: +1 at level 3, +2 at level 5. */
+export const levelBarrels = (lv: number): number => Math.floor((lv - 1) / WEAPON_LEVELS.barrelEvery);
 
 // ---------------- firing ----------------
 
 function fire(w: WeaponState): void {
   const d = w.d;
   w.ammo--;
-  G.fireCd = 1 / (d.rate * S.rate);
+  w.cd = 1 / (d.rate * S.rate);
 
-  // shots go where the torso faces, converging from the arm on the torso aim point
-  const base = Math.atan2(P.tx - P.mx, P.tz - P.mz);
+  // each arm fires along the torso facing, converging on the torso aim point
+  const [fwd, right, y] = muzzleOffset(w.slot);
+  const fx = Math.sin(P.ang), fz = Math.cos(P.ang);
+  const mx = P.x + fx * fwd + fz * right, mz = P.z + fz * fwd - fx * right;
+  const base = Math.atan2(P.tx - mx, P.tz - mz);
 
-  const perfect = w.perfect > 0;
-  if (perfect) w.perfect--;
+  const perfect = G.reload.perfect;
   const isShotgun = d.pellets > 1;
-  const n = d.pellets + S.multi * (isShotgun ? 2 : 1);
-  const dmg = d.dmg * S.dmg * (perfect ? PERFECT_BONUS : 1);
+  const n = d.pellets + (S.multi + levelBarrels(w.lv)) * (isShotgun ? 2 : 1);
+  const dmg = d.dmg * S.dmg * (1 + WEAPON_LEVELS.dmg * (w.lv - 1)) * (perfect ? PERFECT_BONUS : 1);
   const color = perfect ? PERFECT_COLOR : d.color;
 
   for (let i = 0; i < n; i++) {
-    // shotgun: random cone; others: fan of parallel-ish shots for multishot
+    // shotgun: random cone; others: fan of parallel-ish shots for extra barrels
     const ang = isShotgun
       ? base + rand(-d.spread, d.spread)
       : base + (i - (n - 1) / 2) * 0.1 + rand(-d.spread, d.spread);
     const speed = d.speed * rand(0.92, 1.05);
     const life = (d.range / d.speed) * rand(0.9, 1.1);
-    spawnBullet(P.mx, P.mz, P.my, Math.sin(ang), Math.cos(ang), speed, dmg, life, S.pierce + d.pierce, color, d.size);
+    spawnBullet(mx, mz, y, Math.sin(ang), Math.cos(ang), speed, dmg, life, S.pierce + d.pierce, color, d.size);
   }
 
-  muzzle.position.set(P.mx, P.my + 0.2, P.mz);
+  muzzle.position.set(mx, y + 0.2, mz);
   muzzle.intensity = 45;
   muzzle.color.setHex(color);
   G.shake = Math.min(1.2, G.shake + d.kick * 0.3);
@@ -74,64 +78,67 @@ function fire(w: WeaponState): void {
 
 // ---------------- reload ----------------
 
-export function startReload(w: WeaponState): void {
-  if (w.reloading || w.ammo >= magSize(w.d)) return;
-  w.reloading = true;
-  w.t = 0;
-  w.dur = w.d.reload / S.reload;
-  w.arUsed = false;
+/** Reloads every arm weapon at once; takes as long as the slowest one. */
+export function startReload(): void {
+  const r = G.reload;
+  if (r.on || armWeapons().every(w => w.ammo >= magSize(w.d))) return;
+  r.on = true;
+  r.t = 0;
+  r.dur = Math.max(...armWeapons().map(w => w.d.reload)) / S.reload;
+  r.arUsed = false;
+  r.perfect = false;
   const width = clamp(0.14 + S.arW, 0.1, 0.34);
-  w.arS = rand(0.3, 0.82 - width);
-  w.arE = w.arS + width;
+  r.arS = rand(0.3, 0.82 - width);
+  r.arE = r.arS + width;
 }
 
-function finishReload(w: WeaponState): void {
-  w.ammo = magSize(w.d);
-  w.reloading = false;
+function finishReload(): void {
+  for (const w of armWeapons()) w.ammo = magSize(w.d);
+  G.reload.on = false;
   sfx('reload');
 }
 
 /** Active-reload attempt during reload: inside the window — instant + bonus; outside — jam. */
-function tryActive(w: WeaponState): void {
-  if (!w.reloading || w.arUsed) return;
-  w.arUsed = true;
-  const f = w.t / w.dur;
-  if (f >= w.arS && f <= w.arE) {
-    finishReload(w);
-    w.perfect = magSize(w.d);
+function tryActive(): void {
+  const r = G.reload;
+  if (!r.on || r.arUsed) return;
+  r.arUsed = true;
+  const f = r.t / r.dur;
+  if (f >= r.arS && f <= r.arE) {
+    finishReload();
+    r.perfect = true;
     showBanner('ИДЕАЛЬНО · +50% УРОНА', 'gold', 0.9);
     sfx('perfect');
   } else {
-    w.dur += 0.75;
+    r.dur += 0.75;
     showBanner('ЗАКЛИНИЛО', 'red', 0.7);
     sfx('jam');
   }
 }
 
 export function reloadPressed(): void {
-  const w = curWeapon();
-  if (w.reloading) tryActive(w);
-  else startReload(w);
+  if (G.reload.on) tryActive();
+  else startReload();
 }
 
 /** Fire button pressed: during a reload it is the active-reload attempt, like a tap on touch. */
 export function firePressed(): void {
-  const w = curWeapon();
-  if (w.reloading && w.t > CLICK_GRACE) tryActive(w);
+  if (G.reload.on && G.reload.t > CLICK_GRACE) tryActive();
 }
 
 export function updateWeapons(dt: number): void {
-  G.fireCd -= dt;
-  const w = curWeapon();
-  if (w.reloading) {
-    w.t += dt;
-    if (w.t >= w.dur) finishReload(w);
+  const r = G.reload;
+  if (r.on) {
+    r.t += dt;
+    if (r.t >= r.dur) finishReload();
   }
-  if (fireHeld() && G.fireCd <= 0 && !w.reloading) {
-    if (w.ammo <= 0) startReload(w);
-    else {
-      fire(w);
-      if (w.ammo === 0) startReload(w);
-    }
+  let empty = false;
+  for (const w of armWeapons()) {
+    w.cd -= dt;
+    if (r.on || !fireHeld() || w.cd > 0 || w.ammo <= 0) continue;
+    fire(w);
+    if (w.ammo === 0) empty = true;
   }
+  // the first magazine to run dry reloads them all
+  if (empty) startReload();
 }

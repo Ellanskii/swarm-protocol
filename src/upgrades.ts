@@ -1,11 +1,11 @@
 // Upgrade pool and the level-up screen.
 import { sfx } from './audio';
-import { SHOULDERS, WEAPONS, type ShoulderId, type WeaponId } from './config';
+import { SHOULDERS, WEAPONS, WEAPON_LEVELS, type ShoulderId, type WeaponId } from './config';
 import { mouse } from './input';
 import { freeShoulderSlot, installShoulder } from './shoulders';
-import { G, P, S, magSize } from './state';
+import { G, P, S, armWeapons, magSize } from './state';
 import { $ } from './utils';
-import { giveWeapon } from './weapons';
+import { freeArmSlot, giveWeapon, levelBarrels } from './weapons';
 
 export interface Upgrade {
   id: string;
@@ -16,6 +16,8 @@ export interface Upgrade {
   kind?: 'weapon' | 'shoulder';
   /** Extra condition to appear in the pool. */
   avail?(): boolean;
+  /** Current level when it is tracked outside `G.upLv` (mounted weapons and systems). */
+  level?(): number;
   apply(): void;
 }
 
@@ -25,15 +27,25 @@ const WEAPON_DESC: Record<WeaponId, string> = {
   shotgun: 'Ручное оружие. Семь дробин, вблизи разносит всё',
 };
 
+/** Needs a free arm unless already mounted, then it levels up. */
 const weaponUp = (id: WeaponId): Upgrade => ({
-  id, name: WEAPONS[id].name, desc: WEAPON_DESC[id], max: 1, kind: 'weapon',
-  avail: () => !G.owned[id], apply: () => giveWeapon(id),
+  id, name: WEAPONS[id].name, max: WEAPON_LEVELS.max, kind: 'weapon',
+  get desc() {
+    const w = G.owned[id];
+    if (!w) return WEAPON_DESC[id];
+    const extra = levelBarrels(w.lv + 1) > levelBarrels(w.lv) ? (w.d.pellets > 1 ? ' и ещё две дробины' : ' и ещё один ствол') : '';
+    return `+${WEAPON_LEVELS.dmg * 100}% урона${extra}`;
+  },
+  avail: () => !!G.owned[id] || freeArmSlot() !== null,
+  level: () => G.owned[id]?.lv ?? 0,
+  apply: () => giveWeapon(id),
 });
 
 /** Needs a free shoulder slot unless already mounted, then it levels up. */
 const shoulderUp = (id: ShoulderId): Upgrade => ({
   id, name: SHOULDERS[id].name, desc: SHOULDERS[id].desc, max: SHOULDERS[id].max, kind: 'shoulder',
   avail: () => G.shoulders.some(s => s.id === id) || freeShoulderSlot() !== null,
+  level: () => G.shoulders.find(s => s.id === id)?.lv ?? 0,
   apply: () => installShoulder(id),
 });
 
@@ -44,7 +56,8 @@ export const UPGRADES: Upgrade[] = [
     id: 'mag', name: 'Длинный магазин', desc: '+35% патронов в магазине', max: 5,
     apply: () => {
       S.mag *= 1.35;
-      for (const w of Object.values(G.owned)) { w.ammo = magSize(w.d); w.reloading = false; }
+      for (const w of armWeapons()) w.ammo = magSize(w.d);
+      G.reload.on = false;
     },
   },
   { id: 'reload', name: 'Быстрые руки', desc: 'Перезарядка на 20% быстрее, жёлтая зона шире', max: 5, apply: () => { S.reload *= 1.2; S.arW += 0.03; } },
@@ -70,10 +83,12 @@ const FALLBACK: Upgrade = { id: 'heal', name: 'Аптечка', desc: 'Полн�
 /** Weapons and shoulder systems show up a bit more often than stat upgrades. */
 const weight = (u: Upgrade) => (u.kind ? 1.6 : 1);
 
+const levelOf = (u: Upgrade): number => u.level?.() ?? G.upLv[u.id] ?? 0;
+
 let choices: Upgrade[] = [];
 
 function rollChoices(): Upgrade[] {
-  const pool = UPGRADES.filter(u => (G.upLv[u.id] ?? 0) < u.max && (u.avail?.() ?? true));
+  const pool = UPGRADES.filter(u => levelOf(u) < u.max && (u.avail?.() ?? true));
   const out: Upgrade[] = [];
   while (out.length < 3 && pool.length) {
     let r = Math.random() * pool.reduce((s, u) => s + weight(u), 0);
@@ -93,7 +108,7 @@ export function openLevelUp(): void {
   document.body.classList.add('menu');
   choices = rollChoices();
   cards.replaceChildren(...choices.map((u, i) => {
-    const lv = G.upLv[u.id] ?? 0;
+    const lv = levelOf(u);
     const b = document.createElement('button');
     b.className = 'card' + (u.kind ? ' weapon' : '');
     const tag = lv ? `УР ${lv} → ${lv + 1}` : u.kind === 'weapon' ? 'НОВОЕ ОРУЖИЕ · РУКА' : u.kind === 'shoulder' ? 'НОВОЕ · ПЛЕЧО' : 'НОВОЕ';

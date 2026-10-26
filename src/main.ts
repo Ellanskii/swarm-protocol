@@ -3,7 +3,7 @@ import './style.css';
 import { updateAura } from './abilities';
 import { initAudio, toggleMute } from './audio';
 import { updateBullets } from './combat';
-import { MECHS, MECH_ORDER, WEAPON_ORDER, type MechId, type WeaponId } from './config';
+import { MECHS, MECH_ORDER, type MechId } from './config';
 import { spawnDirector, updateEnemies, updateEnemyShots } from './enemies';
 import { clearNumbers, showBanner, updateNumbers, updateParticles } from './fx';
 import { buildGrid } from './grid';
@@ -18,7 +18,7 @@ import { installShoulder, removeAllDrones, updateShoulders } from './shoulders';
 import { G, P, S, aim, resetState } from './state';
 import { choose, openLevelUp } from './upgrades';
 import { $, fmtTime } from './utils';
-import { cycleWeapon, firePressed, giveWeapon, reloadPressed, switchTo, syncGunModel, updateWeapons } from './weapons';
+import { firePressed, giveWeapon, reloadPressed, syncArms, updateWeapons } from './weapons';
 
 // ---------------- flow ----------------
 
@@ -30,7 +30,7 @@ function resetGame(): void {
   camTarget.set(0, 0, 0);
   clearNumbers();
   resetHUD();
-  syncGunModel();
+  syncArms();
 }
 
 function showOnly(id: 'start' | 'levelup' | 'pause' | 'over' | null): void {
@@ -80,7 +80,6 @@ const DIGITS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2 };
 bindInput({
   onGesture: initAudio,
   onFocusLost: () => setPause(true),
-  onWheel: dir => { if (G.state === 'play') cycleWeapon(dir); },
   onKey: code => {
     if (code === 'KeyM') {
       showBanner(toggleMute() ? 'ЗВУК ВЫКЛ' : 'ЗВУК ВКЛ', 'blue', 0.8);
@@ -88,8 +87,7 @@ bindInput({
     }
     switch (G.state) {
       case 'play':
-        if (code in DIGITS) switchTo(WEAPON_ORDER[DIGITS[code]]);
-        else if (code === 'MouseLeft') firePressed();
+        if (code === 'MouseLeft') firePressed();
         else if (code === 'KeyR' || code === 'MouseRight' || code === 'TouchReload') reloadPressed();
         else if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') tryDash();
         else if (code === 'Escape' || code === 'KeyP') setPause(true);
@@ -141,12 +139,6 @@ try {
   if (saved && saved in MECHS) G.mech = saved;
 } catch { /* storage blocked */ }
 for (const c of mechCards.children) c.classList.toggle('on', (c as HTMLElement).dataset.mech === G.mech);
-
-// tap a weapon chip to switch on touch
-$('slots').addEventListener('click', e => {
-  const id = (e.target as HTMLElement).closest<HTMLElement>('[data-w]')?.dataset.w;
-  if (id && G.state === 'play') switchTo(id as WeaponId);
-});
 
 $('startBtn').addEventListener('click', startGame);
 $('againBtn').addEventListener('click', startGame);

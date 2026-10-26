@@ -5,7 +5,7 @@ import {
   ENEMY_TYPES, MECHS, WEAPONS, xpFor,
   type EnemyDef, type EnemyType, type MechId, type ShoulderId, type WeaponDef, type WeaponId,
 } from './config';
-import type { SlotId } from './mech';
+import type { ArmSlot, SlotId } from './mech';
 
 export type GameState = 'start' | 'play' | 'levelup' | 'pause' | 'over';
 
@@ -71,16 +71,24 @@ export interface Player {
 export interface WeaponState {
   id: WeaponId;
   d: WeaponDef;
+  slot: ArmSlot;
+  lv: number;
   ammo: number;
-  reloading: boolean;
+  /** Time until the next shot. */
+  cd: number;
+}
+
+/** One reload for all arm weapons at once. */
+export interface ReloadState {
+  on: boolean;
   t: number;
   dur: number;
   /** Active-reload window, as fractions of `dur`. */
   arS: number;
   arE: number;
   arUsed: boolean;
-  /** Shots left with the perfect-reload damage bonus. */
-  perfect: number;
+  /** The current magazines carry the perfect-reload damage bonus. */
+  perfect: boolean;
 }
 
 export interface Enemy {
@@ -150,10 +158,9 @@ export const G = {
   nextId: 1,
   pendingLevels: 0,
   auraT: 0,
-  fireCd: 0,
   gunKick: 0,
-  cur: 'cannon' as WeaponId,
   owned: {} as Partial<Record<WeaponId, WeaponState>>,
+  reload: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false } as ReloadState,
   upLv: {} as Record<string, number>,
   enemies: [] as Enemy[],
   bullets: [] as Bullet[],
@@ -173,16 +180,12 @@ export const G = {
 
 export const magSize = (d: WeaponDef): number => Math.max(1, Math.round(d.mag * S.mag));
 
-export function mkWeapon(id: WeaponId): WeaponState {
+export function mkWeapon(id: WeaponId, slot: ArmSlot): WeaponState {
   const d = WEAPONS[id];
-  return { id, d, ammo: magSize(d), reloading: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: 0 };
+  return { id, d, slot, lv: 1, ammo: magSize(d), cd: 0 };
 }
 
-export function curWeapon(): WeaponState {
-  const w = G.owned[G.cur];
-  if (!w) throw new Error(`weapon ${G.cur} is not owned`);
-  return w;
-}
+export const armWeapons = (): WeaponState[] => Object.values(G.owned);
 
 /** Resets stats, player and world data. Scene objects must be removed by the caller first. */
 export function resetState(): void {
@@ -199,8 +202,9 @@ export function resetState(): void {
   } satisfies Player);
   Object.assign(G, {
     time: 0, kills: 0, spawnAcc: 0, nextBurst: 45, nextBoss: 120, bossN: 0, shake: 0,
-    pendingLevels: 0, auraT: 0, fireCd: 0, gunKick: 0,
-    cur: mech.start, owned: { [mech.start]: mkWeapon(mech.start) }, upLv: {},
+    pendingLevels: 0, auraT: 0, gunKick: 0,
+    owned: { [mech.start]: mkWeapon(mech.start, 'armR') }, upLv: {},
+    reload: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
     enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], drones: [],
     shoulders: [], rockets: [], shells: [], trails: [],
   });
