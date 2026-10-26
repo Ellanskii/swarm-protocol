@@ -55,11 +55,11 @@ function fire(w: WeaponState): void {
   else w.ammo--;
   w.cd = 1 / (d.rate * S.rate);
 
-  // each arm fires along the torso facing, converging on the torso aim point
+  // each arm fires straight along the torso facing: parallel lines from both arms, no crossing at the aim point
   const [fwd, right, y] = muzzleOffset(w.slot);
   const fx = Math.sin(P.ang), fz = Math.cos(P.ang);
   const mx = P.x + fx * fwd + fz * right, mz = P.z + fz * fwd - fx * right;
-  const base = Math.atan2(P.tx - mx, P.tz - mz);
+  const base = P.ang;
 
   if (d.beam) {
     fireBeam(w, mx, y, mz, base);

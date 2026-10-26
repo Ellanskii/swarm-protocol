@@ -189,10 +189,11 @@ export function renderWorld(dt: number, playing: boolean): void {
   animateMech(dt, playing);
   muzzle.intensity *= Math.exp(-28 * dt);
 
-  // the laser follows the torso, so it shows where shots actually go while the torso turns
+  // the laser runs parallel to the torso facing like the shots, so it shows where they actually go while the torso turns
   const lp = laserGeo.attributes.position as THREE.BufferAttribute;
+  const reach = Math.hypot(P.tx - P.x, P.tz - P.z);
   lp.setXYZ(0, P.mx, P.my, P.mz);
-  lp.setXYZ(1, P.tx, 1, P.tz);
+  lp.setXYZ(1, P.mx + Math.sin(P.ang) * reach, 1, P.mz + Math.cos(P.ang) * reach);
   lp.needsUpdate = true;
   laser.visible = playing;
 }
