@@ -107,6 +107,11 @@ const PART_BUILDERS: Record<PartId, (trim: number) => PartBuild> = {
   },
 };
 
+const shieldBubble = new THREE.Mesh(
+  new THREE.SphereGeometry(1.35, 24, 16),
+  new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }),
+);
+
 // ---------------- assembly ----------------
 
 function buildLeg(f: MechDef['frame'], x: number): Leg {
@@ -167,6 +172,10 @@ function buildMech(def: MechDef): MechRig {
 
   pelvis.add(torso);
   root.add(pelvis);
+  if (def.shield) {
+    shieldBubble.position.y = f.hipH + 0.3;
+    root.add(shieldBubble);
+  }
   return { def, root, pelvis, torso, legs, slots, parts: {}, stride: 0 };
 }
 
@@ -232,6 +241,11 @@ export function animateMech(dt: number, playing: boolean): void {
   G.gunKick *= Math.exp(-18 * dt);
   const gun = r.parts.armR?.mesh;
   if (gun) gun.position.z = ARM_MOUNT_Z - G.gunKick * KICK_BACK;
+
+  if (P.maxShield) {
+    shieldBubble.material.opacity = 0.14 * (P.shield / P.maxShield) * (1 + Math.sin(G.time * 4) * 0.15);
+    shieldBubble.visible = P.shield > 0.5;
+  }
 
   r.root.visible = !(P.blink > 0 && Math.floor(P.blink * 20) % 2 === 0);
 }

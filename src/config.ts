@@ -35,10 +35,20 @@ export interface MechFrame {
 
 export interface MechDef {
   name: string;
+  role: string;
+  passive: string;
   hp: number;
   speed: number;
   /** Torso turn speed toward the aim point, rad/s. */
   turnRate: number;
+  dash: { charges: number; cd: number };
+  /** Number of shoulder slots. */
+  shoulders: 1 | 2;
+  start: WeaponId;
+  /** Regenerating shield on top of HP, 0 for none. */
+  shield: number;
+  /** Dash leaves a damaging trail. */
+  trail: boolean;
   scale: number;
   frame: MechFrame;
   /** Armor trim and glow color. */
@@ -46,15 +56,29 @@ export interface MechDef {
 }
 
 export const MECHS: Record<MechId, MechDef> = {
-  guard: { name: 'Страж', hp: 120, speed: 6.2, turnRate: 9,  scale: 1,    frame: { hipH: 1.1,  legW: 0.24, torso: [1.0, 0.65, 0.8] },  trim: 0x4cc9f0 },
-  scout: { name: 'Скаут', hp: 75,  speed: 8.2, turnRate: 13, scale: 0.92, frame: { hipH: 1.25, legW: 0.18, torso: [0.78, 0.5, 0.66] }, trim: 0x80ffdb },
+  guard: {
+    name: 'Страж', role: 'Средний, универсальный', passive: 'Щит восстанавливается, если 3 секунды не получать урон',
+    hp: 120, speed: 6.2, turnRate: 9, dash: { charges: 1, cd: 2 }, shoulders: 2, start: 'cannon', shield: 40, trail: false,
+    scale: 1, frame: { hipH: 1.1, legW: 0.24, torso: [1.0, 0.65, 0.8] }, trim: 0x4cc9f0,
+  },
+  scout: {
+    name: 'Скаут', role: 'Лёгкий, быстрый', passive: 'Два заряда рывка, рывок оставляет жгучий след',
+    hp: 75, speed: 8.2, turnRate: 13, dash: { charges: 2, cd: 1.6 }, shoulders: 1, start: 'mg', shield: 0, trail: true,
+    scale: 0.92, frame: { hipH: 1.25, legW: 0.18, torso: [0.78, 0.5, 0.66] }, trim: 0x80ffdb,
+  },
 };
+
+/** Guard shield: delay after the last hit, then regen per second. */
+export const SHIELD = { delay: 3, regen: 15 } as const;
+/** Scout dash trail. */
+export const TRAIL = { every: 0.04, life: 1.4, tick: 0.3, r: 1.1, dmg: 12 } as const;
 
 export const MECH_ORDER: MechId[] = ['guard', 'scout'];
 
 // ---------------- weapons ----------------
 
-export type WeaponId = 'pistol' | 'shotgun' | 'smg';
+/** Arm weapons. */
+export type WeaponId = 'mg' | 'cannon' | 'shotgun';
 
 /** Slot-mounted models, see PART_BUILDERS in mech.ts. */
 export type PartId = 'mg' | 'cannon' | 'shotgun' | 'rockets' | 'mortar' | 'drone';
@@ -74,6 +98,10 @@ export interface WeaponDef {
   speed: number;
   range: number;
   color: number;
+  /** Enemies a shot passes through, on top of upgrades. */
+  pierce: number;
+  /** Visual projectile size. */
+  size: number;
   /** Screen shake per shot. */
   kick: number;
   /** Model mounted in the arm slot. */
@@ -81,12 +109,38 @@ export interface WeaponDef {
 }
 
 export const WEAPONS: Record<WeaponId, WeaponDef> = {
-  pistol:  { name: 'Пистолет', key: 1, dmg: 14, rate: 5,   mag: 12, reload: 1.1, spread: 0.03, pellets: 1, speed: 46, range: 30, color: 0x7fe3ff, kick: 0.18, part: 'mg' },
-  shotgun: { name: 'Дробовик', key: 2, dmg: 9,  rate: 1.4, mag: 6,  reload: 1.6, spread: 0.3,  pellets: 7, speed: 38, range: 15, color: 0xffc36b, kick: 0.6,  part: 'shotgun' },
-  smg:     { name: 'ПП',       key: 3, dmg: 7,  rate: 13,  mag: 36, reload: 1.4, spread: 0.11, pellets: 1, speed: 52, range: 24, color: 0xb98cff, kick: 0.07, part: 'cannon' },
+  mg:      { name: 'Пулемёт',   key: 1, dmg: 8,  rate: 11,  mag: 40, reload: 1.5, spread: 0.08, pellets: 1, speed: 52, range: 24, pierce: 0, size: 0.8, color: 0x7fe3ff, kick: 0.08, part: 'mg' },
+  cannon:  { name: 'Автопушка', key: 2, dmg: 22, rate: 3.2, mag: 14, reload: 1.4, spread: 0.03, pellets: 1, speed: 44, range: 30, pierce: 1, size: 1.6, color: 0xffd166, kick: 0.3,  part: 'cannon' },
+  shotgun: { name: 'Дробовик',  key: 3, dmg: 9,  rate: 1.4, mag: 6,  reload: 1.6, spread: 0.3,  pellets: 7, speed: 38, range: 15, pierce: 0, size: 1,   color: 0xffc36b, kick: 0.6,  part: 'shotgun' },
 };
 
-export const WEAPON_ORDER: WeaponId[] = ['pistol', 'shotgun', 'smg'];
+export const WEAPON_ORDER: WeaponId[] = ['mg', 'cannon', 'shotgun'];
+
+// ---------------- shoulder systems ----------------
+
+export type ShoulderId = 'rockets' | 'mortar' | 'drone';
+
+export interface ShoulderDef {
+  name: string;
+  desc: string;
+  /** Seconds between volleys; for drones, between shots of each drone. */
+  cd: number;
+  dmg: number;
+  /** Projectiles per volley (drones: drone count) at level 1, plus `perLevel` per level. */
+  count: number;
+  perLevel: number;
+  range: number;
+  /** Blast radius; 0 for direct hits. */
+  blast: number;
+  color: number;
+  max: number;
+}
+
+export const SHOULDERS: Record<ShoulderId, ShoulderDef> = {
+  rockets: { name: 'Ракеты',      desc: 'Залп самонаводящихся ракет по ближайшим целям', cd: 3.2, dmg: 24, count: 3, perLevel: 1, range: 22, blast: 2.2, color: 0xff8c42, max: 5 },
+  mortar:  { name: 'Миномёт',     desc: 'Навесной выстрел по самой плотной толпе',     cd: 4.5, dmg: 60, count: 1, perLevel: 1, range: 20, blast: 3.6, color: 0xffb347, max: 4 },
+  drone:   { name: 'Боевой дрон', desc: 'Дрон кружит рядом и стреляет по ближайшим',   cd: 0.65, dmg: 10, count: 1, perLevel: 1, range: 15, blast: 0,   color: 0x80ffdb, max: 4 },
+};
 
 // ---------------- enemies ----------------
 

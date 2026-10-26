@@ -1,8 +1,9 @@
 // Entry point: game flow (start / pause / level-up / game over) and the frame loop.
 import './style.css';
-import { removeAllDrones, updateAura, updateDrones } from './abilities';
+import { updateAura } from './abilities';
 import { initAudio, toggleMute } from './audio';
 import { updateBullets } from './combat';
+import { MECHS, MECH_ORDER, WEAPON_ORDER, type MechId, type WeaponId } from './config';
 import { spawnDirector, updateEnemies, updateEnemyShots } from './enemies';
 import { clearNumbers, showBanner, updateNumbers, updateParticles } from './fx';
 import { buildGrid } from './grid';
@@ -10,13 +11,14 @@ import { resetHUD, updateHUD } from './hud';
 import { bindInput, mouse, toggleAutoAim, touch, updateAim } from './input';
 import { rebuildMech } from './mech';
 import { gainXP, removeAllPickups, updateGems, updatePickups } from './pickups';
-import { tryDash, updatePlayer } from './player';
+import { tryDash, updatePlayer, updateTrails } from './player';
 import { camTarget, renderWorld, updateCamera } from './render';
 import { camera, renderer, scene } from './scene';
+import { installShoulder, removeAllDrones, updateShoulders } from './shoulders';
 import { G, P, S, aim, resetState } from './state';
 import { choose, openLevelUp } from './upgrades';
 import { $, fmtTime } from './utils';
-import { cycleWeapon, reloadPressed, switchTo, syncGunModel, updateWeapons } from './weapons';
+import { cycleWeapon, giveWeapon, reloadPressed, switchTo, syncGunModel, updateWeapons } from './weapons';
 
 // ---------------- flow ----------------
 
@@ -86,9 +88,7 @@ bindInput({
     }
     switch (G.state) {
       case 'play':
-        if (code === 'Digit1') switchTo('pistol');
-        else if (code === 'Digit2') switchTo('shotgun');
-        else if (code === 'Digit3') switchTo('smg');
+        if (code in DIGITS) switchTo(WEAPON_ORDER[DIGITS[code]]);
         else if (code === 'KeyR' || code === 'MouseRight' || code === 'TouchReload') reloadPressed();
         else if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') tryDash();
         else if (code === 'Escape' || code === 'KeyP') setPause(true);
@@ -102,12 +102,49 @@ bindInput({
         break;
       case 'start':
         if (code === 'Enter' || code === 'Space') startGame();
+        else if (code in DIGITS && MECH_ORDER[DIGITS[code]]) selectMech(MECH_ORDER[DIGITS[code]]);
         break;
       case 'over':
         if (code === 'Enter') startGame();
         break;
     }
   },
+});
+
+// ---------------- mech select ----------------
+
+const MECH_KEY = 'swarm.mech';
+const mechCards = $('mechs');
+
+function selectMech(id: MechId): void {
+  G.mech = id;
+  try { localStorage.setItem(MECH_KEY, id); } catch { /* storage blocked */ }
+  for (const c of mechCards.children) c.classList.toggle('on', (c as HTMLElement).dataset.mech === id);
+  resetGame(); // rebuilds the model, so the title screen shows the chosen mech
+}
+
+mechCards.replaceChildren(...MECH_ORDER.map((id, i) => {
+  const m = MECHS[id];
+  const b = document.createElement('button');
+  b.className = 'card mech';
+  b.dataset.mech = id;
+  const dash = m.dash.charges > 1 ? `${m.dash.charges} заряда` : '1 заряд';
+  b.innerHTML = `<small class="desk-only">${i + 1}</small><h3>${m.name}</h3><em>${m.role}</em>`
+    + `<p>${m.passive}</p><span class="mono">HP ${m.hp} · рывок ${dash} · плеч ${m.shoulders}</span>`;
+  b.addEventListener('click', () => selectMech(id));
+  return b;
+}));
+
+try {
+  const saved = localStorage.getItem(MECH_KEY) as MechId | null;
+  if (saved && saved in MECHS) G.mech = saved;
+} catch { /* storage blocked */ }
+for (const c of mechCards.children) c.classList.toggle('on', (c as HTMLElement).dataset.mech === G.mech);
+
+// tap a weapon chip to switch on touch
+$('slots').addEventListener('click', e => {
+  const id = (e.target as HTMLElement).closest<HTMLElement>('[data-w]')?.dataset.w;
+  if (id && G.state === 'play') switchTo(id as WeaponId);
 });
 
 $('startBtn').addEventListener('click', startGame);
@@ -141,7 +178,8 @@ function update(dt: number): void {
   updateEnemies(dt);
   updateBullets(dt);
   updateEnemyShots(dt);
-  updateDrones(dt);
+  updateShoulders(dt);
+  updateTrails(dt);
   updateAura(dt);
   updateGems(dt);
   updatePickups(dt);
@@ -157,6 +195,9 @@ function update(dt: number): void {
   G.gems = G.gems.filter(g => !g.dead);
   G.pickups = G.pickups.filter(p => !p.dead);
   G.parts = G.parts.filter(p => p.life > 0);
+  G.rockets = G.rockets.filter(r => r.life > 0);
+  G.shells = G.shells.filter(s => s.life > 0);
+  G.trails = G.trails.filter(t => t.life > 0);
 }
 
 let last = performance.now();
@@ -190,4 +231,4 @@ requestAnimationFrame(frame);
 declare global {
   interface Window { __swarm: unknown }
 }
-window.__swarm = { G, P, S, gainXP, startGame, choose, god };
+window.__swarm = { G, P, S, gainXP, startGame, choose, god, installShoulder, giveWeapon };

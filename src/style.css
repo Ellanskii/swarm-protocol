@@ -39,8 +39,11 @@ body.menu { cursor: auto; }
 .bar > div { height: 100%; width: 100%; }
 .bar > span { position: absolute; inset: 0; display: flex; align-items: center; padding-inline: 8px; font-size: 12px; font-family: var(--mono); }
 #hpfill { background: var(--hp); }
-#dash { height: 8px; }
+#hpfill + #shieldfill { position: absolute; left: 0; bottom: 0; height: 5px; background: #dff6ff; box-shadow: 0 0 8px var(--accent); }
+#dash { height: 8px; --n: 1; }
 #dashfill { background: var(--accent); }
+/* charge separators */
+#dash::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(100% / var(--n) - 2px), var(--bg) calc(100% / var(--n) - 2px) calc(100% / var(--n))); }
 #ups { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 #ups span { font-size: 11px; padding: 2px 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 3px; color: var(--muted); }
 #ups b { color: var(--fg); font-family: var(--mono); }
@@ -62,7 +65,9 @@ body.menu { cursor: auto; }
 #slots { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
 #slots span { font-size: 11px; padding: 3px 7px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); color: var(--muted); }
 #slots span.on { border-color: var(--accent); color: var(--fg); }
-#slots span.locked { opacity: .3; }
+#slots span.sh { border-color: var(--violet); }
+#slots b { font-family: var(--mono); color: var(--fg); }
+body.touch #slots span[data-w] { pointer-events: auto; padding: 8px 10px; }
 
 #reload { position: absolute; left: 50%; bottom: calc(120px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(340px, 80vw); text-align: center; }
 #rtrack { position: relative; height: 14px; background: rgba(255, 255, 255, .08); border: 1px solid var(--line); border-radius: 2px; }
@@ -115,6 +120,10 @@ body.touch #touch { display: block; }
 .toggle { font: 600 14px var(--mono); letter-spacing: .06em; padding: 8px 16px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); color: var(--muted); cursor: pointer; }
 .toggle.on { border-color: var(--accent); color: var(--fg); }
 .btn:hover, .btn:focus-visible { background: var(--accent); color: var(--bg); outline: none; }
+#mechs { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.card.mech { width: 220px; min-height: 0; }
+.card.mech.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(76, 201, 240, .25); }
+.card.mech span { font-size: 12px; color: var(--fg); }
 #cards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 900px; }
 .card { width: 240px; min-height: 170px; padding: 16px; display: flex; flex-direction: column; gap: 8px; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; color: var(--fg); font-family: var(--display); cursor: pointer; transition: transform .12s, border-color .12s; }
 .card:hover, .card:focus-visible { border-color: var(--accent); transform: translateY(-3px); outline: none; }

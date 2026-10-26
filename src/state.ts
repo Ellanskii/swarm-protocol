@@ -1,7 +1,11 @@
 // Mutable game state shared by all systems. Modules mutate fields on these objects
 // instead of reassigning exports, so everyone sees the same data.
 import * as THREE from 'three';
-import { ENEMY_TYPES, MECHS, WEAPONS, xpFor, type EnemyDef, type EnemyType, type MechId, type WeaponDef, type WeaponId } from './config';
+import {
+  ENEMY_TYPES, MECHS, WEAPONS, xpFor,
+  type EnemyDef, type EnemyType, type MechId, type ShoulderId, type WeaponDef, type WeaponId,
+} from './config';
+import type { SlotId } from './mech';
 
 export type GameState = 'start' | 'play' | 'levelup' | 'pause' | 'over';
 
@@ -38,9 +42,17 @@ export interface Player {
   tz: number;
   hp: number;
   maxHp: number;
+  shield: number;
+  maxShield: number;
+  /** Seconds since the last hit. */
+  calm: number;
   inv: number;
   blink: number;
+  dashCharges: number;
+  /** Time until the next dash charge comes back. */
   dashCd: number;
+  /** Time until the next trail point while dashing. */
+  trailT: number;
   dashT: number;
   ddx: number;
   ddz: number;
@@ -103,7 +115,15 @@ export interface Bullet {
   col: number;
   /** Id of the last enemy hit, so piercing shots don't hit it twice. */
   last: number;
+  /** Visual size. */
+  s: number;
 }
+
+export interface ShoulderState { id: ShoulderId; lv: number; cd: number; slot: SlotId }
+export interface Rocket { x: number; z: number; y: number; vx: number; vz: number; target: Enemy | null; age: number; life: number; dmg: number; blast: number }
+/** Mortar shell: flies from (x0, z0) to (tx, tz) along an arc over `dur` seconds. */
+export interface Shell { x0: number; z0: number; tx: number; tz: number; x: number; z: number; y: number; t: number; dur: number; dmg: number; blast: number; life: number }
+export interface TrailPoint { x: number; z: number; life: number; tick: number }
 
 export interface EnemyShot { x: number; z: number; vx: number; vz: number; dmg: number; life: number }
 export interface Gem { x: number; z: number; v: number; vel: number; pull: boolean; ph: number; dead: boolean }
@@ -132,7 +152,7 @@ export const G = {
   auraT: 0,
   fireCd: 0,
   gunKick: 0,
-  cur: 'pistol' as WeaponId,
+  cur: 'cannon' as WeaponId,
   owned: {} as Partial<Record<WeaponId, WeaponState>>,
   upLv: {} as Record<string, number>,
   enemies: [] as Enemy[],
@@ -142,6 +162,10 @@ export const G = {
   pickups: [] as Pickup[],
   parts: [] as Particle[],
   drones: [] as Drone[],
+  shoulders: [] as ShoulderState[],
+  rockets: [] as Rocket[],
+  shells: [] as Shell[],
+  trails: [] as TrailPoint[],
   typeCount: {} as Record<EnemyType, number>,
   /** Debug invulnerability. Not touched by resetState(), so it survives restarts. */
   god: false,
@@ -168,14 +192,17 @@ export function resetState(): void {
   } satisfies Stats);
   const mech = MECHS[G.mech];
   Object.assign(P, {
-    x: 0, z: 0, ang: 0, legAng: 0, walkPh: 0, tx: 0, tz: 1, hp: mech.hp, maxHp: mech.hp, inv: 0, blink: 0, dashCd: 0, dashT: 0, ddx: 0, ddz: 1,
+    x: 0, z: 0, ang: 0, legAng: 0, walkPh: 0, tx: 0, tz: 1, hp: mech.hp, maxHp: mech.hp,
+    shield: mech.shield, maxShield: mech.shield, calm: 0, inv: 0, blink: 0,
+    dashCharges: mech.dash.charges, dashCd: 0, trailT: 0, dashT: 0, ddx: 0, ddz: 1,
     level: 1, xp: 0, xpNext: xpFor(1), mx: 0, my: 1, mz: 0, speed: 0, moving: false,
   } satisfies Player);
   Object.assign(G, {
     time: 0, kills: 0, spawnAcc: 0, nextBurst: 45, nextBoss: 120, bossN: 0, shake: 0,
     pendingLevels: 0, auraT: 0, fireCd: 0, gunKick: 0,
-    cur: 'pistol', owned: { pistol: mkWeapon('pistol') }, upLv: {},
+    cur: mech.start, owned: { [mech.start]: mkWeapon(mech.start) }, upLv: {},
     enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], drones: [],
+    shoulders: [], rockets: [], shells: [], trails: [],
   });
   for (const k of ENEMY_TYPES) G.typeCount[k] = 0;
 }

@@ -15,15 +15,15 @@
     <div id="xpbar"><div id="xpfill"></div></div>
     <div id="lvl">УР 1</div>
     <div id="tl">
-      <div class="bar"><div id="hpfill"></div><span id="hptext">100 / 100</span></div>
+      <div class="bar"><div id="hpfill"></div><div id="shieldfill" hidden></div><span id="hptext">100 / 100</span></div>
       <div class="bar" id="dash"><div id="dashfill"></div></div>
       <div id="ups"></div>
     </div>
     <div id="tc"><div id="timer" class="mono">00:00</div><div id="kills">0 убито</div></div>
-    <div id="boss" hidden>МАТКА<div class="bar"><div id="bossfill"></div></div></div>
+    <div id="boss" hidden>КУЗНЯ<div class="bar"><div id="bossfill"></div></div></div>
     <div id="br">
-      <div id="wname">Пистолет</div>
-      <div id="ammo" class="mono">12 <small>/ 12</small></div>
+      <div id="wname"></div>
+      <div id="ammo" class="mono"></div>
       <div id="slots"></div>
     </div>
     <div id="reload" hidden>
@@ -45,16 +45,17 @@
 
   <div id="start" class="screen">
     <h1>SWARM<br><em>PROTOCOL</em></h1>
-    <p>Арена, бесконечные орды и прокачка за каждый уровень. Каждые 45 секунд тебя окружают, каждые 2 минуты приходит Матка. Продержись как можно дольше.</p>
+    <p>Мех против бесконечных волн заводской автоматики. Каждые 45 секунд тебя окружают, каждые 2 минуты выходит Кузня. Ставь оружие в слоты и продержись как можно дольше.</p>
     <div class="keys desk-only">
       <kbd>WASD</kbd><span>движение</span>
       <kbd>Мышь</kbd><span>прицел, ЛКМ — огонь</span>
       <kbd>R / ПКМ</kbd><span>перезарядка; ещё раз в жёлтой зоне — мгновенно и +50% урона</span>
       <kbd>Пробел / Shift</kbd><span>рывок с неуязвимостью</span>
-      <kbd>1 2 3 / колесо</kbd><span>смена оружия</span>
+      <kbd>1 2 3 / колесо</kbd><span>смена ручного оружия; на этом экране 1 / 2 — выбор меха</span>
       <kbd>Esc / P</kbd><span>пауза, M — звук</span>
     </div>
     <p class="touch-only">Левый палец — движение. Правый — прицел и огонь, короткий тап — перезарядка; второй тап в жёлтой зоне — мгновенно и +50% урона.</p>
+    <div id="mechs"></div>
     <button class="toggle touch-only" data-autoaim>Автоприцел: ВЫКЛ</button>
     <button class="btn" id="startBtn">В БОЙ</button>
   </div>

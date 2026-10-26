@@ -1,7 +1,7 @@
 // Tiny WebAudio synth: every sound is generated, no assets.
 
 export type Sfx =
-  | 'pistol' | 'shotgun' | 'smg' | 'drone' | 'hit' | 'kill' | 'pick' | 'level' | 'hurt'
+  | 'mg' | 'cannon' | 'shotgun' | 'rocket' | 'mortar' | 'shield' | 'drone' | 'hit' | 'kill' | 'pick' | 'level' | 'hurt'
   | 'boom' | 'perfect' | 'jam' | 'reload' | 'dash' | 'boss';
 
 let actx: AudioContext | null = null;
@@ -69,9 +69,12 @@ export function sfx(n: Sfx): void {
   if (gap && now - (lastPlayed[n] ?? 0) < gap) return;
   lastPlayed[n] = now;
   switch (n) {
-    case 'pistol': tone('square', 520, 140, 0.07, 0.05); noise(0.05, 0.08, 3000); break;
+    case 'mg': tone('square', 700, 220, 0.04, 0.03); noise(0.03, 0.05, 4000); break;
+    case 'cannon': tone('square', 300, 70, 0.12, 0.06); noise(0.12, 0.16, 1800); break;
     case 'shotgun': noise(0.2, 0.25, 1300); tone('sawtooth', 160, 50, 0.12, 0.08); break;
-    case 'smg': tone('square', 700, 220, 0.04, 0.03); noise(0.03, 0.05, 4000); break;
+    case 'rocket': noise(0.3, 0.08, 2200); tone('sawtooth', 260, 900, 0.22, 0.03); break;
+    case 'mortar': tone('sine', 180, 55, 0.22, 0.13); noise(0.1, 0.12, 900); break;
+    case 'shield': tone('triangle', 1200, 500, 0.08, 0.05); break;
     case 'drone': tone('sine', 1300, 700, 0.05, 0.025); break;
     case 'hit': tone('triangle', 700, 250, 0.05, 0.03); break;
     case 'kill': tone('square', 260, 70, 0.08, 0.03); break;

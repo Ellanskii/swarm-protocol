@@ -80,7 +80,7 @@ export function spawnDirector(dt: number): void {
       b.hp = b.maxHp = ENEMIES.boss.hp * (1 + (G.bossN - 1) * 0.9) * (1 + G.time / 600);
       b.boss = true;
     }
-    showBanner('МАТКА ИДЁТ', 'red', 2);
+    showBanner('КУЗНЯ ИДЁТ', 'red', 2);
     sfx('boss');
     G.shake = 1;
   }

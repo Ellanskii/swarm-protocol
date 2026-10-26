@@ -59,7 +59,7 @@ function fire(w: WeaponState): void {
       : base + (i - (n - 1) / 2) * 0.1 + rand(-d.spread, d.spread);
     const speed = d.speed * rand(0.92, 1.05);
     const life = (d.range / d.speed) * rand(0.9, 1.1);
-    spawnBullet(P.mx, P.mz, P.my, Math.sin(ang), Math.cos(ang), speed, dmg, life, S.pierce, color);
+    spawnBullet(P.mx, P.mz, P.my, Math.sin(ang), Math.cos(ang), speed, dmg, life, S.pierce + d.pierce, color, d.size);
   }
 
   muzzle.position.set(P.mx, P.my + 0.2, P.mz);

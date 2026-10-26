@@ -1,6 +1,6 @@
 // Pushes simulation state into meshes and moves the camera.
 import * as THREE from 'three';
-import { ENEMY_TYPES } from './config';
+import { ENEMY_TYPES, LIMITS, SHOULDERS } from './config';
 import { animateMech } from './mech';
 import {
   bulletMesh, camera, enemyColors, enemyMeshes, eshotMesh, gemMesh,
@@ -52,11 +52,22 @@ export function renderWorld(dt: number, playing: boolean): void {
   for (const k of ENEMY_TYPES) commit(enemyMeshes[k], counts[k]);
 
   // projectiles
+  // rockets and mortar shells share the bullet pool
   let n = 0;
   for (const b of G.bullets) {
     if (b.life <= 0) continue;
     tmpC.setHex(b.col);
-    writeInstance(bulletMesh, n++, b.x, b.y, b.z, Math.atan2(b.vx, b.vz), 1, 1, 1, tmpC);
+    writeInstance(bulletMesh, n++, b.x, b.y, b.z, Math.atan2(b.vx, b.vz), b.s, b.s, b.s, tmpC);
+  }
+  tmpC.setHex(SHOULDERS.rockets.color);
+  for (const r of G.rockets) {
+    if (r.life <= 0 || n >= LIMITS.bullets) continue;
+    writeInstance(bulletMesh, n++, r.x, r.y, r.z, Math.atan2(r.vx, r.vz), 1.8, 1.8, 0.8, tmpC);
+  }
+  tmpC.setHex(SHOULDERS.mortar.color);
+  for (const s of G.shells) {
+    if (s.life <= 0 || n >= LIMITS.bullets) continue;
+    writeInstance(bulletMesh, n++, s.x, s.y, s.z, Math.atan2(s.tx - s.x0, s.tz - s.z0), 3, 3, 0.5, tmpC);
   }
   commit(bulletMesh, n);
 

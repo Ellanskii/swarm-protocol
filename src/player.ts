@@ -1,8 +1,10 @@
-// Player movement, dash, taking damage.
+// Player movement, dash, mech passives, taking damage.
 import { pushOutPillars } from './arena';
 import { sfx } from './audio';
-import { ARENA, MECHS } from './config';
+import { damage } from './combat';
+import { ARENA, MECHS, SHIELD, TRAIL } from './config';
 import { flashVignette, sparks } from './fx';
+import { forNear } from './grid';
 import { moveInput } from './input';
 import { muzzleOffset } from './mech';
 import { G, P, S, aim } from './state';
@@ -15,27 +17,39 @@ const LEG_TURN = 10;
 const MIN_AIM_DIST = 3;
 const DASH_SPEED = 23;
 const DASH_TIME = 0.17;
-const DASH_COOLDOWN = 2;
 
-export const dashCooldown = (): number => DASH_COOLDOWN * S.dashMul;
+export const dashCooldown = (): number => MECHS[G.mech].dash.cd * S.dashMul;
 
 export function tryDash(): void {
-  if (P.dashCd > 0) return;
+  if (P.dashCharges <= 0 || P.dashT > 0) return;
   let [dx, dz] = moveInput();
-  if (!dx && !dz) { dx = Math.sin(P.ang); dz = Math.cos(P.ang); }
+  const l = Math.hypot(dx, dz);
+  if (l < 0.1) { dx = Math.sin(P.legAng); dz = Math.cos(P.legAng); }
+  else { dx /= l; dz /= l; }
   P.ddx = dx;
   P.ddz = dz;
   P.dashT = DASH_TIME;
-  P.dashCd = dashCooldown();
+  if (P.dashCharges-- === MECHS[G.mech].dash.charges) P.dashCd = dashCooldown();
   P.inv = Math.max(P.inv, 0.25);
+  P.trailT = 0;
   sfx('dash');
 }
 
 export function updatePlayer(dt: number): void {
   const [mx, mz] = moveInput();
-  P.dashCd -= dt;
+  const mech = MECHS[G.mech];
+  // charges come back one at a time
+  if (P.dashCharges < mech.dash.charges) {
+    P.dashCd -= dt;
+    if (P.dashCd <= 0) {
+      P.dashCharges++;
+      P.dashCd = P.dashCharges < mech.dash.charges ? dashCooldown() : 0;
+    }
+  }
   P.inv -= dt;
   P.blink -= dt;
+  P.calm += dt;
+  if (P.maxShield && P.calm >= SHIELD.delay) P.shield = Math.min(P.maxShield, P.shield + SHIELD.regen * dt);
 
   let vx: number, vz: number;
   if (P.dashT > 0) {
@@ -43,8 +57,12 @@ export function updatePlayer(dt: number): void {
     vx = P.ddx * DASH_SPEED;
     vz = P.ddz * DASH_SPEED;
     sparks(P.x, 0.5, P.z, 0x4cc9f0, 1, 2);
+    if (mech.trail && (P.trailT -= dt) <= 0) {
+      P.trailT = TRAIL.every;
+      G.trails.push({ x: P.x, z: P.z, life: TRAIL.life, tick: 0 });
+    }
   } else {
-    const sp = MECHS[G.mech].speed * S.speed;
+    const sp = mech.speed * S.speed;
     vx = mx * sp;
     vz = mz * sp;
   }
@@ -60,7 +78,7 @@ export function updatePlayer(dt: number): void {
   if (S.regen) P.hp = Math.min(P.maxHp, P.hp + S.regen * dt);
 
   // the torso turns toward the aim point with inertia; muzzle sits on the right arm
-  P.ang = turnToward(P.ang, Math.atan2(aim.x - P.x, aim.z - P.z), MECHS[G.mech].turnRate * dt);
+  P.ang = turnToward(P.ang, Math.atan2(aim.x - P.x, aim.z - P.z), mech.turnRate * dt);
   const fx = Math.sin(P.ang), fz = Math.cos(P.ang);
   const [fwd, right, y] = muzzleOffset();
   P.mx = P.x + fx * fwd + fz * right;
@@ -77,9 +95,34 @@ function turnToward(a: number, b: number, step: number): number {
   return Math.abs(diff) <= step ? b : a + Math.sign(diff) * step;
 }
 
-/** Applies damage unless invulnerable. Death is detected by the main loop (P.hp <= 0). */
+/** Scout dash trail: burns enemies standing in it. Uses the grid, so runs after buildGrid(). */
+export function updateTrails(dt: number): void {
+  for (const t of G.trails) {
+    t.life -= dt;
+    if (t.life <= 0) continue;
+    if (Math.random() < dt * 8) sparks(t.x, 0.15, t.z, 0x80ffdb, 1, 1.5);
+    if ((t.tick -= dt) > 0) continue;
+    t.tick = TRAIL.tick;
+    forNear(t.x, t.z, e => {
+      if (!e.dead && (e.x - t.x) ** 2 + (e.z - t.z) ** 2 < (TRAIL.r + e.r) ** 2) damage(e, TRAIL.dmg * S.dmg, 0, 0, false);
+    });
+  }
+}
+
+/** Applies damage unless invulnerable; the shield soaks it first. Death is detected by the main loop (P.hp <= 0). */
 export function hurt(amount: number): void {
   if (P.inv > 0 || G.state !== 'play') return;
+  P.calm = 0;
+  const soak = Math.min(P.shield, amount);
+  P.shield -= soak;
+  amount -= soak;
+  if (amount <= 0) {
+    P.inv = 0.35;
+    sparks(P.x, 1.4, P.z, 0x4cc9f0, 6, 5);
+    G.shake = Math.min(1.2, G.shake + 0.2);
+    sfx('shield');
+    return;
+  }
   // god mode keeps the hit feedback so damage sources stay visible while testing
   if (!G.god) P.hp = Math.max(0, P.hp - amount);
   P.inv = 0.6;

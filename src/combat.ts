@@ -11,10 +11,10 @@ import { rand } from './utils';
 export function spawnBullet(
   x: number, z: number, y: number,
   dx: number, dz: number, speed: number,
-  dmg: number, life: number, pierce: number, col: number,
+  dmg: number, life: number, pierce: number, col: number, size = 1,
 ): void {
   if (G.bullets.length >= LIMITS.bullets) return;
-  G.bullets.push({ x, z, y, vx: dx * speed, vz: dz * speed, dmg, life, pierce, col, last: -1 });
+  G.bullets.push({ x, z, y, vx: dx * speed, vz: dz * speed, dmg, life, pierce, col, last: -1, s: size });
 }
 
 /** Max distance a bullet travels per collision substep — prevents tunnelling through small enemies. */
@@ -84,7 +84,7 @@ export function kill(e: Enemy): void {
     spawnPickup('heart', e.x + 1, e.z);
     spawnPickup('magnet', e.x - 1, e.z);
     explode(e.x, e.z, 5, 200);
-    showBanner('МАТКА ПОВЕРЖЕНА', 'gold', 1.6);
+    showBanner('КУЗНЯ УНИЧТОЖЕНА', 'gold', 1.6);
     return;
   }
   dropGem(e.x, e.z, e.t.xp);
