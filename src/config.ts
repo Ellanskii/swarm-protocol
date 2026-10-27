@@ -74,17 +74,20 @@ export const MAPS: Record<MapId, MapDef> = {
   corridor: {
     name: 'Магистраль', desc: 'бесконечный коридор вверх и вниз, больше бегунов', after: 'field',
     halfX: 13, halfZ: Infinity, pillars: 3, pillarR: [0.8, 1.6], rush: 20, mix: { runner: 1.6 }, spawn: 1.05, loot: 1.2,
-    palette: { sky: 0x07110f, ground: 0x0f221d, gridMinor: 0x16352d, gridMajor: 0x215244, wall: 0x112b25, wallGlow: 0x1fae8a, pillar: 0x1d463c, cap: 0x7cf5c8 },
+    // mint-teal neon on a near-black green
+    palette: { sky: 0x040e0d, ground: 0x061513, gridMinor: 0x0e4a43, gridMajor: 0x19e6b4, wall: 0x082822, wallGlow: 0x0fa383, pillar: 0x0c2e29, cap: 0x1fe6b6 },
   },
   foundry: {
     name: 'Литейный цех', desc: 'лабиринт колонн, танки и артиллерия раньше', after: 'corridor',
     halfX: Infinity, halfZ: Infinity, pillars: 7, pillarR: [0.9, 2.4], rush: 45, mix: { brute: 1.6, artillery: 1.6 }, spawn: 1.1, loot: 1.4,
-    palette: { sky: 0x130a07, ground: 0x24140e, gridMinor: 0x371e14, gridMajor: 0x552e1e, wall: 0x28150d, wallGlow: 0xc2541b, pillar: 0x47281b, cap: 0xffa040 },
+    // molten orange neon on soot
+    palette: { sky: 0x0d0503, ground: 0x130805, gridMinor: 0x4d200b, gridMajor: 0xff6a1a, wall: 0x1f0d06, wallGlow: 0xff7a2a, pillar: 0x2c140a, cap: 0xffa040, gridMajorGlow: 22 },
   },
   bridge: {
     name: 'Мост', desc: 'бесконечный пролёт влево и вправо над пустотой, давят с обоих концов', after: 'foundry',
     halfX: Infinity, halfZ: 10, pillars: 2, pillarR: [0.7, 1.2], rush: 60, mix: { runner: 1.3, spitter: 1.5 }, spawn: 1.15, loot: 1.6,
-    palette: { sky: 0x05060a, ground: 0x1a1d26, gridMinor: 0x262a36, gridMajor: 0x3a4152, wall: 0x20242e, wallGlow: 0x5d6d9e, pillar: 0x2a2e3a, cap: 0xd8def5 },
+    // ice-white neon over a black void, a sleeker thin line
+    palette: { sky: 0x020308, ground: 0x070911, gridMinor: 0x1a2247, gridMajor: 0xb9c7ff, wall: 0x0a0d1a, wallGlow: 0x4f66d6, pillar: 0x141a2e, cap: 0xaebdff, gridMajorW: 5, gridMajorGlow: 14 },
   },
 };
 
