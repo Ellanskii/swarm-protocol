@@ -55,6 +55,11 @@ body.menu { cursor: auto; }
 #boss { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); width: min(520px, 80vw); text-align: center; font-size: 12px; letter-spacing: .2em; color: var(--hp); }
 #boss .bar { height: 10px; margin-top: 4px; }
 #bossfill { background: var(--hp); }
+/* points at the boss when it is off screen; JS sets the position and turn */
+#bossArrow { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none;
+  border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 24px solid var(--hp);
+  margin: -12px 0 0 -8px; filter: drop-shadow(0 0 6px var(--hp)); animation: bossPulse .8s ease-in-out infinite alternate; }
+@keyframes bossPulse { from { opacity: .55; } to { opacity: 1; } }
 
 /* ---- bottom: weapon, reload ---- */
 #br { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); text-align: right; }

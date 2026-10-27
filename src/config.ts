@@ -21,7 +21,7 @@ export const LIMITS = {
 export const PACING = {
   /** Encirclement wave interval, seconds. */
   burstEvery: 45,
-  /** Boss interval, seconds. */
+  /** Seconds until the next boss; the countdown waits while a boss is alive, so they never stack. */
   bossEvery: 120,
   /** The last boss is the final one: beating it ends the run with an evacuation. */
   bossCount: 3,
@@ -33,6 +33,21 @@ export const PACING = {
   hpPerMinute: 0.5,
   /** Contact damage doubles every N seconds. */
   dmgDoubleEvery: 300,
+} as const;
+
+/** Machines left far behind are moved back around the mech, so outrunning the horde doesn't stall the fight. */
+export const CROWD = {
+  /** Beyond this distance from the mech a machine is relocated to the spawn ring. */
+  far: 40,
+  /** Chance that a relocated machine lands ahead of a moving mech rather than anywhere on the ring. */
+  ahead: 0.65,
+  /** The boss relocates sooner, onto a closer ring. */
+  bossFar: 32,
+  /** Past this distance the boss speeds up to catch the mech... */
+  catchUp: 16,
+  /** ...by this fraction of its speed per unit of distance, up to `catchUpMax` times its own speed. */
+  catchUpRate: 0.15,
+  catchUpMax: 3.5,
 } as const;
 
 /** Meta currencies dropped in a run. Scrap comes from every enemy, cores only from bosses. */

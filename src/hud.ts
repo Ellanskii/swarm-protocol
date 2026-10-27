@@ -1,6 +1,8 @@
 // DOM HUD. Every write goes through a cache so unchanged values don't touch the DOM.
+import * as THREE from 'three';
 import { MECHS, PACING, WEAPON_ORDER } from './config';
 import { dashCooldown } from './player';
+import { camera } from './scene';
 import { shoulderName } from './shoulders';
 import { G, P, S, magSize } from './state';
 import { UPGRADES } from './upgrades';
@@ -12,7 +14,7 @@ const el = {
   ammo: $('ammo'), slots: $('slots'), ups: $('ups'),
   reload: $('reload'), rzone: $('rzone'), rmark: $('rmark'),
   vent: $('vent'), vzone: $('vzone'), vmark: $('vmark'), heat: $('heat'), heatfill: $('heatfill'),
-  boss: $('boss'), bossfill: $('bossfill'), cross: $('cross'),
+  boss: $('boss'), bossfill: $('bossfill'), bossname: $('bossname'), bossArrow: $('bossArrow'), cross: $('cross'),
 };
 
 const cache = new Map<string, unknown>();
@@ -95,7 +97,7 @@ export function updateHUD(): void {
   const total = PACING.bossCount;
   let goal: string, cls = '';
   if (G.evacT > 0) { goal = 'Эвакуация'; cls = 'evac'; }
-  else if (boss) { goal = `Кузня ${G.bossN}/${total}${boss.final ? ' · финал' : ''}`; cls = boss.final ? 'final' : ''; }
+  else if (boss) { goal = `Кузня ${G.bossN}/${total}${boss.final ? ' · финал' : ''}: уничтожь`; cls = boss.final ? 'final' : ''; }
   else if (G.bossN < total) {
     const final = G.bossN + 1 === total;
     goal = `Кузня ${G.bossN + 1}/${total}${final ? ' · финал' : ''} через ${fmtTime(Math.max(0, G.nextBoss - G.time))}`;
@@ -103,5 +105,25 @@ export function updateHUD(): void {
   set('goal', goal + cls, () => { el.goal.textContent = goal; el.goal.className = cls; });
 
   set('boss', !!boss, v => { el.boss.hidden = !v; });
+  set('bossname', boss ? (boss.final ? 'ФИНАЛЬНАЯ КУЗНЯ' : `КУЗНЯ ${G.bossN}/${total}`) : '', n => { el.bossname.textContent = n; });
   if (boss) el.bossfill.style.width = Math.max(0, (boss.hp / boss.maxHp) * 100) + '%';
+  bossArrow(boss);
+}
+
+const ndc = new THREE.Vector3();
+/** Arrow on the screen edge toward an off-screen boss. */
+function bossArrow(boss: { x: number; z: number } | undefined): void {
+  let show = false;
+  if (boss) {
+    ndc.set(boss.x, 1, boss.z).project(camera);
+    // behind the camera the projection flips; the camera never looks up, so only clamp what's in front
+    show = Math.abs(ndc.x) > 0.95 || Math.abs(ndc.y) > 0.95 || ndc.z > 1;
+    if (show) {
+      const pad = 0.88, k = pad / Math.max(Math.abs(ndc.x), Math.abs(ndc.y));
+      const x = ndc.x * k, y = ndc.y * k;
+      const px = (x + 1) / 2 * innerWidth, py = (1 - y) / 2 * innerHeight;
+      el.bossArrow.style.transform = `translate(${px}px, ${py}px) rotate(${Math.atan2(x, y)}rad)`;
+    }
+  }
+  set('bossArrow', show, v => { el.bossArrow.hidden = !v; });
 }

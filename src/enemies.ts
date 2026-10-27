@@ -2,7 +2,7 @@
 import { insidePillar, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode, selfDestruct } from './combat';
-import { ARENA, ARTILLERY, DECOY, TANK, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
+import { ARENA, ARTILLERY, CROWD, DECOY, TANK, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
 import { mushroom, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { hurt } from './player';
@@ -24,10 +24,11 @@ export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null 
   return e;
 }
 
-/** Random point on a ring around the player, inside the arena. */
-function spawnPos(minD: number, maxD: number): [number, number] {
+/** Random point on a ring around the player, inside the arena. With `ahead`, a moving mech usually gets it in front. */
+function spawnPos(minD: number, maxD: number, ahead = false): [number, number] {
   for (let i = 0; i < 8; i++) {
-    const a = Math.random() * Math.PI * 2, d = rand(minD, maxD);
+    const front = ahead && P.moving && i < 4 && Math.random() < CROWD.ahead;
+    const a = front ? P.legAng + rand(-1.1, 1.1) : Math.random() * Math.PI * 2, d = rand(minD, maxD);
     const x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d;
     if (Math.abs(x) < ARENA - 1 && Math.abs(z) < ARENA - 1) return [x, z];
   }
@@ -65,17 +66,24 @@ export function spawnDirector(dt: number): void {
     spawnEnemy(pickType(), x, z);
   }
 
+  recycleStragglers();
+
   if (G.time >= G.nextBurst) {
     G.nextBurst += PACING.burstEvery;
     const n = Math.round(26 + G.time / 8);
+    // at the crowd limit the ring is closed with the machines farthest from the mech
+    const spare = G.enemies.length + n > LIMITS.enemies ? farthest(n) : [];
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const type: EnemyType = G.time > 40 && i % 3 === 0 ? 'runner' : 'grunt';
-      spawnEnemy(type, clamp(P.x + Math.sin(a) * 19, -ARENA + 1, ARENA - 1), clamp(P.z + Math.cos(a) * 19, -ARENA + 1, ARENA - 1));
+      const x = clamp(P.x + Math.sin(a) * 19, -ARENA + 1, ARENA - 1), z = clamp(P.z + Math.cos(a) * 19, -ARENA + 1, ARENA - 1);
+      if (!spawnEnemy(type, x, z) && spare.length) relocate(spare.pop()!, x, z);
     }
     showBanner('ОКРУЖЕНИЕ', 'red', 1.4);
   }
 
+  // one boss at a time: its countdown waits while the current one is alive
+  if (G.enemies.some(e => e.boss && !e.dead)) G.nextBoss += dt;
   if (G.time >= G.nextBoss && G.bossN < PACING.bossCount) {
     G.nextBoss += PACING.bossEvery;
     G.bossN++;
@@ -93,6 +101,34 @@ export function spawnDirector(dt: number): void {
     sfx('boss');
     G.shake = 1;
   }
+}
+
+/** Machines far behind the mech come back on the spawn ring, mostly ahead of it; the boss onto a closer ring. */
+function recycleStragglers(): void {
+  const far2 = CROWD.far ** 2, boss2 = CROWD.bossFar ** 2;
+  for (const e of G.enemies) {
+    if (e.dead) continue;
+    const d2 = (e.x - P.x) ** 2 + (e.z - P.z) ** 2;
+    if (e.boss ? d2 < boss2 : d2 < far2) continue;
+    const [x, z] = e.boss ? spawnPos(20, 24, true) : spawnPos(24, 31, true);
+    relocate(e, x, z);
+  }
+}
+
+/** Up to `n` live non-boss machines, farthest from the mech last, all outside the view. */
+function farthest(n: number): Enemy[] {
+  return G.enemies
+    .filter(e => !e.dead && !e.boss && (e.x - P.x) ** 2 + (e.z - P.z) ** 2 > 22 ** 2)
+    .sort((a, b) => ((a.x - P.x) ** 2 + (a.z - P.z) ** 2) - ((b.x - P.x) ** 2 + (b.z - P.z) ** 2))
+    .slice(-n);
+}
+
+function relocate(e: Enemy, x: number, z: number): void {
+  e.x = x;
+  e.z = z;
+  e.kx = e.kz = 0;
+  e.aim = 0;
+  e.born = G.time; // grow in again instead of popping up
 }
 
 function fireEShot(x: number, z: number, dx: number, dz: number, speed: number, dmg: number): void {
@@ -185,8 +221,10 @@ export function updateEnemies(dt: number): void {
       }
     });
 
-    e.x += (mx * e.t.speed + e.kx) * dt + sx * 0.8;
-    e.z += (mz * e.t.speed + e.kz) * dt + sz * 0.8;
+    // a boss left behind speeds up so it doesn't get lost in the crowd
+    const spd = e.boss && d > CROWD.catchUp ? e.t.speed * Math.min(CROWD.catchUpMax, 1 + (d - CROWD.catchUp) * CROWD.catchUpRate) : e.t.speed;
+    e.x += (mx * spd + e.kx) * dt + sx * 0.8;
+    e.z += (mz * spd + e.kz) * dt + sz * 0.8;
     e.kx *= kDecay;
     e.kz *= kDecay;
     pushOutPillars(e, e.r);
