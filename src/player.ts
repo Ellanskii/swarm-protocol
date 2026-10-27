@@ -7,7 +7,7 @@ import { flashVignette, sparks } from './fx';
 import { forNear } from './grid';
 import { moveInput } from './input';
 import { jumpHeight, muzzleOffset } from './mech';
-import { G, P, S, aim, braced, type DashMod } from './state';
+import { G, P, S, aim, armWeapons, braced, type DashMod } from './state';
 
 const RADIUS = 0.5;
 /** Legs turn toward the movement direction this fast, rad/s. */
@@ -123,14 +123,20 @@ export function updatePlayer(dt: number): void {
 
   if (S.regen) P.hp = Math.min(P.maxHp, P.hp + S.regen * dt);
 
-  // the torso turns toward the aim point with inertia; the aim laser starts at the right arm
-  P.ang = turnToward(P.ang, Math.atan2(aim.x - P.x, aim.z - P.z), mech.turnRate * dt);
+  // the torso turns toward the aim point with inertia; the aim laser starts at the right arm.
+  // A single arm weapon puts its own fire line (and the laser) on the aim point instead of the torso center,
+  // otherwise a machine right in front of the mech slips past the barrel
+  const arms = armWeapons(), single = arms.length === 1;
+  const [fwd, right, y] = muzzleOffset(single ? arms[0].slot : 'armR');
+  const ax = aim.x - P.x, az = aim.z - P.z, ad = Math.hypot(ax, az);
+  const want = Math.atan2(ax, az) - (single ? Math.asin(Math.max(-0.9, Math.min(0.9, right / (ad || 1)))) : 0);
+  P.ang = turnToward(P.ang, want, mech.turnRate * dt);
+  P.aimErr = Math.abs(Math.atan2(Math.sin(want - P.ang), Math.cos(want - P.ang)));
   const fx = Math.sin(P.ang), fz = Math.cos(P.ang);
-  const [fwd, right, y] = muzzleOffset('armR');
   P.mx = P.x + fx * fwd + fz * right;
   P.mz = P.z + fz * fwd - fx * right;
   P.my = y;
-  const d = Math.max(MIN_AIM_DIST, Math.hypot(aim.x - P.x, aim.z - P.z));
+  const d = Math.max(MIN_AIM_DIST, ad);
   P.tx = P.x + fx * d;
   P.tz = P.z + fz * d;
 }

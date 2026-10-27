@@ -65,6 +65,8 @@ export interface Player {
   /** Point the torso is aiming at: along `ang`, at the aim distance. */
   tx: number;
   tz: number;
+  /** How far the torso still has to turn to put the fire line on the aim point, radians. */
+  aimErr: number;
   hp: number;
   maxHp: number;
   shield: number;
@@ -316,7 +318,7 @@ export function resetState(): void {
   } satisfies Stats);
   const mech = MECHS[G.mech];
   Object.assign(P, {
-    x: 0, z: 0, ang: 0, legAng: 0, walkPh: 0, tx: 0, tz: 1, hp: mech.hp, maxHp: mech.hp,
+    x: 0, z: 0, ang: 0, legAng: 0, walkPh: 0, tx: 0, tz: 1, aimErr: 0, hp: mech.hp, maxHp: mech.hp,
     shield: mech.shield, maxShield: mech.shield, calm: 0, inv: 0, blink: 0,
     dashCharges: mech.dash.charges, dashCd: 0, trailT: 0, dashT: 0, dashMax: 1, ddx: 0, ddz: 1, still: 0,
     level: 1, xp: 0, xpNext: xpFor(1), mx: 0, my: 1, mz: 0, speed: 0, moving: false,

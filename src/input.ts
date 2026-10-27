@@ -196,12 +196,18 @@ function nearestEnemy(range: number): Enemy | null {
   return best;
 }
 
+/** Auto-fire waits until the turning torso puts the fire line on the target, so it doesn't shoot into nothing. */
+function locked(e: Enemy): boolean {
+  const d = Math.hypot(e.x - P.x, e.z - P.z);
+  return P.aimErr < Math.PI / 2 && d * Math.sin(P.aimErr) < e.r;
+}
+
 /** Fire the player is steering right now: mouse button or a deflected aim stick, not auto-fire. */
 export const manualFire = (): boolean => (touch.on ? aimStick() : mouse.down);
 
 export function fireHeld(): boolean {
   if (!touch.on) return mouse.down;
-  return aimStick() || (touch.autoAim && !stickR && target !== null);
+  return aimStick() || (touch.autoAim && !stickR && target !== null && locked(target));
 }
 
 const ray = new THREE.Raycaster();
