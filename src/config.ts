@@ -11,6 +11,7 @@ export const LIMITS = {
   beams: 24,
   fires: 40,
   bomblets: 120,
+  mushrooms: 16,
   enemyShots: 300,
   gems: 1200,
   particles: 1600,

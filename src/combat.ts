@@ -2,7 +2,7 @@
 import { insidePillar } from './arena';
 import { sfx } from './audio';
 import { ARENA, BRACE, CHAIN, CLUSTER, DESIGNATOR, LIMITS, LOOT, NAPALM, PACING, SHIELD_AURA } from './config';
-import { dmgNumber, machineDeath, ringBurst, showBanner, sparks } from './fx';
+import { dmgNumber, machineDeath, mushroom, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { dropGem, spawnPickup } from './pickups';
 import { G, S, braced, type Bullet, type Enemy } from './state';
@@ -27,6 +27,7 @@ export function spawnBullet(
 function detonate(b: Bullet): void {
   b.life = 0;
   explode(b.x, b.z, b.blast, b.dmg);
+  if (b.blast >= 3) mushroom(b.x, b.z, b.blast * 0.7, 1.4); // siege shells: small, short clouds
   if (b.chain) chainLightning(b.x, b.z, b.chain, b.dmg * 0.6, CHAIN.jump);
 }
 
@@ -170,6 +171,7 @@ export function kill(e: Enemy): void {
     spawnPickup('heart', e.x + 1, e.z);
     spawnPickup('magnet', e.x - 1, e.z);
     explode(e.x, e.z, 5, 200);
+    mushroom(e.x, e.z, 6, 3.6);
     if (e.final) startEvacuation();
     else showBanner('КУЗНЯ УНИЧТОЖЕНА', 'gold', 1.6);
     return;

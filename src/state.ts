@@ -208,6 +208,8 @@ export interface Particle { x: number; y: number; z: number; vx: number; vy: num
 /** Lit chunk of a destroyed machine: tumbles, lands, fades. */
 export interface Debris { x: number; y: number; z: number; vx: number; vy: number; vz: number; ry: number; spin: number; life: number; max: number; col: number; s: number }
 /** Burnt-out hull left by a bigger machine; smokes, then sinks. */
+/** Mushroom cloud over a big blast; `r` is the blast radius, `t` runs up to `dur`. */
+export interface Mushroom { x: number; z: number; r: number; t: number; dur: number }
 export interface Wreck { x: number; z: number; rot: number; s: number; life: number; max: number; smokeT: number }
 /** Artillery shell on its way: the zone is marked until it lands. */
 /** A marked zone that blows up after a warning. Enemy artillery hits everyone; `friendly` (orbital strike) only machines. */
@@ -269,6 +271,7 @@ export const G = {
   beams: [] as Beam[],
   fires: [] as Fire[],
   bomblets: [] as Bomblet[],
+  mushrooms: [] as Mushroom[],
   /** Decoy hologram; `life` 0 = none. */
   decoy: { x: 0, z: 0, life: 0 },
   designT: 0,
@@ -323,7 +326,7 @@ export function resetState(): void {
     vent: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
     enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], debris: [], wrecks: [], strikes: [], drones: [],
     shoulders: [], rockets: [], shells: [], trails: [], mines: [], dashMod: 'dash',
-    beams: [], fires: [], bomblets: [], decoy: { x: 0, z: 0, life: 0 }, designT: 0, reactiveCd: 0, orbitalT: ORBITAL.every, chainT: CHAIN.every, dashId: 0,
+    beams: [], fires: [], bomblets: [], mushrooms: [], decoy: { x: 0, z: 0, life: 0 }, designT: 0, reactiveCd: 0, orbitalT: ORBITAL.every, chainT: CHAIN.every, dashId: 0,
   });
   for (const k of ENEMY_TYPES) G.typeCount[k] = 0;
 }

@@ -268,6 +268,49 @@ export const domeMat = new THREE.ShaderMaterial({
 });
 export const domeMesh = pool(new THREE.SphereGeometry(1, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), domeMat, ENEMIES.shield.max);
 
+/**
+ * Mushroom clouds: spheres (fireball, cap dome), tori (cap roll, ground skirt) and a stem.
+ * One shader for all three: lumpy surface, light from above, per-instance alpha for the fade-out.
+ */
+export const cloudMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 } },
+  vertexShader: `
+    uniform float uTime;
+    attribute float aAlpha;
+    varying vec3 vCol;
+    varying float vA;
+    varying float vShade;
+    void main() {
+      vec3 p = position;
+      float lump = sin(p.x * 7.0 + uTime * 2.0) + sin(p.y * 9.0 - uTime * 1.5) + sin(p.z * 8.0 + uTime * 1.2);
+      p += normal * lump * 0.025;
+      mat4 m = modelMatrix * instanceMatrix;
+      vec3 n = normalize(mat3(m) * normal);
+      vec4 wp = m * vec4(p, 1.0);
+      // light from above, plus brighter silhouette edges so the puffs read as volume from the top-down camera
+      float rim = 1.0 - abs(dot(n, normalize(cameraPosition - wp.xyz)));
+      vShade = (0.6 + 0.3 * max(0.0, dot(n, normalize(vec3(0.3, 1.0, 0.4))))) * (0.8 + 0.5 * rim * rim);
+      vCol = instanceColor;
+      vA = aAlpha;
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }`,
+  fragmentShader: `
+    varying vec3 vCol;
+    varying float vA;
+    varying float vShade;
+    void main() { gl_FragColor = vec4(vCol * vShade, vA); }`,
+  transparent: true,
+});
+
+function cloudPool(geo: THREE.BufferGeometry, max: number): THREE.InstancedMesh {
+  geo.setAttribute('aAlpha', new THREE.InstancedBufferAttribute(new Float32Array(max), 1).setUsage(THREE.DynamicDrawUsage));
+  return pool(geo, cloudMat, max);
+}
+export const cloudBall = cloudPool(new THREE.SphereGeometry(1, 28, 18), LIMITS.mushrooms * 2);
+export const cloudRing = cloudPool(new THREE.TorusGeometry(1, 0.45, 14, 36).rotateX(Math.PI / 2), LIMITS.mushrooms * 2);
+/** Unit stem from the ground up, narrower at the top. */
+export const cloudStem = cloudPool(new THREE.CylinderGeometry(0.7, 1, 1, 12, 3, true).translate(0, 0.5, 0), LIMITS.mushrooms);
+
 const glow = () => new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
 export const bulletMesh = pool(new THREE.BoxGeometry(0.13, 0.13, 0.75), glow(), LIMITS.bullets);
 export const eshotMesh = pool(new THREE.SphereGeometry(0.28, 10, 8), glow(), LIMITS.enemyShots);

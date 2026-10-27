@@ -330,6 +330,7 @@ function update(dt: number): void {
   G.beams = G.beams.filter(b => b.life > 0);
   G.fires = G.fires.filter(f => f.life > 0);
   G.bomblets = G.bomblets.filter(b => b.t > 0);
+  G.mushrooms = G.mushrooms.filter(m => m.t < m.dur);
 }
 
 let last = performance.now();

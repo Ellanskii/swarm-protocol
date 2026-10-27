@@ -74,7 +74,26 @@ export function ringBurst(x: number, z: number, r: number): void {
   ring.m.visible = true;
 }
 
+/** Mushroom cloud over a big blast. Skipped when too many are up: the blast itself still happens. */
+export function mushroom(x: number, z: number, r: number, dur = 2.4): void {
+  if (G.mushrooms.length >= LIMITS.mushrooms) return;
+  G.mushrooms.push({ x, z, r, t: 0, dur });
+  G.shake = Math.min(1.2, G.shake + 0.1 + r * 0.05);
+}
+
 export function updateParticles(dt: number): void {
+  for (const m of G.mushrooms) {
+    m.t += dt;
+    // dust rolling off the cap while it rises
+    const p = m.t / m.dur;
+    if (p < 0.6 && Math.random() < dt * 20) {
+      const a = Math.random() * Math.PI * 2, h = m.r * 1.5 * Math.min(1, p / 0.6);
+      if (G.parts.length < LIMITS.particles) G.parts.push({
+        x: m.x + Math.sin(a) * m.r * 0.5, y: h, z: m.z + Math.cos(a) * m.r * 0.5,
+        vx: Math.sin(a) * 1.5, vy: 0.5, vz: Math.cos(a) * 1.5, g: -0.4, life: 1, max: 1, col: 0x5a4a44, s: rand(2, 3),
+      });
+    }
+  }
   for (const p of G.parts) {
     p.life -= dt;
     p.vy -= p.g * dt;

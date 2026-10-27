@@ -3,7 +3,7 @@ import { insidePillar, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode, selfDestruct } from './combat';
 import { ARENA, ARTILLERY, DECOY, TANK, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
-import { ringBurst, showBanner, sparks } from './fx';
+import { mushroom, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { hurt } from './player';
 import { G, P, S, type Enemy, type EnemyShot } from './state';
@@ -229,8 +229,8 @@ export function updateStrikes(dt: number): void {
     if (s.t < s.dur) continue;
     if (s.friendly) {
       // orbital strike: a column of light, machines only
-      sparks(s.x, 3, s.z, 0x9fe8ff, 20, 10);
       explode(s.x, s.z, s.r, s.dmg);
+      mushroom(s.x, s.z, s.r, 3);
       continue;
     }
     ringBurst(s.x, s.z, s.r);

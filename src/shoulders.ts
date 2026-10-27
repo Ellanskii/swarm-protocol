@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { sfx } from './audio';
 import { beamHit, explode, spawnBullet } from './combat';
 import { ARENA, BRACE, EVOLUTIONS, LIMITS, MECHS, SHOULDERS, type ShoulderId } from './config';
-import { ringBurst, sparks } from './fx';
+import { mushroom, ringBurst, sparks } from './fx';
 import { forNear } from './grid';
 import { setSlotPart, type SlotId } from './mech';
 import { droneGeo, droneMat, scene } from './scene';
@@ -200,6 +200,7 @@ function updateShells(dt: number): void {
     if (p >= 1) {
       s.life = 0;
       explode(s.tx, s.tz, s.blast, s.dmg);
+      mushroom(s.tx, s.tz, s.blast);
     }
   }
 }

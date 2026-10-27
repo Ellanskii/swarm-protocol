@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ENEMY_TYPES, LIMITS, SHIELD_AURA, SHOULDERS, TANK } from './config';
 import { animateMech } from './mech';
 import {
-  ENEMY_HOVER, beamMesh, bulletMesh, camera, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
+  ENEMY_HOVER, beamMesh, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
   groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
 } from './scene';
 import { G, P, aim } from './state';
@@ -137,6 +137,8 @@ export function renderWorld(dt: number, playing: boolean): void {
   }
   commit(domeMesh, n);
 
+  renderMushrooms(t);
+
   // mines: dark while arming, blinking red once live
   n = 0;
   for (const m of G.mines) {
@@ -232,6 +234,59 @@ export function renderWorld(dt: number, playing: boolean): void {
   lp.setXYZ(1, P.mx + Math.sin(P.ang) * reach, 1, P.mz + Math.cos(P.ang) * reach);
   lp.needsUpdate = true;
   laser.visible = playing;
+}
+
+// ---------------- mushroom clouds ----------------
+
+const SMOKE = new THREE.Color(0x76696a);
+const FIRE = new THREE.Color(0xff6a1a);
+/** Over-bright on purpose: no tone mapping, so it clips to a blinding white-yellow. */
+const FLASH = new THREE.Color(0xfff1b8).multiplyScalar(1.8);
+const cloudC = new THREE.Color();
+
+/** Heat 1 = white-hot flash, 0.5 = fire, 0 = cold smoke. */
+function cloudColor(heat: number): THREE.Color {
+  return heat > 0.5 ? cloudC.copy(FIRE).lerp(FLASH, (heat - 0.5) * 2) : cloudC.copy(SMOKE).lerp(FIRE, heat * 2);
+}
+
+function writeCloud(mesh: THREE.InstancedMesh, i: number, x: number, y: number, z: number, sx: number, sy: number, sz: number, col: THREE.Color, a: number): void {
+  writeInstance(mesh, i, x, y, z, 0, sx, sy, sz, col);
+  (mesh.geometry.getAttribute('aAlpha') as THREE.InstancedBufferAttribute).setX(i, a);
+}
+
+/**
+ * A classic mushroom: a fireball flashes on the ground, then the cap rolls upward on a stem
+ * while everything cools from white through orange to brown smoke and fades.
+ */
+function renderMushrooms(t: number): void {
+  let nb = 0, nr = 0, ns = 0;
+  for (const m of G.mushrooms) {
+    if (m.t >= m.dur) continue;
+    const p = m.t / m.dur, r = m.r;
+    const rise = 1 - (1 - Math.min(1, p / 0.55)) ** 3; // fast start, eases into place
+    const h = r * 1.5 * rise;
+    const heat = Math.max(0, 1 - p * 1.2);
+    const fade = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
+    // fireball: blinding at first, swallowed by the cap
+    if (p < 0.22) {
+      const k = p / 0.22, s = r * (0.35 + 0.45 * k);
+      writeCloud(cloudBall, nb++, m.x, s * 0.5 + h * 0.4, m.z, s, s, s, cloudColor(1), 1 - k * k);
+    }
+    const capR = r * (0.28 + 0.34 * rise);
+    writeCloud(cloudRing, nr++, m.x, h, m.z, capR, capR * 0.9, capR, cloudColor(heat), fade);
+    writeCloud(cloudBall, nb++, m.x, h + capR * 0.25, m.z, capR * 1.05, capR * 0.6, capR * 1.05, cloudColor(heat * 0.9), fade);
+    // stem stays a bit darker and thins as it cools
+    const stemR = r * 0.12 * (1 - p * 0.4);
+    writeCloud(cloudStem, ns++, m.x, 0, m.z, stemR, Math.max(0.01, h), stemR, cloudColor(heat * 0.7), fade * 0.95);
+    // ground skirt: a dust ring rolling outward
+    const skirt = r * (0.35 + 0.4 * rise);
+    writeCloud(cloudRing, nr++, m.x, 0.15, m.z, skirt, skirt * 0.18, skirt, cloudColor(heat * 0.3), fade * 0.45);
+  }
+  cloudMat.uniforms.uTime.value = t;
+  for (const [mesh, n] of [[cloudBall, nb], [cloudRing, nr], [cloudStem, ns]] as const) {
+    commit(mesh, n);
+    (mesh.geometry.getAttribute('aAlpha') as THREE.InstancedBufferAttribute).needsUpdate = true;
+  }
 }
 
 // ---------------- camera ----------------
