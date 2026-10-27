@@ -39,6 +39,7 @@ function resetGame(): void {
   resetState();
   updateField();
   applyTech();
+  S.scrap *= MAPS[G.map].loot;
   rebuildMech();
   camTarget.set(0, 0, 0);
   clearNumbers();
@@ -84,6 +85,9 @@ function endRun(won: boolean, quit = false): void {
   save.cores += G.loot.cores;
   save.runs++;
   if (won) save.wins++;
+  // the first evacuation from a map opens the next one
+  const opened = won && !save.cleared.includes(G.map) ? MAP_ORDER.find(id => MAPS[id].after === G.map) : undefined;
+  if (won && !save.cleared.includes(G.map)) save.cleared.push(G.map);
   persist();
   const title = $('oTitle');
   title.textContent = won ? 'ЭВАКУАЦИЯ' : quit ? 'ЗАБЕГ ПРЕРВАН' : 'МЕХ УНИЧТОЖЕН';
@@ -94,8 +98,9 @@ function endRun(won: boolean, quit = false): void {
   $('oScrap').textContent = String(G.loot.scrap);
   $('oCores').textContent = String(G.loot.cores);
   $('oNote').textContent = won
-    ? 'Финальный босс повержен. Добыча доставлена на базу.'
+    ? `Финальный босс повержен. Добыча доставлена на базу.${opened ? ` Открыта карта «${MAPS[opened].name}».` : ''}`
     : `Добыча сохранена. На базе: ${save.scrap} лома, ${save.cores} ядер.`;
+  if (opened) syncMap();
   $('over').hidden = false;
 }
 
@@ -114,6 +119,7 @@ function showMenu(): void {
   $('hud').hidden = true;
   document.body.classList.add('menu');
   renderMechs();
+  syncMap();
 }
 
 /** Debug cheat: toggles invulnerability, or sets it when `on` is given. */
@@ -237,24 +243,31 @@ renderMechs();
 const MAP_KEY = 'swarm.map';
 const mapBtn = $('mapBtn');
 
-function syncMapBtn(): void {
-  mapBtn.textContent = `Карта: ${MAPS[G.map].name}`;
-  mapBtn.title = MAPS[G.map].desc;
+const mapUnlocked = (id: MapId): boolean => { const after = MAPS[id].after; return !after || save.cleared.includes(after); };
+
+/** Shows the chosen map and what the next locked one needs; a map locked again (save reset) falls back to the first. */
+function syncMap(): void {
+  if (!mapUnlocked(G.map)) G.map = MAP_ORDER[0];
+  const m = MAPS[G.map], next = MAP_ORDER.find(id => !mapUnlocked(id));
+  mapBtn.textContent = `Карта: ${m.name}`;
+  mapBtn.hidden = MAP_ORDER.filter(mapUnlocked).length < 2;
+  $('mapInfo').textContent = `${m.name}: ${m.desc}${m.loot > 1 ? `, лом ×${m.loot}` : ''}.`
+    + (next ? ` Эвакуация с карты «${MAPS[MAPS[next].after!].name}» откроет «${MAPS[next].name}».` : '');
+  updateField(); // the title screen shows the chosen map behind it
 }
 
 mapBtn.addEventListener('click', () => {
-  G.map = MAP_ORDER[(MAP_ORDER.indexOf(G.map) + 1) % MAP_ORDER.length];
+  const open = MAP_ORDER.filter(mapUnlocked);
+  G.map = open[(open.indexOf(G.map) + 1) % open.length];
   try { localStorage.setItem(MAP_KEY, G.map); } catch { /* storage blocked */ }
-  syncMapBtn();
-  updateField(); // the title screen shows the chosen map behind it
+  syncMap();
 });
 
 try {
   const saved = localStorage.getItem(MAP_KEY) as MapId | null;
   if (saved && saved in MAPS) G.map = saved;
 } catch { /* storage blocked */ }
-syncMapBtn();
-updateField();
+syncMap();
 
 $('startBtn').addEventListener('click', startGame);
 $('againBtn').addEventListener('click', startGame);

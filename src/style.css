@@ -149,6 +149,7 @@ body.touch #touch { display: block; }
 .card.mech h3 { font-size: 18px; }
 .card.mech span { line-height: 1.4; }
 #mechInfo { min-height: 1.5em; color: var(--fg); font-size: 14px; }
+#mapInfo { margin-top: -6px; color: var(--muted); font-size: 13px; }
 .card.mech.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(76, 201, 240, .25); }
 .card.mech span { font-size: 12px; color: var(--fg); }
 #cards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 900px; }
@@ -277,7 +278,7 @@ body.touch #touch { display: block; }
   .card.mech { width: 156px; padding: 8px 10px; gap: 3px; }
   .card.mech h3 { font-size: 16px; }
   .card.mech span { font-size: 11px; }
-  #mechInfo { font-size: 12px; }
+  #mechInfo, #mapInfo { font-size: 12px; }
   .btn { padding: 9px 26px; font-size: 16px; }
   .stats { gap: 18px; }
   .stats b { font-size: 22px; }

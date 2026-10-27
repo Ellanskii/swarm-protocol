@@ -1,7 +1,7 @@
 // Endless field: map bounds and walls, cover pillars generated per chunk around the mech, circle-vs-pillar collision.
 import * as THREE from 'three';
-import { FIELD, MAPS } from './config';
-import { scene } from './scene';
+import { FIELD, MAPS, MAP_ORDER } from './config';
+import { applyPalette, scene } from './scene';
 import { G, P } from './state';
 
 export interface Pillar { x: number; z: number; r: number; h: number }
@@ -9,17 +9,11 @@ export interface Pillar { x: number; z: number; r: number; h: number }
 /** Pillars of the chunks around the mech; rebuilt when the mech crosses into another chunk. */
 export const pillars: Pillar[] = [];
 
-const MAX = (2 * FIELD.near + 1) ** 2 * FIELD.pillarsPerChunk;
-const bodyMesh = new THREE.InstancedMesh(
-  new THREE.CylinderGeometry(1, 1.08, 1, 8),
-  new THREE.MeshStandardMaterial({ color: 0x2a3360, roughness: 0.55, metalness: 0.25 }),
-  MAX,
-);
-const capMesh = new THREE.InstancedMesh(
-  new THREE.CylinderGeometry(1.01, 1.01, 0.08, 8),
-  new THREE.MeshBasicMaterial({ color: 0x4cc9f0 }),
-  MAX,
-);
+const MAX = (2 * FIELD.near + 1) ** 2 * Math.max(...MAP_ORDER.map(id => MAPS[id].pillars));
+const pillarMat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.25 });
+const capMat = new THREE.MeshBasicMaterial();
+const bodyMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1.08, 1, 8), pillarMat, MAX);
+const capMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.01, 1.01, 0.08, 8), capMat, MAX);
 bodyMesh.castShadow = bodyMesh.receiveShadow = true;
 // instances move with the mech, so the meshes' own bounds would cull them wrongly
 bodyMesh.frustumCulled = capMesh.frustumCulled = false;
@@ -50,9 +44,9 @@ export function intoField(x: number, z: number, d: number): [number, number] {
 
 const WALL_LEN = 200;
 const walls = new THREE.Group();
-const wallMat = new THREE.MeshStandardMaterial({ color: 0x1b2246, emissive: 0x5a2bb0, emissiveIntensity: 0.9 });
+const wallMat = new THREE.MeshStandardMaterial({ emissiveIntensity: 0.9 });
 // beyond the walls the floor grid is covered with the background color
-const voidMat = new THREE.MeshBasicMaterial({ color: 0x0b0d17 });
+const voidMat = new THREE.MeshBasicMaterial();
 for (const side of [-1, 1]) {
   const wall = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, WALL_LEN), wallMat);
   wall.position.set(side * 0.5, 0.6, 0);
@@ -81,10 +75,11 @@ function chunkRng(cx: number, cz: number, seed: number): () => number {
 }
 
 function chunkPillars(cx: number, cz: number, out: Pillar[]): void {
+  const map = MAPS[G.map], [r0, r1] = map.pillarR;
   const rng = chunkRng(cx, cz, G.fieldSeed), C = FIELD.chunk, from = out.length;
-  for (let i = 0; i < FIELD.pillarsPerChunk; i++) {
+  for (let i = 0; i < map.pillars; i++) {
     for (let tries = 0; tries < 20; tries++) {
-      const r = 0.8 + rng() * 1.1;
+      const r = r0 + rng() * (r1 - r0);
       // the edge margin keeps corridors between pillars of neighboring chunks too
       const m = r + FIELD.gap / 2;
       const x = cx * C + m + rng() * (C - 2 * m), z = cz * C + m + rng() * (C - 2 * m);
@@ -102,8 +97,19 @@ function chunkPillars(cx: number, cz: number, out: Pillar[]): void {
 let curX = NaN, curZ = NaN, curSeed = NaN, curMap = '';
 const m4 = new THREE.Matrix4(), pos = new THREE.Vector3(), scl = new THREE.Vector3(), rot = new THREE.Quaternion();
 
+function paint(): void {
+  const p = MAPS[G.map].palette;
+  applyPalette(p);
+  pillarMat.color.setHex(p.pillar);
+  capMat.color.setHex(p.cap);
+  wallMat.color.setHex(p.wall);
+  wallMat.emissive.setHex(p.wallGlow);
+  voidMat.color.setHex(p.sky);
+}
+
 /** Slides the walls along with the mech; loads the pillars around it when it enters another chunk or a new run starts. */
 export function updateField(): void {
+  if (G.map !== curMap) paint();
   const h = halfX();
   walls.visible = h < Infinity;
   if (walls.visible) {

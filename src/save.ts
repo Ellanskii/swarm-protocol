@@ -13,9 +13,11 @@ export interface SaveData {
   off: string[];
   runs: number;
   wins: number;
+  /** Maps the player has evacuated from; each one opens the next map. */
+  cleared: string[];
 }
 
-const fresh = (): SaveData => ({ v: VERSION, scrap: 0, cores: 0, tech: {}, off: [], runs: 0, wins: 0 });
+const fresh = (): SaveData => ({ v: VERSION, scrap: 0, cores: 0, tech: {}, off: [], runs: 0, wins: 0, cleared: [] });
 
 function parse(data: unknown): SaveData {
   if (!data || typeof data !== 'object') return fresh();

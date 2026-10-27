@@ -6,8 +6,6 @@ export const FIELD = {
   chunk: 40,
   /** Chunks loaded on each side of the mech's chunk. */
   near: 1,
-  /** Placement attempts per chunk; crowded spots drop some, so the average is a bit lower. */
-  pillarsPerChunk: 3,
   /** Min free space between pillars. */
   gap: 4,
   /** No pillars this close to the start point. */
@@ -16,21 +14,66 @@ export const FIELD = {
   gemFar: 45,
 } as const;
 
-export type MapId = 'field' | 'corridor';
+export type MapId = 'field' | 'corridor' | 'foundry' | 'bridge';
+
+/** Scene colors of a map. */
+export interface Palette {
+  /** Background and fog. */
+  sky: number;
+  ground: number;
+  gridMinor: number;
+  gridMajor: number;
+  wall: number;
+  wallGlow: number;
+  pillar: number;
+  cap: number;
+}
 
 export interface MapDef {
   name: string;
   desc: string;
+  /** Opens after an evacuation from this map; the first map is always open. */
+  after?: MapId;
   /** Half-width of the playable strip along X; `Infinity` for an open field. Z is always endless. */
   halfX: number;
+  /** Pillar placement attempts per chunk and their radius range. */
+  pillars: number;
+  pillarR: [number, number];
+  /** Seconds added to the run time when picking enemy types: tougher machines show up this much sooner. */
+  rush: number;
+  /** Weight multipliers for enemy types on this map. */
+  mix: Partial<Record<EnemyType, number>>;
+  /** Spawn rate multiplier. */
+  spawn: number;
+  /** Scrap multiplier: harder maps pay more. */
+  loot: number;
+  palette: Palette;
 }
 
 export const MAPS: Record<MapId, MapDef> = {
-  field: { name: 'Пустошь', desc: 'открытое поле во все стороны', halfX: Infinity },
-  corridor: { name: 'Магистраль', desc: 'бесконечный коридор вверх и вниз', halfX: 13 },
+  field: {
+    name: 'Пустошь', desc: 'открытое поле во все стороны',
+    halfX: Infinity, pillars: 3, pillarR: [0.8, 1.9], rush: 0, mix: {}, spawn: 1, loot: 1,
+    palette: { sky: 0x0b0d17, ground: 0x141a30, gridMinor: 0x1b2246, gridMajor: 0x2c3668, wall: 0x1b2246, wallGlow: 0x5a2bb0, pillar: 0x2a3360, cap: 0x4cc9f0 },
+  },
+  corridor: {
+    name: 'Магистраль', desc: 'бесконечный коридор вверх и вниз, больше бегунов', after: 'field',
+    halfX: 13, pillars: 3, pillarR: [0.8, 1.6], rush: 20, mix: { runner: 1.6 }, spawn: 1.05, loot: 1.2,
+    palette: { sky: 0x07110f, ground: 0x0f221d, gridMinor: 0x16352d, gridMajor: 0x215244, wall: 0x112b25, wallGlow: 0x1fae8a, pillar: 0x1d463c, cap: 0x7cf5c8 },
+  },
+  foundry: {
+    name: 'Литейный цех', desc: 'лабиринт колонн, танки и артиллерия раньше', after: 'corridor',
+    halfX: Infinity, pillars: 7, pillarR: [0.9, 2.4], rush: 45, mix: { brute: 1.6, artillery: 1.6 }, spawn: 1.1, loot: 1.4,
+    palette: { sky: 0x130a07, ground: 0x24140e, gridMinor: 0x371e14, gridMajor: 0x552e1e, wall: 0x28150d, wallGlow: 0xc2541b, pillar: 0x47281b, cap: 0xffa040 },
+  },
+  bridge: {
+    name: 'Мост', desc: 'узкий пролёт над пустотой, давят спереди и сзади', after: 'foundry',
+    halfX: 4.5, pillars: 0, pillarR: [1, 1], rush: 60, mix: { runner: 1.3, spitter: 1.5 }, spawn: 1.15, loot: 1.6,
+    palette: { sky: 0x05060a, ground: 0x1a1d26, gridMinor: 0x262a36, gridMajor: 0x3a4152, wall: 0x20242e, wallGlow: 0xd8def5, pillar: 0x2a2e3a, cap: 0xd8def5 },
+  },
 };
 
-export const MAP_ORDER: MapId[] = ['field', 'corridor'];
+export const MAP_ORDER: MapId[] = ['field', 'corridor', 'foundry', 'bridge'];
 
 export const LIMITS = {
   bullets: 900,

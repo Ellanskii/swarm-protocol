@@ -1,7 +1,7 @@
 // Renderer, camera, lights, floor and all reusable meshes.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ENEMIES, ENEMY_TYPES, LIMITS, type EnemyType } from './config';
+import { ENEMIES, ENEMY_TYPES, LIMITS, type EnemyType, type Palette } from './config';
 
 export const canvas = document.getElementById('c') as HTMLCanvasElement;
 
@@ -40,20 +40,28 @@ scene.add(muzzle);
 // The field is endless: floor and grid follow the camera, snapped to the major grid step so the lines stay put.
 const MAJOR = 10;
 const floor = new THREE.Group();
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(200, 200),
-  new THREE.MeshStandardMaterial({ color: 0x141a30, roughness: 0.95 }),
-);
+const groundMat = new THREE.MeshStandardMaterial({ roughness: 0.95 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMat);
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 // the view reaches far up the screen (-Z) and little below the mech, so the grid sits ahead of it:
-// a line ending behind the camera may not be drawn at all
-const minorLines = new THREE.GridHelper(120, 60, 0x1b2246, 0x1b2246);
+// a line ending behind the camera may not be drawn at all.
+// White vertex colors, tinted per map through the material color.
+const minorLines = new THREE.GridHelper(120, 60, 0xffffff, 0xffffff);
 minorLines.position.set(0, 0.01, -20);
-const majorLines = new THREE.GridHelper(120, 120 / MAJOR, 0x2c3668, 0x2c3668);
+const majorLines = new THREE.GridHelper(120, 120 / MAJOR, 0xffffff, 0xffffff);
 majorLines.position.set(0, 0.015, -20);
 floor.add(ground, minorLines, majorLines);
 scene.add(floor);
+
+/** Recolors the sky, fog and floor for the current map. */
+export function applyPalette(p: Palette): void {
+  (scene.background as THREE.Color).setHex(p.sky);
+  (scene.fog as THREE.Fog).color.setHex(p.sky);
+  groundMat.color.setHex(p.ground);
+  minorLines.material.color.setHex(p.gridMinor);
+  majorLines.material.color.setHex(p.gridMajor);
+}
 
 export function followFloor(x: number, z: number): void {
   floor.position.set(Math.round(x / MAJOR) * MAJOR, 0, Math.round(z / MAJOR) * MAJOR);

@@ -2,7 +2,7 @@
 import { insidePillar, intoField, keepInField, outOfField, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode, selfDestruct } from './combat';
-import { ARTILLERY, CROWD, DECOY, TANK, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
+import { ARTILLERY, CROWD, DECOY, TANK, ENEMIES, LIMITS, LOOT, MAPS, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
 import { mushroom, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { hurt } from './player';
@@ -31,9 +31,9 @@ function spawnPos(minD: number, maxD: number, ahead = false): [number, number] {
   return intoField(P.x + Math.sin(a) * d, P.z + Math.cos(a) * d, d);
 }
 
-/** Enemy mix shifts toward tougher types over time. */
+/** Enemy mix shifts toward tougher types over time; the map brings them sooner and reweights them. */
 function pickType(): EnemyType {
-  const t = G.time;
+  const map = MAPS[G.map], t = G.time + map.rush;
   const weights: [EnemyType, number][] = [
     ['grunt', 1],
     ['runner', t > 25 ? 0.55 : 0],
@@ -42,6 +42,7 @@ function pickType(): EnemyType {
     ['artillery', t > 150 ? 0.05 : 0],
     ['shield', t > 180 ? 0.05 : 0],
   ];
+  for (const p of weights) p[1] *= map.mix[p[0]] ?? 1;
   let sum = 0;
   for (const [, w] of weights) sum += w;
   let r = Math.random() * sum;
@@ -51,7 +52,7 @@ function pickType(): EnemyType {
 
 export function spawnDirector(dt: number): void {
   if (G.evacT > 0 || G.deathT > 0) return;
-  G.spawnAcc += Math.min(1.1 + G.time * 0.05, 18) * dt;
+  G.spawnAcc += Math.min(1.1 + G.time * 0.05, 18) * MAPS[G.map].spawn * dt;
   while (G.spawnAcc >= 1) {
     G.spawnAcc -= 1;
     const [x, z] = spawnPos(24, 31);
