@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { LIMITS } from './config';
 import { camera, rings } from './scene';
-import { G } from './state';
+import { G, type Wreck } from './state';
 import { $, rand } from './utils';
 
 export function sparks(x: number, y: number, z: number, col: number, n: number, spd = 6): void {
@@ -16,16 +16,32 @@ export function sparks(x: number, y: number, z: number, col: number, n: number, 
   }
 }
 
-/** Slow grey puff rising from a wreck. */
-export function smoke(x: number, y: number, z: number): void {
+/** Slow puff rising from a wreck; `k` scales its size and life. */
+export function smoke(x: number, y: number, z: number, k = 1, col = 0x4a4f63): void {
   if (G.parts.length >= LIMITS.particles) return;
-  const life = rand(0.8, 1.4);
+  const life = rand(0.8, 1.4) * k;
   G.parts.push({
     x: x + rand(-0.3, 0.3), y, z: z + rand(-0.3, 0.3),
     vx: rand(-0.4, 0.4), vy: rand(1, 1.8), vz: rand(-0.4, 0.4),
-    g: -0.6, life, max: life, col: 0x4a4f63, s: rand(1.6, 2.4),
+    g: -0.6, life, max: life, col, s: rand(1.6, 2.4) * k,
   });
 }
+
+const FLAME_COLS = [0xffd166, 0xff8c42, 0xff5a1f];
+
+/** Short tongue of fire licking up from a burning wreck. */
+export function flame(x: number, y: number, z: number, k = 1): void {
+  if (G.parts.length >= LIMITS.particles) return;
+  const life = rand(0.35, 0.7);
+  G.parts.push({
+    x: x + rand(-0.4, 0.4) * k, y, z: z + rand(-0.4, 0.4) * k,
+    vx: rand(-0.5, 0.5), vy: rand(2.5, 4), vz: rand(-0.5, 0.5),
+    g: -2, life, max: life, col: FLAME_COLS[(Math.random() * FLAME_COLS.length) | 0], s: rand(2.2, 3.6) * k,
+  });
+}
+
+/** Wrecks burn this long, at most this share of their life, then only smoke. */
+const BURN = { time: 1.4, share: 0.4 } as const;
 
 /** Fast white puff for venting heat. */
 export function steam(x: number, y: number, z: number, spd = 2): void {
@@ -42,9 +58,9 @@ const DEBRIS_DARK = 0x2a2f45;
 
 /**
  * A machine blows apart: lit chunks in its color and dark metal, a flash ring, shake by size.
- * Bigger machines also leave a smoking wreck behind.
+ * Bigger machines also leave a smoking wreck of their `model` behind, drawn at `scale`.
  */
-export function machineDeath(x: number, y: number, z: number, r: number, col: number, rot: number): void {
+export function machineDeath(x: number, y: number, z: number, r: number, col: number, rot: number, model: Wreck['model'], scale = 1): void {
   const n = Math.round(3 + r * 6);
   for (let i = 0; i < n && G.debris.length < LIMITS.debris; i++) {
     const a = Math.random() * Math.PI * 2, sp = rand(2, 6) * (0.6 + r * 0.4);
@@ -61,7 +77,7 @@ export function machineDeath(x: number, y: number, z: number, r: number, col: nu
     G.shake = Math.min(1.2, G.shake + Math.min(0.5, r * 0.15));
     if (G.wrecks.length < LIMITS.wrecks) {
       const life = r > 2 ? 6 : 3;
-      G.wrecks.push({ x, z, rot, s: r * 0.9, life, max: life, smokeT: 0 });
+      G.wrecks.push({ model, x, z, rot, s: scale, life, max: life, smokeT: 0 });
     }
   }
 }
@@ -120,12 +136,20 @@ export function updateParticles(dt: number): void {
       d.spin *= 0.5;
     }
   }
+  // a wreck burns first, with sooty smoke over the flames, then smokes in bigger, slower puffs
   for (const w of G.wrecks) {
     w.life -= dt;
-    if ((w.smokeT -= dt) <= 0 && w.life > 0.8) {
-      w.smokeT = 0.09;
-      smoke(w.x, 0.5 * w.s, w.z);
-      if (Math.random() < 0.3) sparks(w.x, 0.4, w.z, 0xff8c42, 1, 2);
+    if ((w.smokeT -= dt) > 0 || w.life <= 0.8) continue;
+    const burning = w.max - w.life < Math.min(BURN.time, w.max * BURN.share);
+    const y = (w.model === 'mech' ? 1 : 0.5) * w.s;
+    if (burning) {
+      w.smokeT = 0.03;
+      flame(w.x, y * 0.6, w.z, w.s);
+      if (Math.random() < 0.4) smoke(w.x, y + 0.4, w.z, 1.4, 0x2a2a33);
+    } else {
+      w.smokeT = 0.08;
+      smoke(w.x, y, w.z, 1.8);
+      if (Math.random() < 0.2) sparks(w.x, 0.4, w.z, 0xff8c42, 1, 2);
     }
   }
   for (const r of rings) {

@@ -1,10 +1,10 @@
 // Pushes simulation state into meshes and moves the camera.
 import * as THREE from 'three';
 import { ENEMY_TYPES, LIMITS, MAPS, SHIELD_AURA, SHOULDERS, TANK } from './config';
-import { animateMech, setMechRim } from './mech';
+import { animateMech, placeMechWreck, setMechRim } from './mech';
 import {
   ENEMY_HOVER, beamMesh, bulletGlint, bulletHalo, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, enemyRimColors, eshotGlint, eshotHalo, eshotMesh, gemMesh, scrapMesh,
-  followFloor, groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
+  followFloor, groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMeshes,
 } from './scene';
 import { G, P, aim } from './state';
 import { rand } from './utils';
@@ -18,6 +18,8 @@ const tankShell = new THREE.Color(0xff2a2a);
 const bodyC = new THREE.Color();
 const darkC = new THREE.Color();
 const glowC = new THREE.Color();
+const wreckC = new THREE.Color(0x1b1f2e);
+const emberC = new THREE.Color(0xff6b1a);
 
 function writeInstance(
   mesh: THREE.InstancedMesh, i: number,
@@ -100,14 +102,19 @@ export function renderWorld(dt: number, playing: boolean): void {
   commit(debrisMesh, n);
 
   // wrecks sink into the ground before they vanish
-  n = 0;
-  tmpC.setRGB(1, 1, 1);
+  for (const k of ENEMY_TYPES) counts[k] = 0;
+  let mechSink: number | null = null;
   for (const w of G.wrecks) {
     if (w.life <= 0) continue;
-    const sink = Math.max(0, 0.8 - w.life) * 0.6;
-    writeInstance(wreckMesh, n++, w.x, -sink, w.z, w.rot, w.s, w.s, w.s, tmpC);
+    const sink = Math.max(0, 0.8 - w.life) * 0.6 * w.s;
+    if (w.model === 'mech') { mechSink = sink; continue; }
+    // charred metal with a faint hint of the machine's color, still glowing hot for a moment
+    const hot = Math.max(0, 1 - (w.max - w.life) / 0.6);
+    tmpC.copy(wreckC).lerp(enemyColors[w.model], 0.04).lerp(emberC, hot * 0.5);
+    writeInstance(wreckMeshes[w.model], counts[w.model]++, w.x, -sink, w.z, w.rot, w.s, w.s, w.s, tmpC);
   }
-  commit(wreckMesh, n);
+  for (const k of ENEMY_TYPES) commit(wreckMeshes[k], counts[k]);
+  placeMechWreck(mechSink);
 
   // ground rings: artillery warnings (outer edge + filling disc)
   n = 0;

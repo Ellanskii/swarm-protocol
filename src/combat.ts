@@ -4,6 +4,8 @@ import { sfx } from './audio';
 import { BRACE, CHAIN, CLUSTER, DESIGNATOR, LIMITS, LOOT, MELTDOWN, NAPALM, PACING, SHIELD_AURA } from './config';
 import { dmgNumber, machineDeath, mushroom, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
+import { wreckMech } from './mech';
+import { hasHull } from './scene';
 import { dropGem, spawnPickup } from './pickups';
 import { G, P, S, braced, type Bullet, type Enemy } from './state';
 import { rand } from './utils';
@@ -156,11 +158,14 @@ export function explode(x: number, z: number, r: number, dmg: number, secondary 
   }
 }
 
+/** A wreck is one rigid piece: tanks keep their hull's heading, the rest the way they faced. */
+const wreckRot = (e: Enemy): number => (hasHull[e.type] ? e.mrot : e.rot);
+
 export function kill(e: Enemy): void {
   e.dead = true;
   G.kills++;
   sparks(e.x, e.t.y, e.z, e.t.color, Math.round(6 + e.r * 8), 7);
-  machineDeath(e.x, e.t.y * (e.r / e.t.r), e.z, e.r, e.t.color, e.rot);
+  machineDeath(e.x, e.t.y * (e.r / e.t.r), e.z, e.r, e.t.color, wreckRot(e), e.type, e.r / e.t.r);
   sfx(e.r >= 0.6 ? 'boom' : 'kill');
   if (e.boss) {
     for (let i = 0; i < 14; i++) dropGem(e.x + rand(-2.5, 2.5), e.z + rand(-2.5, 2.5), 6);
@@ -201,7 +206,8 @@ function startEvacuation(): void {
 export function meltdown(): void {
   G.deathT = MELTDOWN.wait;
   sparks(P.x, 1.4, P.z, 0xffd166, 40, 14);
-  machineDeath(P.x, 1.4, P.z, 2.4, 0xff8c42, P.legAng);
+  machineDeath(P.x, 1.4, P.z, 2.4, 0xff8c42, P.legAng, 'mech');
+  wreckMech();
   ringBurst(P.x, P.z, MELTDOWN.r);
   mushroom(P.x, P.z, 8, MELTDOWN.wait);
   for (const e of G.enemies) {
@@ -222,7 +228,7 @@ export function selfDestruct(e: Enemy): void {
   e.dead = true;
   ringBurst(e.x, e.z, 1.6);
   sparks(e.x, 0.8, e.z, 0xff3b3b, 14, 8);
-  machineDeath(e.x, 0.8, e.z, e.r, e.t.color, e.rot);
+  machineDeath(e.x, 0.8, e.z, e.r, e.t.color, wreckRot(e), e.type, e.r / e.t.r);
   G.shake = Math.min(1.2, G.shake + 0.25);
   sfx('boom');
 }

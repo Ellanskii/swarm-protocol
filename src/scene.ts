@@ -278,9 +278,18 @@ for (const k of ENEMY_TYPES) {
   }));
 }
 
-/** Lit chunks of destroyed machines and their burnt-out hulls. */
+/** Lit chunks of destroyed machines. */
 export const debrisMesh = pool(new THREE.BoxGeometry(0.24, 0.12, 0.32), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.4 }), LIMITS.debris);
-export const wreckMesh = pool(bx(1.3, 0.45, 1.5, 0, 0.22, 0), new THREE.MeshStandardMaterial({ color: 0x1b1f2e, roughness: 0.9, metalness: 0.2 }), LIMITS.wrecks);
+/** Burnt-out hulls: each type's own body and dark parts in its rest pose, without lights and neon. */
+const wreckMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0.3 });
+export const wreckMeshes = {} as Record<EnemyType, THREE.InstancedMesh>;
+/** Types whose hull turns apart from the turret; their wreck keeps the hull's heading. */
+export const hasHull = {} as Record<EnemyType, boolean>;
+for (const k of ENEMY_TYPES) {
+  hasHull[k] = ENEMY_PARTS_SPEC[k].some(p => p.anim === 'hull');
+  const geos = ENEMY_PARTS_SPEC[k].filter(p => p.mat === 'body' || p.mat === 'dark').flatMap(p => p.geos);
+  wreckMeshes[k] = pool(mergeGeometries(geos.map(g => (g.index ? g.toNonIndexed() : g))), wreckMat, LIMITS.wrecks, true);
+}
 
 /** Mines lying on the ground; their color blinks when armed. */
 export const mineMesh = pool(

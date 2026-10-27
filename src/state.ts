@@ -212,7 +212,8 @@ export interface Debris { x: number; y: number; z: number; vx: number; vy: numbe
 /** Burnt-out hull left by a bigger machine; smokes, then sinks. */
 /** Mushroom cloud over a big blast; `r` is the blast radius, `t` runs up to `dur`. */
 export interface Mushroom { x: number; z: number; r: number; t: number; dur: number }
-export interface Wreck { x: number; z: number; rot: number; s: number; life: number; max: number; smokeT: number }
+/** Burnt-out hull: the machine's own model in charred metal, or the mech's (`mech`). `s` is the model scale. */
+export interface Wreck { model: EnemyType | 'mech'; x: number; z: number; rot: number; s: number; life: number; max: number; smokeT: number }
 /** Artillery shell on its way: the zone is marked until it lands. */
 /** A marked zone that blows up after a warning. Enemy artillery hits everyone; `friendly` (orbital strike) only machines. */
 export interface Strike { x: number; z: number; t: number; dur: number; r: number; dmg: number; friendly?: boolean }

@@ -276,8 +276,39 @@ export function setMechRim(on: boolean): void {
 let rig = buildMech(MECHS[G.mech]);
 mechRoot.add(rig.root);
 
+// ---------------- wreck ----------------
+/** Charred metal of the destroyed mech, one shade for every part. */
+const wreckMat = new THREE.MeshStandardMaterial({ color: 0x1e2230, roughness: 0.9, metalness: 0.3 });
+let wreck: THREE.Group | null = null;
+
+/** Leaves a burnt-out copy of the mech in its current pose and loadout; lights, neon and the shield are dropped. */
+export function wreckMech(): void {
+  clearWreck();
+  wreck = rig.root.clone();
+  wreck.traverse(o => {
+    if (!(o instanceof THREE.Mesh)) return;
+    if (o.material instanceof THREE.MeshBasicMaterial) o.visible = false;
+    else o.material = wreckMat;
+  });
+  wreck.position.y = 0;
+  mechRoot.add(wreck);
+}
+
+/** Sinks the wreck by `sink`; `null` once its time is up. */
+export function placeMechWreck(sink: number | null): void {
+  if (!wreck) return;
+  if (sink === null) clearWreck();
+  else wreck.position.y = -sink;
+}
+
+function clearWreck(): void {
+  if (wreck) mechRoot.remove(wreck);
+  wreck = null;
+}
+
 /** Rebuilds the model for the selected mech. Slot parts are cleared. */
 export function rebuildMech(): void {
+  clearWreck();
   mechRoot.remove(rig.root);
   rig = buildMech(MECHS[G.mech]);
   mechRoot.add(rig.root);
@@ -350,5 +381,6 @@ export function animateMech(dt: number, playing: boolean): void {
     shieldBubble.visible = P.shield > 0.5;
   }
 
-  r.root.visible = G.deathT <= 0 && !(P.blink > 0 && Math.floor(P.blink * 20) % 2 === 0);
+  // the wreck takes the mech's place until the next run
+  r.root.visible = !wreck && !(P.blink > 0 && Math.floor(P.blink * 20) % 2 === 0);
 }
