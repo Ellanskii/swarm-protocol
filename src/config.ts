@@ -185,6 +185,9 @@ export const PHASE = { time: 0.12, speed: 40, dmg: 30, r: 0.9, vent: 0.3 } as co
 /** Decoy (robotics branch): the dash leaves a hologram that pulls melee machines in, then blows up. */
 export const DECOY = { life: 3, pull: 12, r: 3.6, dmg: 60 } as const;
 
+/** The mech's death: a mushroom blast wipes the machines nearby, loot flies in, then the death screen. */
+export const MELTDOWN = { r: 14, wait: 3 } as const;
+
 /** Reactive armor (ballistics): a hit on the mech sets off a blast around it, once per `cd`. Damage +50% per level. */
 export const REACTIVE = { cd: 3, r: 3.2, dmg: 35 } as const;
 /** Cluster munitions (rockets): every blast scatters bomblets (one per level, plus one). */

@@ -28,14 +28,14 @@ export function updateGems(dt: number): void {
   for (const g of G.gems) {
     if (g.dead) continue;
     const dx = P.x - g.x, dz = P.z - g.z, d = Math.hypot(dx, dz);
-    if (d > FIELD.gemFar && !g.pull && G.evacT <= 0) {
+    if (d > FIELD.gemFar && !g.pull && G.evacT <= 0 && G.deathT <= 0) {
       if (g.kind !== 'xp') { g.dead = true; collect(g.kind, g.v); }
       else if (!bank) bank = g;
       else { bank.v += g.v; g.dead = true; }
       continue;
     }
-    // during the evacuation everything left on the field flies to the mech
-    if (d < S.magnet || G.evacT > 0) g.pull = true;
+    // during the evacuation and after the mech's death everything left on the field flies to it
+    if (d < S.magnet || G.evacT > 0 || G.deathT > 0) g.pull = true;
     if (g.pull) {
       g.vel = Math.min(g.vel + 45 * dt, 30);
       const step = Math.min(d, g.vel * dt);
@@ -49,6 +49,11 @@ export function updateGems(dt: number): void {
       if (g.kind === 'core') showBanner(`+${g.v} ЯДР${g.v === 1 ? 'О' : 'А'}`, 'gold', 1);
     }
   }
+}
+
+/** Credits every gem still on the field, so nothing is lost when the run ends before it flies in. */
+export function collectAllGems(): void {
+  for (const g of G.gems) if (!g.dead) { g.dead = true; collect(g.kind, g.v); }
 }
 
 export function spawnPickup(kind: Pickup['kind'], x: number, z: number): void {

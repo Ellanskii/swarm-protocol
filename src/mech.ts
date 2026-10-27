@@ -320,5 +320,5 @@ export function animateMech(dt: number, playing: boolean): void {
     shieldBubble.visible = P.shield > 0.5;
   }
 
-  r.root.visible = !(P.blink > 0 && Math.floor(P.blink * 20) % 2 === 0);
+  r.root.visible = G.deathT <= 0 && !(P.blink > 0 && Math.floor(P.blink * 20) % 2 === 0);
 }

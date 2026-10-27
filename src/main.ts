@@ -4,17 +4,17 @@ import { updateAura } from './abilities';
 import { updateField } from './arena';
 import { duckMusic, initAudio, musicEnabled, toggleMusic, toggleMute } from './audio';
 import { closeBase, openBase, renderBase } from './base';
-import { updateBullets } from './combat';
+import { meltdown, updateBullets } from './combat';
 import { MAPS, MAP_ORDER, MECHS, MECH_ORDER, PACING, type MapId, type MechId } from './config';
 import { spawnDirector, spawnEnemy, updateEnemies, updateEnemyShots, updateStrikes } from './enemies';
-import { clearNumbers, showBanner, updateNumbers, updateParticles } from './fx';
+import { clearNumbers, showBanner, sparks, updateNumbers, updateParticles } from './fx';
 import { buildGrid } from './grid';
 import { resetHUD, updateHUD } from './hud';
 import { bindInput, mouse, toggleAutoAim, touch, updateAim } from './input';
 import { rebuildMech } from './mech';
 import { updateModules } from './modules';
 import { updateMusic, type MusicMode } from './music';
-import { gainXP, removeAllPickups, updateGems, updatePickups } from './pickups';
+import { collectAllGems, gainXP, removeAllPickups, updateGems, updatePickups } from './pickups';
 import { tryDash, updatePlayer, updateTrails } from './player';
 import { camTarget, renderWorld, updateCamera } from './render';
 import { camera, renderer, scene } from './scene';
@@ -312,7 +312,7 @@ syncMusicBtns();
 /** Which music the current moment calls for; the fight builds up with time and crowd size. */
 function musicFor(): [MusicMode, number] {
   if (G.state === 'start' || G.state === 'base') return ['menu', 0];
-  if (G.state === 'over') return [G.won ? 'evac' : 'over', 0];
+  if (G.state === 'over' || G.deathT > 0) return [G.won ? 'evac' : 'over', 0];
   if (G.evacT > 0) return ['evac', 0];
   if (G.enemies.some(e => e.boss && !e.dead)) return ['boss', 1];
   return ['play', clamp(G.time / 600 + G.enemies.length / 220, 0, 1)];
@@ -324,16 +324,18 @@ document.body.classList.add('menu');
 function update(dt: number): void {
   G.time += dt;
   if (G.evacT > 0 && (G.evacT -= dt) <= 0) G.won = true;
-  updatePlayer(dt);
+  // a destroyed mech neither moves nor shoots: the world plays out the blast and the loot flies in
+  const alive = G.deathT <= 0;
+  if (alive) updatePlayer(dt);
   updateField();
-  updateWeapons(dt);
+  if (alive) updateWeapons(dt);
   spawnDirector(dt);
   buildGrid();
   updateEnemies(dt);
   updateBullets(dt);
   updateEnemyShots(dt);
   updateStrikes(dt);
-  updateShoulders(dt);
+  if (alive) updateShoulders(dt);
   updateTrails(dt);
   updateModules(dt);
   updateAura(dt);
@@ -374,7 +376,15 @@ function frame(now: number): void {
   updateAim();
   if (G.state === 'play') {
     update(dt);
-    if (P.hp <= 0) endRun(false);
+    if (G.deathT > 0) {
+      if ((G.deathT -= dt) <= 0) { collectAllGems(); endRun(false); }
+    } else if (P.hp <= 0) {
+      meltdown();
+      // the drones go down with the mech
+      for (const d of G.drones) sparks(d.x, 1.6, d.z, 0xffb347, 6, 6);
+      removeAllDrones();
+      G.drones.length = 0;
+    }
     else if (G.won) endRun(true);
     else if (G.pendingLevels > 0 && G.evacT <= 0) openLevelUp();
     updateHUD();
@@ -389,7 +399,7 @@ function frame(now: number): void {
   duckMusic(G.state === 'pause' ? 0.35 : G.state === 'levelup' ? 0.6 : 1);
   updateMusic(dt, mode, heat);
   updateCamera(dt);
-  renderWorld(G.state === 'play' ? dt : 0, G.state === 'play');
+  renderWorld(G.state === 'play' ? dt : 0, G.state === 'play' && G.deathT <= 0);
   renderer.render(scene, camera);
 
   // sites time ads and their own pause around active play

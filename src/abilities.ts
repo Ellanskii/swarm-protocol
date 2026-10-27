@@ -7,7 +7,7 @@ import { G, P, S } from './state';
 const AURA_TICK = 0.45;
 
 export function updateAura(dt: number): void {
-  const on = S.aura > 0;
+  const on = S.aura > 0 && G.deathT <= 0;
   auraMesh.visible = auraRing.visible = on;
   if (!on) return;
 

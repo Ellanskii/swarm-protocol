@@ -50,7 +50,7 @@ function pickType(): EnemyType {
 }
 
 export function spawnDirector(dt: number): void {
-  if (G.evacT > 0) return;
+  if (G.evacT > 0 || G.deathT > 0) return;
   G.spawnAcc += Math.min(1.1 + G.time * 0.05, 18) * dt;
   while (G.spawnAcc >= 1) {
     G.spawnAcc -= 1;

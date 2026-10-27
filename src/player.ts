@@ -163,7 +163,7 @@ export function updateTrails(dt: number): void {
 
 /** Applies damage unless invulnerable; the shield soaks it first. Death is detected by the main loop (P.hp <= 0). */
 export function hurt(amount: number): void {
-  if (P.inv > 0 || G.state !== 'play' || G.evacT > 0) return;
+  if (P.inv > 0 || G.state !== 'play' || G.evacT > 0 || G.deathT > 0) return;
   P.calm = 0;
   amount *= 1 - (MECHS[G.mech].armor ?? 0);
   if (S.reactive && G.reactiveCd <= 0) {

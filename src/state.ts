@@ -246,6 +246,8 @@ export const G = {
   evacT: 0,
   /** Set when the evacuation finishes; the main loop then shows the victory screen. */
   won: false,
+  /** Countdown from the mech's death blast to the death screen; 0 while the mech is alive. */
+  deathT: 0,
   auraT: 0,
   gunKick: 0,
   owned: {} as Partial<Record<WeaponId, WeaponState>>,
@@ -325,7 +327,7 @@ export function resetState(): void {
   } satisfies Player);
   Object.assign(G, {
     fieldSeed: (Math.random() * 2 ** 32) >>> 0, time: 0, kills: 0, spawnAcc: 0, nextBurst: 45, nextBoss: 120, bossN: 0, shake: 0,
-    pendingLevels: 0, loot: { scrap: 0, cores: 0 }, evacT: 0, won: false, auraT: 0, gunKick: 0,
+    pendingLevels: 0, loot: { scrap: 0, cores: 0 }, evacT: 0, won: false, deathT: 0, auraT: 0, gunKick: 0,
     owned: { [mech.start]: mkWeapon(mech.start, 'armR') }, upLv: {},
     reload: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
     heat: 0, heatIdle: 0, ventFrom: 0,

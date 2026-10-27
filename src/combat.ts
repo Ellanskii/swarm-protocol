@@ -1,11 +1,11 @@
 // Player projectiles, damage, explosions, enemy death.
 import { insidePillar, outOfField } from './arena';
 import { sfx } from './audio';
-import { BRACE, CHAIN, CLUSTER, DESIGNATOR, LIMITS, LOOT, NAPALM, PACING, SHIELD_AURA } from './config';
+import { BRACE, CHAIN, CLUSTER, DESIGNATOR, LIMITS, LOOT, MELTDOWN, NAPALM, PACING, SHIELD_AURA } from './config';
 import { dmgNumber, machineDeath, mushroom, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { dropGem, spawnPickup } from './pickups';
-import { G, S, braced, type Bullet, type Enemy } from './state';
+import { G, P, S, braced, type Bullet, type Enemy } from './state';
 import { rand } from './utils';
 
 /** Optional shot traits; see Bullet. */
@@ -192,6 +192,29 @@ function startEvacuation(): void {
   for (const s of G.eshots) s.life = 0;
   G.shake = 1.2;
   showBanner('ЭВАКУАЦИЯ', 'blue', PACING.evacDelay);
+}
+
+/**
+ * The mech is destroyed: it goes up in a mushroom cloud that wipes the machines around it.
+ * Bosses only take a hit, so a forge never dies to it and never starts the evacuation.
+ */
+export function meltdown(): void {
+  G.deathT = MELTDOWN.wait;
+  sparks(P.x, 1.4, P.z, 0xffd166, 40, 14);
+  machineDeath(P.x, 1.4, P.z, 2.4, 0xff8c42, P.legAng);
+  ringBurst(P.x, P.z, MELTDOWN.r);
+  mushroom(P.x, P.z, 8, MELTDOWN.wait);
+  for (const e of G.enemies) {
+    if (e.dead) continue;
+    const ox = e.x - P.x, oz = e.z - P.z, d = Math.hypot(ox, oz) || 1;
+    if (d > MELTDOWN.r + e.r) continue;
+    if (e.boss) damage(e, Math.min(e.maxHp * 0.25, e.hp - 1), (ox / d) * 4 / e.r, (oz / d) * 4 / e.r, false);
+    else kill(e);
+  }
+  for (const s of G.eshots) s.life = 0;
+  G.shake = 1.2;
+  sfx('boom');
+  sfx('boss');
 }
 
 /** Kamikaze drone hits the mech: blows up without loot, it was not shot down. */
