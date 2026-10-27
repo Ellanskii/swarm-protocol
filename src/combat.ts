@@ -1,7 +1,7 @@
 // Player projectiles, damage, explosions, enemy death.
 import { insidePillar } from './arena';
 import { sfx } from './audio';
-import { ARENA, BRACE, CHAIN, CLUSTER, DESIGNATOR, LIMITS, LOOT, NAPALM, PACING, SHIELD_AURA } from './config';
+import { BRACE, CHAIN, CLUSTER, DESIGNATOR, LIMITS, LOOT, NAPALM, PACING, SHIELD_AURA } from './config';
 import { dmgNumber, machineDeath, mushroom, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { dropGem, spawnPickup } from './pickups';
@@ -83,7 +83,6 @@ export function updateBullets(dt: number): void {
     for (let s = 0; s < steps && b.life > 0; s++) {
       b.x += b.vx * sdt;
       b.z += b.vz * sdt;
-      if (Math.abs(b.x) > ARENA || Math.abs(b.z) > ARENA) { b.life = 0; break; }
       if (insidePillar(b.x, b.z)) {
         if (b.blast) detonate(b);
         else { b.life = 0; sparks(b.x, 1, b.z, 0x8899cc, 3, 4); }

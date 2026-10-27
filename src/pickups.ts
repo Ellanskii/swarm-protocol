@@ -1,9 +1,9 @@
 // XP gems, scrap and cores, heart and magnet pickups, leveling.
 import { sfx } from './audio';
-import { LIMITS, xpFor } from './config';
+import { FIELD, LIMITS, xpFor } from './config';
 import { showBanner } from './fx';
 import { heartTpl, magnetTpl, scene } from './scene';
-import { G, P, S, type GemKind, type Pickup } from './state';
+import { G, P, S, type Gem, type GemKind, type Pickup } from './state';
 
 export function dropGem(x: number, z: number, v: number, kind: GemKind = 'xp'): void {
   if (G.gems.length >= LIMITS.gems) {
@@ -23,9 +23,17 @@ function collect(kind: GemKind, v: number): void {
 }
 
 export function updateGems(dt: number): void {
+  // XP left far behind merges into one crystal, other currency is credited, so stragglers don't pile up
+  let bank: Gem | null = null;
   for (const g of G.gems) {
     if (g.dead) continue;
     const dx = P.x - g.x, dz = P.z - g.z, d = Math.hypot(dx, dz);
+    if (d > FIELD.gemFar && !g.pull && G.evacT <= 0) {
+      if (g.kind !== 'xp') { g.dead = true; collect(g.kind, g.v); }
+      else if (!bank) bank = g;
+      else { bank.v += g.v; g.dead = true; }
+      continue;
+    }
     // during the evacuation everything left on the field flies to the mech
     if (d < S.magnet || G.evacT > 0) g.pull = true;
     if (g.pull) {

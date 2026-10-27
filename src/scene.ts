@@ -1,7 +1,7 @@
-// Renderer, camera, lights, static arena and all reusable meshes.
+// Renderer, camera, lights, floor and all reusable meshes.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ARENA, ENEMIES, ENEMY_TYPES, LIMITS, type EnemyType } from './config';
+import { ENEMIES, ENEMY_TYPES, LIMITS, type EnemyType } from './config';
 
 export const canvas = document.getElementById('c') as HTMLCanvasElement;
 
@@ -36,30 +36,27 @@ scene.add(sun, sun.target);
 export const muzzle = new THREE.PointLight(0xffd080, 0, 10, 2);
 scene.add(muzzle);
 
-// ---------------- floor & walls ----------------
+// ---------------- floor ----------------
+// The field is endless: floor and grid follow the camera, snapped to the major grid step so the lines stay put.
+const MAJOR = 10;
+const floor = new THREE.Group();
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(ARENA * 2 + 30, ARENA * 2 + 30),
+  new THREE.PlaneGeometry(200, 200),
   new THREE.MeshStandardMaterial({ color: 0x141a30, roughness: 0.95 }),
 );
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
-scene.add(ground);
+// the view reaches far up the screen (-Z) and little below the mech, so the grid sits ahead of it:
+// a line ending behind the camera may not be drawn at all
+const minorLines = new THREE.GridHelper(120, 60, 0x1b2246, 0x1b2246);
+minorLines.position.set(0, 0.01, -20);
+const majorLines = new THREE.GridHelper(120, 120 / MAJOR, 0x2c3668, 0x2c3668);
+majorLines.position.set(0, 0.015, -20);
+floor.add(ground, minorLines, majorLines);
+scene.add(floor);
 
-const gridLines = new THREE.GridHelper(ARENA * 2, ARENA, 0x2c3668, 0x1b2246);
-gridLines.position.y = 0.01;
-scene.add(gridLines);
-
-const wallMat = new THREE.MeshStandardMaterial({ color: 0x1b2246, emissive: 0x5a2bb0, emissiveIntensity: 0.9 });
-const walls: [number, number, number, number][] = [
-  [0, -ARENA - 0.5, ARENA * 2 + 2, 1],
-  [0, ARENA + 0.5, ARENA * 2 + 2, 1],
-  [-ARENA - 0.5, 0, 1, ARENA * 2 + 2],
-  [ARENA + 0.5, 0, 1, ARENA * 2 + 2],
-];
-for (const [x, z, w, d] of walls) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, d), wallMat);
-  m.position.set(x, 0.6, z);
-  scene.add(m);
+export function followFloor(x: number, z: number): void {
+  floor.position.set(Math.round(x / MAJOR) * MAJOR, 0, Math.round(z / MAJOR) * MAJOR);
 }
 
 // ---------------- player ----------------

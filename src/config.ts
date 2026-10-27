@@ -1,7 +1,20 @@
 // All tunable numbers live here: weapons, enemies, pacing.
 
-/** Half-size of the square arena, world units. */
-export const ARENA = 60;
+/** Endless field: cover pillars are generated per square chunk, only around the mech. */
+export const FIELD = {
+  /** Chunk size, world units. */
+  chunk: 40,
+  /** Chunks loaded on each side of the mech's chunk. */
+  near: 1,
+  /** Placement attempts per chunk; crowded spots drop some, so the average is a bit lower. */
+  pillarsPerChunk: 3,
+  /** Min free space between pillars. */
+  gap: 4,
+  /** No pillars this close to the start point. */
+  clear: 10,
+  /** XP crystals this far behind merge into one, so the field doesn't fill up with stragglers. */
+  gemFar: 45,
+} as const;
 
 export const LIMITS = {
   bullets: 900,

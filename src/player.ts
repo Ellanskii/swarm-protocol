@@ -2,13 +2,12 @@
 import { pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode } from './combat';
-import { ARENA, DECOY, JUMP, MECHS, PHASE, RAM, REACTIVE, SHIELD, TRAIL } from './config';
+import { DECOY, JUMP, MECHS, PHASE, RAM, REACTIVE, SHIELD, TRAIL } from './config';
 import { flashVignette, sparks } from './fx';
 import { forNear } from './grid';
 import { moveInput } from './input';
 import { jumpHeight, muzzleOffset } from './mech';
 import { G, P, S, aim, braced, type DashMod } from './state';
-import { clamp } from './utils';
 
 const RADIUS = 0.5;
 /** Legs turn toward the movement direction this fast, rad/s. */
@@ -120,8 +119,6 @@ export function updatePlayer(dt: number): void {
   P.x += vx * dt;
   P.z += vz * dt;
   pushOutPillars(P, RADIUS);
-  P.x = clamp(P.x, -ARENA + RADIUS, ARENA - RADIUS);
-  P.z = clamp(P.z, -ARENA + RADIUS, ARENA - RADIUS);
 
   if (S.regen) P.hp = Math.min(P.maxHp, P.hp + S.regen * dt);
 

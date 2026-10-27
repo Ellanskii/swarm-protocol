@@ -222,6 +222,8 @@ export const P = {} as Player;
 export const aim = new THREE.Vector3();
 
 export const G = {
+  /** Seeds the pillar layout; new every run. */
+  fieldSeed: 0,
   state: 'start' as GameState,
   /** Selected mech. Not touched by resetState(), so the choice survives restarts. */
   mech: 'guard' as MechId,
@@ -318,7 +320,7 @@ export function resetState(): void {
     level: 1, xp: 0, xpNext: xpFor(1), mx: 0, my: 1, mz: 0, speed: 0, moving: false,
   } satisfies Player);
   Object.assign(G, {
-    time: 0, kills: 0, spawnAcc: 0, nextBurst: 45, nextBoss: 120, bossN: 0, shake: 0,
+    fieldSeed: (Math.random() * 2 ** 32) >>> 0, time: 0, kills: 0, spawnAcc: 0, nextBurst: 45, nextBoss: 120, bossN: 0, shake: 0,
     pendingLevels: 0, loot: { scrap: 0, cores: 0 }, evacT: 0, won: false, auraT: 0, gunKick: 0,
     owned: { [mech.start]: mkWeapon(mech.start, 'armR') }, upLv: {},
     reload: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },

@@ -1,6 +1,7 @@
 // Entry point: game flow (start / pause / level-up / game over) and the frame loop.
 import './style.css';
 import { updateAura } from './abilities';
+import { updateField } from './arena';
 import { duckMusic, initAudio, musicEnabled, toggleMusic, toggleMute } from './audio';
 import { closeBase, openBase, renderBase } from './base';
 import { updateBullets } from './combat';
@@ -36,6 +37,7 @@ function resetGame(): void {
   removeAllPickups();
   removeAllDrones();
   resetState();
+  updateField();
   applyTech();
   rebuildMech();
   camTarget.set(0, 0, 0);
@@ -299,6 +301,7 @@ function update(dt: number): void {
   G.time += dt;
   if (G.evacT > 0 && (G.evacT -= dt) <= 0) G.won = true;
   updatePlayer(dt);
+  updateField();
   updateWeapons(dt);
   spawnDirector(dt);
   buildGrid();

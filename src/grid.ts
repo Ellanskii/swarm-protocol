@@ -4,7 +4,8 @@ import { G, type Enemy } from './state';
 
 const CELL = 3;
 const grid = new Map<number, number[]>();
-const key = (cx: number, cz: number) => (cx + 200) * 1000 + (cz + 200);
+// unique for |cell| < 32768, about ±98k world units: the field is endless
+const key = (cx: number, cz: number) => (cx + 32768) * 65536 + (cz + 32768);
 
 export function buildGrid(): void {
   grid.clear();

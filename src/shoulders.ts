@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { sfx } from './audio';
 import { beamHit, explode, spawnBullet } from './combat';
-import { ARENA, BRACE, EVOLUTIONS, LIMITS, MECHS, SHOULDERS, type ShoulderId } from './config';
+import { BRACE, EVOLUTIONS, LIMITS, MECHS, SHOULDERS, type ShoulderId } from './config';
 import { mushroom, ringBurst, sparks } from './fx';
 import { forNear } from './grid';
 import { setSlotPart, type SlotId } from './mech';
@@ -143,7 +143,7 @@ function updateRockets(dt: number): void {
     r.y = THREE.MathUtils.clamp(dist * 0.25, 0.8, ROCKET_Y);
     if (Math.random() < 0.5) sparks(r.x, r.y, r.z, 0xffb347, 1, 1);
 
-    let hit = r.life <= 0 || Math.abs(r.x) > ARENA || Math.abs(r.z) > ARENA;
+    let hit = r.life <= 0;
     if (!hit) forNear(r.x, r.z, e => {
       if (e.dead || (e.x - r.x) ** 2 + (e.z - r.z) ** 2 > (e.r + 0.3) ** 2) return;
       hit = true;

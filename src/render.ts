@@ -4,7 +4,7 @@ import { ENEMY_TYPES, LIMITS, SHIELD_AURA, SHOULDERS, TANK } from './config';
 import { animateMech } from './mech';
 import {
   ENEMY_HOVER, beamMesh, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
-  groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
+  followFloor, groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
 } from './scene';
 import { G, P, aim } from './state';
 import { rand } from './utils';
@@ -308,4 +308,5 @@ export function updateCamera(dt: number): void {
   camera.lookAt(camTarget.x, 0, camTarget.z);
   sun.position.set(camTarget.x + 10, 30, camTarget.z + 6);
   sun.target.position.set(camTarget.x, 0, camTarget.z);
+  followFloor(camTarget.x, camTarget.z);
 }

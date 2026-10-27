@@ -2,12 +2,12 @@
 import { insidePillar, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode, selfDestruct } from './combat';
-import { ARENA, ARTILLERY, CROWD, DECOY, TANK, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
+import { ARTILLERY, CROWD, DECOY, TANK, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
 import { mushroom, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { hurt } from './player';
 import { G, P, S, type Enemy, type EnemyShot } from './state';
-import { clamp, rand } from './utils';
+import { rand } from './utils';
 
 /** Bosses ignore the crowd limits: a missing final boss would make the run unwinnable. */
 export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null {
@@ -24,19 +24,11 @@ export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null 
   return e;
 }
 
-/** Random point on a ring around the player, inside the arena. With `ahead`, a moving mech usually gets it in front. */
+/** Random point on a ring around the player. With `ahead`, a moving mech usually gets it in front. */
 function spawnPos(minD: number, maxD: number, ahead = false): [number, number] {
-  for (let i = 0; i < 8; i++) {
-    const front = ahead && P.moving && i < 4 && Math.random() < CROWD.ahead;
-    const a = front ? P.legAng + rand(-1.1, 1.1) : Math.random() * Math.PI * 2, d = rand(minD, maxD);
-    const x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d;
-    if (Math.abs(x) < ARENA - 1 && Math.abs(z) < ARENA - 1) return [x, z];
-  }
-  const a = Math.random() * Math.PI * 2;
-  return [
-    clamp(P.x + Math.sin(a) * minD, -ARENA + 1, ARENA - 1),
-    clamp(P.z + Math.cos(a) * minD, -ARENA + 1, ARENA - 1),
-  ];
+  const front = ahead && P.moving && Math.random() < CROWD.ahead;
+  const a = front ? P.legAng + rand(-1.1, 1.1) : Math.random() * Math.PI * 2, d = rand(minD, maxD);
+  return [P.x + Math.sin(a) * d, P.z + Math.cos(a) * d];
 }
 
 /** Enemy mix shifts toward tougher types over time. */
@@ -76,7 +68,7 @@ export function spawnDirector(dt: number): void {
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const type: EnemyType = G.time > 40 && i % 3 === 0 ? 'runner' : 'grunt';
-      const x = clamp(P.x + Math.sin(a) * PACING.burstR, -ARENA + 1, ARENA - 1), z = clamp(P.z + Math.cos(a) * PACING.burstR, -ARENA + 1, ARENA - 1);
+      const x = P.x + Math.sin(a) * PACING.burstR, z = P.z + Math.cos(a) * PACING.burstR;
       if (!spawnEnemy(type, x, z) && spare.length) relocate(spare.pop()!, x, z);
     }
     showBanner('ОКРУЖЕНИЕ', 'red', 1.4);
@@ -228,8 +220,6 @@ export function updateEnemies(dt: number): void {
     e.kx *= kDecay;
     e.kz *= kDecay;
     pushOutPillars(e, e.r);
-    e.x = clamp(e.x, -ARENA + e.r, ARENA - e.r);
-    e.z = clamp(e.z, -ARENA + e.r, ARENA - e.r);
     e.rot = Math.atan2(nx, nz);
     // hulls turn smoothly toward where they drive
     if (mx || mz) {
@@ -306,7 +296,7 @@ export function updateEnemyShots(dt: number): void {
       if (s.left! <= 0 || s.life <= 0 || insidePillar(s.x, s.z) || Math.hypot(s.x - P.x, s.z - P.z) < 0.78) shellBurst(s);
       continue;
     }
-    if (Math.abs(s.x) > ARENA || Math.abs(s.z) > ARENA || insidePillar(s.x, s.z)) { s.life = 0; continue; }
+    if (insidePillar(s.x, s.z)) { s.life = 0; continue; }
     if (P.inv <= 0 && Math.hypot(s.x - P.x, s.z - P.z) < 0.78) {
       hurt(s.dmg);
       s.life = 0;
