@@ -1,6 +1,6 @@
-// Persistent meta progress: currencies and tech levels. localStorage for now, the Yandex Games SDK later.
+// Persistent meta progress: currencies and tech levels. Where it is stored is up to the platform.
+import { platform } from './platform';
 
-const KEY = 'swarm.save';
 const VERSION = 1;
 
 export interface SaveData {
@@ -17,24 +17,24 @@ export interface SaveData {
 
 const fresh = (): SaveData => ({ v: VERSION, scrap: 0, cores: 0, tech: {}, off: [], runs: 0, wins: 0 });
 
-function load(): SaveData {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return fresh();
-    const data = JSON.parse(raw) as Partial<SaveData>;
-    // unknown or broken data starts over rather than crashing the game
-    if (data.v !== VERSION) return fresh();
-    return { ...fresh(), ...data };
-  } catch {
-    return fresh();
-  }
+function parse(data: unknown): SaveData {
+  if (!data || typeof data !== 'object') return fresh();
+  const d = data as Partial<SaveData>;
+  // unknown or broken data starts over rather than crashing the game
+  if (d.v !== VERSION) return fresh();
+  return { ...fresh(), ...d };
 }
 
-/** The live save. Mutate fields, then call `persist()`. */
-export const save: SaveData = load();
+/** The live save, empty until `loadSave()`. Mutate fields, then call `persist()`. */
+export const save: SaveData = fresh();
+
+/** Reads the save once at startup, before anything shows progress. */
+export async function loadSave(): Promise<void> {
+  Object.assign(save, parse(await platform.load()));
+}
 
 export function persist(): void {
-  try { localStorage.setItem(KEY, JSON.stringify(save)); } catch { /* storage blocked: progress lives until reload */ }
+  void platform.save(save);
 }
 
 /** Debug: wipes all meta progress. */

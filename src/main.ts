@@ -18,13 +18,17 @@ import { tryDash, updatePlayer, updateTrails } from './player';
 import { camTarget, renderWorld, updateCamera } from './render';
 import { camera, renderer, scene } from './scene';
 import { addDrone, installShoulder, removeAllDrones, updateShoulders } from './shoulders';
-import { persist, resetSave, save } from './save';
+import { platform } from './platform';
+import { loadSave, persist, resetSave, save } from './save';
 import { G, P, S, aim, resetState } from './state';
 import { applyTech, mechUnlocked } from './tech';
 import { choose, openLevelUp } from './upgrades';
-import { watchForUpdates } from './update';
 import { $, clamp, fmtTime } from './utils';
 import { firePressed, giveWeapon, reloadPressed, syncArms, updateWeapons } from './weapons';
+
+// the site SDK and the save come first: the title screen already shows unlocked mechs
+await platform.init();
+await loadSave();
 
 // ---------------- flow ----------------
 
@@ -334,6 +338,7 @@ function update(dt: number): void {
 }
 
 let last = performance.now();
+let playing = false;
 function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = Math.min((now - last) / 1000, 0.05);
@@ -359,11 +364,22 @@ function frame(now: number): void {
   updateCamera(dt);
   renderWorld(G.state === 'play' ? dt : 0, G.state === 'play');
   renderer.render(scene, camera);
+
+  // sites time ads and their own pause around active play
+  if ((G.state === 'play') !== playing) {
+    playing = !playing;
+    if (playing) platform.gameplayStart();
+    else platform.gameplayStop();
+  }
 }
 
+const updateBtns = document.querySelectorAll<HTMLElement>('[data-update]');
+for (const b of updateBtns) b.addEventListener('click', () => location.reload());
+platform.watchUpdates?.(() => { for (const b of updateBtns) b.hidden = false; });
+
 resetGame();
-watchForUpdates();
 requestAnimationFrame(frame);
+platform.ready();
 
 // debug handle for the console and automated tests
 declare global {
@@ -377,4 +393,4 @@ function rich(scrap = 5000, cores = 30): void {
   if (G.state === 'base') renderBase();
 }
 
-window.__swarm = { G, P, S, save, gainXP, startGame, choose, god, allUps, inf, final, rich, resetSave, installShoulder, giveWeapon, spawnEnemy };
+window.__swarm = { G, P, S, save, platform, gainXP, startGame, choose, god, allUps, inf, final, rich, resetSave, installShoulder, giveWeapon, spawnEnemy };
