@@ -410,7 +410,7 @@ function frame(now: number): void {
   }
   const [mode, heat] = musicFor();
   duckMusic(G.state === 'pause' ? 0.35 : G.state === 'levelup' ? 0.6 : 1);
-  updateMusic(dt, mode, heat);
+  updateMusic(dt, mode, heat, mode === 'menu' ? 'menu' : G.map);
   updateCamera(dt);
   renderWorld(G.state === 'play' ? dt : 0, G.state === 'play' && G.deathT <= 0);
   renderer.render(scene, camera);
