@@ -169,6 +169,9 @@ export const CROWD = {
   catchUpMax: 3.5,
 } as const;
 
+/** Hearts and magnets: picked up on touch, and from one floor cell (2 units) further they slide to the mech. */
+export const PICKUP = { grab: 1.1, pull: 3.1, speed: 12 } as const;
+
 /** Meta currencies dropped in a run. Scrap comes from every enemy, cores only from bosses. */
 export const LOOT = {
   /** Cores per boss, by boss number (1-based); the last entry is the final boss. */

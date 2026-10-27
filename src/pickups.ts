@@ -1,6 +1,6 @@
 // XP gems, scrap and cores, heart and magnet pickups, leveling.
 import { sfx } from './audio';
-import { FIELD, LIMITS, xpFor } from './config';
+import { FIELD, LIMITS, PICKUP, xpFor } from './config';
 import { showBanner } from './fx';
 import { heartTpl, magnetTpl, scene } from './scene';
 import { G, P, S, type Gem, type GemKind, type Pickup } from './state';
@@ -67,8 +67,14 @@ export function updatePickups(dt: number): void {
   for (const p of G.pickups) {
     p.life -= dt;
     p.mesh.rotation.y += dt * 2.5;
-    p.mesh.position.y = 0.8 + Math.sin(G.time * 4) * 0.15;
-    if (Math.hypot(P.x - p.x, P.z - p.z) < 1.1) {
+    const dx = P.x - p.x, dz = P.z - p.z, d = Math.hypot(dx, dz);
+    if (d < PICKUP.pull) {
+      const step = Math.min(d, PICKUP.speed * dt);
+      p.x += (dx / (d || 1)) * step;
+      p.z += (dz / (d || 1)) * step;
+    }
+    p.mesh.position.set(p.x, 0.8 + Math.sin(G.time * 4) * 0.15, p.z);
+    if (d < PICKUP.grab) {
       p.dead = true;
       if (p.kind === 'heart') {
         P.hp = Math.min(P.maxHp, P.hp + 30);
