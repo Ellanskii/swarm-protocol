@@ -1,10 +1,13 @@
-// Dev editor (P in dev builds): machines freeze in place, and a panel tunes the current map's floor colors live.
+// Dev editor (P in dev builds): machines freeze in place, a panel tunes the current map's floor colors live
+// and places any machine in front of the mech.
 // The mech stays fully playable, so a frozen crowd can be walked around and shot at.
+import { intoField } from './arena';
 import { bloom, setBloom } from './bloom';
-import { MAPS, type Palette } from './config';
+import { ENEMY_TYPES, MAPS, type EnemyType, type Palette } from './config';
+import { spawnEnemy } from './enemies';
 import { showBanner } from './fx';
 import { applyPalette } from './scene';
-import { G } from './state';
+import { G, P } from './state';
 
 type ColorKey = 'ground' | 'gridMajor' | 'gridMinor';
 type FlagKey = 'floorGlint' | 'shotHalo' | 'modelRim';
@@ -26,18 +29,28 @@ const WIDTHS: [WidthKey, string, number, number][] = [
   ['gridCoreW', 'Белая середина', 1.5, 12],
 ];
 
+const ENEMY_NAMES: Record<EnemyType, string> = {
+  grunt: 'Шагоход', runner: 'Дрон-камикадзе', spitter: 'Лёгкий танк', brute: 'Тяжёлый танк',
+  artillery: 'Артиллерия', shield: 'Щитоносец', boss: 'Кузня',
+};
+/** Placed machines land this far ahead of the mech's torso, with a little scatter so a stack stays visible. */
+const PLACE_DIST = 7;
+
 const hex = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
 const palette = (): Palette => MAPS[G.map].palette;
 
 const panel = document.createElement('div');
 panel.id = 'editor';
 panel.hidden = true;
-panel.innerHTML = `<b>РЕДАКТОР</b>${FIELDS.map(([k, label]) => `<label>${label}<input type="color" data-key="${k}"></label>`).join('')}`
+panel.innerHTML = '<b>РЕДАКТОР</b>'
+  + `<div class="spawn"><select>${ENEMY_TYPES.map(k => `<option value="${k}">${ENEMY_NAMES[k]}</option>`).join('')}</select>`
+  + '<button type="button" data-spawn>Поставить</button></div>'
+  + `${FIELDS.map(([k, label]) => `<label>${label}<input type="color" data-key="${k}"></label>`).join('')}`
   + FLAGS.map(([k, label]) => `<label>${label}<input type="checkbox" data-key="${k}"></label>`).join('')
   + WIDTHS.map(([k, label, , max]) => `<label class="w">${label} <span></span><input type="range" min="0" max="${max}" step="0.5" data-key="${k}"></label>`).join('')
   + '<label>Bloom<input type="checkbox" data-bloom="on"></label>'
   + BLOOM.map(([k, label, max, step]) => `<label class="w">${label} <span></span><input type="range" min="0" max="${max}" step="${step}" data-bloom="${k}"></label>`).join('')
-  + '<code></code><button type="button">Скопировать</button>';
+  + '<code></code><button type="button" data-copy>Скопировать</button>';
 document.body.append(panel);
 
 const inputs = [...panel.querySelectorAll<HTMLInputElement>('input[type=color]')];
@@ -46,7 +59,9 @@ const sliders = [...panel.querySelectorAll<HTMLInputElement>('input[type=range][
 const bloomInputs = [...panel.querySelectorAll<HTMLInputElement>('[data-bloom]')];
 const width = (k: WidthKey): number => palette()[k] ?? WIDTHS.find(w => w[0] === k)![2];
 const code = panel.querySelector('code')!;
-const copyBtn = panel.querySelector('button')!;
+const copyBtn = panel.querySelector<HTMLButtonElement>('[data-copy]')!;
+const spawnSel = panel.querySelector('select')!;
+const spawnBtn = panel.querySelector<HTMLButtonElement>('[data-spawn]')!;
 
 /** The palette fields as they would be written in config.ts. */
 const snippet = (): string => [
@@ -118,6 +133,14 @@ for (const r of sliders) {
 copyBtn.addEventListener('click', () => {
   navigator.clipboard?.writeText(snippet()).then(() => showBanner('СКОПИРОВАНО', 'blue', 0.6), () => {});
   copyBtn.blur();
+});
+
+spawnSel.addEventListener('change', () => spawnSel.blur());
+spawnBtn.addEventListener('click', () => {
+  const d = PLACE_DIST + Math.random() * 2, a = P.ang + (Math.random() - 0.5) * 0.6;
+  const [x, z] = intoField(P.x + Math.sin(a) * d, P.z + Math.cos(a) * d, d);
+  if (!spawnEnemy(spawnSel.value as EnemyType, x, z)) showBanner('ЛИМИТ МАШИН', 'red', 0.8);
+  spawnBtn.blur();
 });
 
 // clicks on the panel must not reach the game: the input layer listens on window and would fire the guns

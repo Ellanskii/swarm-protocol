@@ -113,8 +113,9 @@ body.menu #cross { display: none; }
 
 /* ---- dev editor ---- */
 #editor {
-  position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: 70px; z-index: 5; width: 230px; padding: 12px; display: grid; gap: 8px;
+  position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: 70px; z-index: 5; width: 270px; max-width: calc(100vw - 32px); padding: 12px; display: grid; gap: 8px;
   background: var(--panel); border: 1px solid var(--gold); border-radius: 4px; font: 600 13px var(--display); cursor: auto;
+  max-height: calc(100dvh - 86px); overflow: hidden auto; box-sizing: border-box;
 }
 #editor b { color: var(--gold); letter-spacing: .12em; font-size: 12px; }
 #editor label { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
@@ -124,6 +125,8 @@ body.menu #cross { display: none; }
 #editor input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
 #editor input[type=range] { width: 100%; accent-color: var(--gold); cursor: pointer; }
 #editor code { font: 11px/1.4 var(--mono); color: var(--muted); user-select: text; -webkit-user-select: text; word-break: break-all; }
+#editor .spawn { display: flex; gap: 6px; }
+#editor select { flex: 1; min-width: 0; font: 600 12px var(--mono); padding: 5px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); border-radius: 3px; }
 #editor button { font: 600 12px var(--mono); padding: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; border-radius: 3px; }
 
 /* ---- touch controls ---- */
