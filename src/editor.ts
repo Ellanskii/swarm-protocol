@@ -1,5 +1,6 @@
 // Dev editor (P in dev builds): machines freeze in place, and a panel tunes the current map's floor colors live.
 // The mech stays fully playable, so a frozen crowd can be walked around and shot at.
+import { bloom, setBloom } from './bloom';
 import { MAPS, type Palette } from './config';
 import { showBanner } from './fx';
 import { applyPalette } from './scene';
@@ -12,6 +13,11 @@ const FIELDS: [ColorKey, string][] = [['ground', 'Пол'], ['gridMajor', 'То�
 /** Neon grid sizes in texture pixels: key, label, default (as in drawNeonGrid() in scene.ts), max. */
 /** On/off effects; on when the palette leaves them out. */
 const FLAGS: [FlagKey, string][] = [['floorGlint', 'Блики под снарядами'], ['shotHalo', 'Ореолы снарядов'], ['modelRim', 'Контуры моделей']];
+/** Bloom controls: key, label, max, step. The on/off switch is the checkbox above them. */
+const BLOOM: [Exclude<keyof typeof bloom, 'on'>, string, number, number][] = [
+  ['strength', 'Bloom: сила', 3, 0.05], ['radius', 'Bloom: радиус', 1, 0.05], ['threshold', 'Bloom: порог', 2, 0.05],
+  ['knee', 'Bloom: мягкость порога', 1, 0.05],
+];
 const WIDTHS: [WidthKey, string, number, number][] = [
   ['gridMajorW', 'Толщина толстых', 8, 24],
   ['gridMinorW', 'Толщина тонких', 2, 24],
@@ -29,12 +35,15 @@ panel.hidden = true;
 panel.innerHTML = `<b>РЕДАКТОР</b>${FIELDS.map(([k, label]) => `<label>${label}<input type="color" data-key="${k}"></label>`).join('')}`
   + FLAGS.map(([k, label]) => `<label>${label}<input type="checkbox" data-key="${k}"></label>`).join('')
   + WIDTHS.map(([k, label, , max]) => `<label class="w">${label} <span></span><input type="range" min="0" max="${max}" step="0.5" data-key="${k}"></label>`).join('')
+  + '<label>Bloom<input type="checkbox" data-bloom="on"></label>'
+  + BLOOM.map(([k, label, max, step]) => `<label class="w">${label} <span></span><input type="range" min="0" max="${max}" step="${step}" data-bloom="${k}"></label>`).join('')
   + '<code></code><button type="button">Скопировать</button>';
 document.body.append(panel);
 
 const inputs = [...panel.querySelectorAll<HTMLInputElement>('input[type=color]')];
-const flags = [...panel.querySelectorAll<HTMLInputElement>('input[type=checkbox]')];
-const sliders = [...panel.querySelectorAll<HTMLInputElement>('input[type=range]')];
+const flags = [...panel.querySelectorAll<HTMLInputElement>('input[type=checkbox][data-key]')];
+const sliders = [...panel.querySelectorAll<HTMLInputElement>('input[type=range][data-key]')];
+const bloomInputs = [...panel.querySelectorAll<HTMLInputElement>('[data-bloom]')];
 const width = (k: WidthKey): number => palette()[k] ?? WIDTHS.find(w => w[0] === k)![2];
 const code = panel.querySelector('code')!;
 const copyBtn = panel.querySelector('button')!;
@@ -53,7 +62,28 @@ function fill(): void {
     r.value = String(width(r.dataset.key as WidthKey));
     r.previousElementSibling!.textContent = r.value;
   }
+  for (const i of bloomInputs) {
+    const k = i.dataset.bloom as keyof typeof bloom;
+    if (i.type === 'checkbox') i.checked = bloom.on;
+    else {
+      i.value = String(bloom[k as Exclude<keyof typeof bloom, 'on'>]);
+      i.previousElementSibling!.textContent = i.value;
+    }
+  }
   code.textContent = snippet();
+}
+
+for (const i of bloomInputs) {
+  i.addEventListener('input', () => {
+    const k = i.dataset.bloom as keyof typeof bloom;
+    if (i.type === 'checkbox') setBloom(i.checked);
+    else {
+      bloom[k as Exclude<keyof typeof bloom, 'on'>] = +i.value;
+      i.previousElementSibling!.textContent = i.value;
+    }
+  });
+  // a focused control would eat Space (dash) and the arrow keys
+  i.addEventListener('change', () => i.blur());
 }
 
 for (const i of inputs) {

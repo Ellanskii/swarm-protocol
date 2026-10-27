@@ -56,6 +56,8 @@ const groundMat = new THREE.MeshStandardMaterial({ roughness: 0.95, map: gridTex
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMat);
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
+/** What the ground shows to the bloom pass: only the grid, unlit, so the dark floor does not glow. See bloom.ts. */
+ground.userData.bloomMaterial = new THREE.MeshBasicMaterial({ map: gridTex, color: new THREE.Color().setScalar(0.6), toneMapped: false });
 floor.add(ground);
 scene.add(floor);
 

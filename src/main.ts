@@ -4,6 +4,7 @@ import { updateAura } from './abilities';
 import { updateField } from './arena';
 import { duckMusic, initAudio, musicEnabled, toggleMusic, toggleMute } from './audio';
 import { closeBase, openBase, renderBase } from './base';
+import { bloom, renderFrame, setBloom } from './bloom';
 import { meltdown, updateBullets } from './combat';
 import { MAPS, MAP_ORDER, MECHS, MECH_ORDER, PACING, type MapId, type MechId } from './config';
 import { holdTimers, toggleEditor } from './editor';
@@ -18,7 +19,6 @@ import { updateMusic, type MusicMode } from './music';
 import { collectAllGems, gainXP, removeAllPickups, updateGems, updatePickups } from './pickups';
 import { tryDash, updatePlayer, updateTrails } from './player';
 import { camTarget, renderWorld, updateCamera } from './render';
-import { camera, renderer, scene } from './scene';
 import { addDrone, installShoulder, removeAllDrones, updateShoulders } from './shoulders';
 import { platform } from './platform';
 import { loadSave, persist, resetSave, save } from './save';
@@ -326,6 +326,17 @@ function switchMusic(): void {
 for (const b of musicBtns) b.addEventListener('click', switchMusic);
 syncMusicBtns();
 
+// bloom is optional: weak devices keep it off
+const glowBtns = document.querySelectorAll<HTMLButtonElement>('[data-glow]');
+function syncGlowBtns(): void {
+  for (const b of glowBtns) {
+    b.textContent = `Свечение: ${bloom.on ? 'ВКЛ' : 'ВЫКЛ'}`;
+    b.classList.toggle('on', bloom.on);
+  }
+}
+for (const b of glowBtns) b.addEventListener('click', () => { setBloom(!bloom.on); syncGlowBtns(); });
+syncGlowBtns();
+
 /** Which music the current moment calls for; the fight builds up with time and crowd size. */
 function musicFor(): [MusicMode, number] {
   if (G.state === 'start' || G.state === 'base') return ['menu', 0];
@@ -419,7 +430,7 @@ function frame(now: number): void {
   updateMusic(dt, mode, heat, mode === 'menu' ? 'menu' : G.map);
   updateCamera(dt);
   renderWorld(G.state === 'play' ? dt : 0, G.state === 'play' && G.deathT <= 0);
-  renderer.render(scene, camera);
+  renderFrame();
 
   // sites time ads and their own pause around active play
   if ((G.state === 'play') !== playing) {
