@@ -114,7 +114,7 @@ function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number
   let len = d.range;
   for (let s = 0.5; s < d.range; s += 0.5) {
     const x = mx + dx * s, z = mz + dz * s;
-    if (insidePillar(x, z) || outOfField(x)) { len = s; break; }
+    if (insidePillar(x, z) || outOfField(x, z)) { len = s; break; }
   }
   // extra barrels widen the beam instead of adding projectiles
   const width = 0.15 * d.size + 0.12 * (S.multi + levelBarrels(w.lv));

@@ -83,7 +83,7 @@ export function updateBullets(dt: number): void {
     for (let s = 0; s < steps && b.life > 0; s++) {
       b.x += b.vx * sdt;
       b.z += b.vz * sdt;
-      if (insidePillar(b.x, b.z) || outOfField(b.x)) {
+      if (insidePillar(b.x, b.z) || outOfField(b.x, b.z)) {
         if (b.blast) detonate(b);
         else { b.life = 0; sparks(b.x, 1, b.z, 0x8899cc, 3, 4); }
         break;

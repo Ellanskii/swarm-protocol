@@ -34,8 +34,9 @@ export interface MapDef {
   desc: string;
   /** Opens after an evacuation from this map; the first map is always open. */
   after?: MapId;
-  /** Half-width of the playable strip along X; `Infinity` for an open field. Z is always endless. */
+  /** Half-sizes of the playable area; `Infinity` leaves that axis endless. One bounded axis makes a corridor. */
   halfX: number;
+  halfZ: number;
   /** Pillar placement attempts per chunk and their radius range. */
   pillars: number;
   pillarR: [number, number];
@@ -53,23 +54,23 @@ export interface MapDef {
 export const MAPS: Record<MapId, MapDef> = {
   field: {
     name: 'Пустошь', desc: 'открытое поле во все стороны',
-    halfX: Infinity, pillars: 3, pillarR: [0.8, 1.9], rush: 0, mix: {}, spawn: 1, loot: 1,
+    halfX: Infinity, halfZ: Infinity, pillars: 3, pillarR: [0.8, 1.9], rush: 0, mix: {}, spawn: 1, loot: 1,
     palette: { sky: 0x0b0d17, ground: 0x141a30, gridMinor: 0x1b2246, gridMajor: 0x2c3668, wall: 0x1b2246, wallGlow: 0x5a2bb0, pillar: 0x2a3360, cap: 0x4cc9f0 },
   },
   corridor: {
     name: 'Магистраль', desc: 'бесконечный коридор вверх и вниз, больше бегунов', after: 'field',
-    halfX: 13, pillars: 3, pillarR: [0.8, 1.6], rush: 20, mix: { runner: 1.6 }, spawn: 1.05, loot: 1.2,
+    halfX: 13, halfZ: Infinity, pillars: 3, pillarR: [0.8, 1.6], rush: 20, mix: { runner: 1.6 }, spawn: 1.05, loot: 1.2,
     palette: { sky: 0x07110f, ground: 0x0f221d, gridMinor: 0x16352d, gridMajor: 0x215244, wall: 0x112b25, wallGlow: 0x1fae8a, pillar: 0x1d463c, cap: 0x7cf5c8 },
   },
   foundry: {
     name: 'Литейный цех', desc: 'лабиринт колонн, танки и артиллерия раньше', after: 'corridor',
-    halfX: Infinity, pillars: 7, pillarR: [0.9, 2.4], rush: 45, mix: { brute: 1.6, artillery: 1.6 }, spawn: 1.1, loot: 1.4,
+    halfX: Infinity, halfZ: Infinity, pillars: 7, pillarR: [0.9, 2.4], rush: 45, mix: { brute: 1.6, artillery: 1.6 }, spawn: 1.1, loot: 1.4,
     palette: { sky: 0x130a07, ground: 0x24140e, gridMinor: 0x371e14, gridMajor: 0x552e1e, wall: 0x28150d, wallGlow: 0xc2541b, pillar: 0x47281b, cap: 0xffa040 },
   },
   bridge: {
-    name: 'Мост', desc: 'узкий пролёт над пустотой, давят спереди и сзади', after: 'foundry',
-    halfX: 4.5, pillars: 0, pillarR: [1, 1], rush: 60, mix: { runner: 1.3, spitter: 1.5 }, spawn: 1.15, loot: 1.6,
-    palette: { sky: 0x05060a, ground: 0x1a1d26, gridMinor: 0x262a36, gridMajor: 0x3a4152, wall: 0x20242e, wallGlow: 0xd8def5, pillar: 0x2a2e3a, cap: 0xd8def5 },
+    name: 'Мост', desc: 'бесконечный пролёт влево и вправо над пустотой, давят с обоих концов', after: 'foundry',
+    halfX: Infinity, halfZ: 10, pillars: 2, pillarR: [0.7, 1.2], rush: 60, mix: { runner: 1.3, spitter: 1.5 }, spawn: 1.15, loot: 1.6,
+    palette: { sky: 0x05060a, ground: 0x1a1d26, gridMinor: 0x262a36, gridMajor: 0x3a4152, wall: 0x20242e, wallGlow: 0x5d6d9e, pillar: 0x2a2e3a, cap: 0xd8def5 },
   },
 };
 

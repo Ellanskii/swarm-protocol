@@ -295,10 +295,10 @@ export function updateEnemyShots(dt: number): void {
     if (s.blast) {
       // tank shell: bursts on its target spot, on a pillar, or on the mech
       s.left! -= Math.hypot(s.vx, s.vz) * dt;
-      if (s.left! <= 0 || s.life <= 0 || insidePillar(s.x, s.z) || outOfField(s.x) || Math.hypot(s.x - P.x, s.z - P.z) < 0.78) shellBurst(s);
+      if (s.left! <= 0 || s.life <= 0 || insidePillar(s.x, s.z) || outOfField(s.x, s.z) || Math.hypot(s.x - P.x, s.z - P.z) < 0.78) shellBurst(s);
       continue;
     }
-    if (insidePillar(s.x, s.z) || outOfField(s.x)) { s.life = 0; continue; }
+    if (insidePillar(s.x, s.z) || outOfField(s.x, s.z)) { s.life = 0; continue; }
     if (P.inv <= 0 && Math.hypot(s.x - P.x, s.z - P.z) < 0.78) {
       hurt(s.dmg);
       s.life = 0;

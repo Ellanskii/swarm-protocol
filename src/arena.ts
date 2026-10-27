@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { FIELD, MAPS, MAP_ORDER } from './config';
 import { applyPalette, scene } from './scene';
 import { G, P } from './state';
+import { rand } from './utils';
 
 export interface Pillar { x: number; z: number; r: number; h: number }
 
@@ -21,44 +22,67 @@ bodyMesh.count = capMesh.count = 0;
 scene.add(bodyMesh, capMesh);
 
 // ---------------- bounds ----------------
-// Z is always endless; a corridor map bounds X with walls that slide along with the mech.
+// A map bounds X (a corridor up and down), Z (left and right) or nothing; walls slide along with the mech.
 
 const halfX = (): number => MAPS[G.map].halfX;
+const halfZ = (): number => MAPS[G.map].halfZ;
 
 /** Keeps a circle of radius `r` inside the map. */
-export function keepInField(o: { x: number }, r: number): void {
-  const h = halfX() - r;
-  if (o.x > h) o.x = h;
-  else if (o.x < -h) o.x = -h;
+export function keepInField(o: { x: number; z: number }, r: number): void {
+  const hx = halfX() - r, hz = halfZ() - r;
+  o.x = Math.max(-hx, Math.min(hx, o.x));
+  o.z = Math.max(-hz, Math.min(hz, o.z));
 }
 
-export const outOfField = (x: number): boolean => Math.abs(x) > halfX();
+export const outOfField = (x: number, z: number): boolean => Math.abs(x) > halfX() || Math.abs(z) > halfZ();
 
-/** Moves a spawn point that falls outside the walls onto the wall line, keeping its distance `d` from the mech. */
+/**
+ * Moves a spawn point that falls outside the walls to a random spot across the corridor,
+ * on the same end of it and at the same distance `d` from the mech.
+ */
 export function intoField(x: number, z: number, d: number): [number, number] {
-  const h = halfX() - 1;
-  if (Math.abs(x) <= h) return [x, z];
-  const cx = Math.sign(x) * h, dx = cx - P.x;
-  return [cx, P.z + Math.sign(z - P.z || 1) * Math.sqrt(Math.max(0, d * d - dx * dx))];
+  const hx = halfX() - 1, hz = halfZ() - 1;
+  if (Math.abs(x) > hx) {
+    const nx = rand(-hx, hx), dx = nx - P.x;
+    z = P.z + Math.sign(z - P.z || 1) * Math.sqrt(Math.max(0, d * d - dx * dx));
+    x = nx;
+  }
+  if (Math.abs(z) > hz) {
+    const nz = rand(-hz, hz), dz = nz - P.z;
+    x = P.x + Math.sign(x - P.x || 1) * Math.sqrt(Math.max(0, d * d - dz * dz));
+    z = nz;
+  }
+  return [x, z];
 }
 
 const WALL_LEN = 200;
-const walls = new THREE.Group();
 const wallMat = new THREE.MeshStandardMaterial({ emissiveIntensity: 0.9 });
 // beyond the walls the floor grid is covered with the background color
 const voidMat = new THREE.MeshBasicMaterial();
-for (const side of [-1, 1]) {
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, WALL_LEN), wallMat);
-  wall.position.set(side * 0.5, 0.6, 0);
-  const cover = new THREE.Mesh(new THREE.PlaneGeometry(120, WALL_LEN), voidMat);
-  cover.rotation.x = -Math.PI / 2;
-  cover.position.set(side * 61, 0.03, 0);
-  const g = new THREE.Group();
-  g.add(wall, cover);
-  g.userData.side = side;
-  walls.add(g);
+
+/** Two walls with the void behind them. `acrossX`: the walls bound X and run along Z; otherwise they bound Z and run along X. */
+function wallPair(acrossX: boolean): THREE.Group {
+  const pair = new THREE.Group();
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(acrossX ? new THREE.BoxGeometry(1, 1.2, WALL_LEN) : new THREE.BoxGeometry(WALL_LEN, 1.2, 1), wallMat);
+    const cover = new THREE.Mesh(acrossX ? new THREE.PlaneGeometry(120, WALL_LEN) : new THREE.PlaneGeometry(WALL_LEN, 120), voidMat);
+    cover.rotation.x = -Math.PI / 2;
+    if (acrossX) {
+      wall.position.set(side * 0.5, 0.6, 0);
+      cover.position.set(side * 61, 0.03, 0);
+    } else {
+      wall.position.set(0, 0.6, side * 0.5);
+      cover.position.set(0, 0.03, side * 61);
+    }
+    const g = new THREE.Group();
+    g.add(wall, cover);
+    g.userData.side = side;
+    pair.add(g);
+  }
+  scene.add(pair);
+  return pair;
 }
-scene.add(walls);
+const wallsX = wallPair(true), wallsZ = wallPair(false);
 
 // ---------------- pillars ----------------
 
@@ -84,7 +108,7 @@ function chunkPillars(cx: number, cz: number, out: Pillar[]): void {
       const m = r + FIELD.gap / 2;
       const x = cx * C + m + rng() * (C - 2 * m), z = cz * C + m + rng() * (C - 2 * m);
       // keep the start point clear and leave corridors between pillars
-      if (Math.hypot(x, z) < FIELD.clear || Math.abs(x) + r > halfX() - FIELD.gap) continue;
+      if (Math.hypot(x, z) < FIELD.clear || Math.abs(x) + r > halfX() - FIELD.gap || Math.abs(z) + r > halfZ() - FIELD.gap) continue;
       let ok = true;
       for (let j = from; j < out.length && ok; j++) ok = Math.hypot(out[j].x - x, out[j].z - z) > out[j].r + r + FIELD.gap;
       if (!ok) continue;
@@ -110,11 +134,16 @@ function paint(): void {
 /** Slides the walls along with the mech; loads the pillars around it when it enters another chunk or a new run starts. */
 export function updateField(): void {
   if (G.map !== curMap) paint();
-  const h = halfX();
-  walls.visible = h < Infinity;
-  if (walls.visible) {
-    walls.position.z = Math.round(P.z / 10) * 10;
-    for (const g of walls.children) g.position.x = g.userData.side * h;
+  const hx = halfX(), hz = halfZ();
+  wallsX.visible = hx < Infinity;
+  if (wallsX.visible) {
+    wallsX.position.z = Math.round(P.z / 10) * 10;
+    for (const g of wallsX.children) g.position.x = g.userData.side * hx;
+  }
+  wallsZ.visible = hz < Infinity;
+  if (wallsZ.visible) {
+    wallsZ.position.x = Math.round(P.x / 10) * 10;
+    for (const g of wallsZ.children) g.position.z = g.userData.side * hz;
   }
   const cx = Math.floor(P.x / FIELD.chunk), cz = Math.floor(P.z / FIELD.chunk);
   if (cx === curX && cz === curZ && G.fieldSeed === curSeed && G.map === curMap) return;
