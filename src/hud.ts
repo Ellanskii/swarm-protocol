@@ -4,6 +4,7 @@ import { MECHS, PACING, WEAPON_ORDER } from './config';
 import { dashCooldown } from './player';
 import { camera } from './scene';
 import { shoulderName } from './shoulders';
+import { icon } from './icons';
 import { G, P, S, magSize } from './state';
 import { UPGRADES } from './upgrades';
 import { $, fmtTime } from './utils';
@@ -89,7 +90,7 @@ export function updateHUD(): void {
 
   const owned = UPGRADES.filter(u => G.upLv[u.id] && !u.kind);
   set('ups', owned.map(u => u.id + G.upLv[u.id]).join(','), () => {
-    el.ups.innerHTML = owned.map(u => `<span>${u.name} <b>${G.upLv[u.id]}</b></span>`).join('');
+    el.ups.innerHTML = owned.map(u => `<span title="${u.name}">${icon(u.id)}<b>${G.upLv[u.id]}</b></span>`).join('');
   });
 
   // run goal: which forge is next and when; the third one is the final, beating it means evacuation

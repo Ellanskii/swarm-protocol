@@ -1,6 +1,7 @@
 // Upgrade pool and the level-up screen.
 import { sfx } from './audio';
 import { EVOLUTIONS, SHOULDERS, WEAPONS, WEAPON_LEVELS, type BaseWeaponId, type EvoDef, type ShoulderId, type WeaponId } from './config';
+import { icon } from './icons';
 import { mouse } from './input';
 import { freeShoulderSlot, installShoulder } from './shoulders';
 import { G, P, S, armWeapons, magSize } from './state';
@@ -196,7 +197,7 @@ export function openLevelUp(): void {
     const b = document.createElement('button');
     b.className = 'card' + (u.kind === 'evo' ? ' evo' : u.kind ? ' weapon' : '');
     const tag = lv ? `УР ${lv} → ${lv + 1}` : u.kind === 'weapon' ? 'НОВОЕ ОРУЖИЕ · РУКА' : u.kind === 'shoulder' ? 'НОВОЕ · ПЛЕЧО' : u.kind === 'dash' ? 'МОДУЛЬ РЫВКА' : u.kind === 'evo' ? 'ЭВОЛЮЦИЯ' : 'НОВОЕ';
-    b.innerHTML = `<small>${i + 1}</small><h3>${u.name}</h3><p>${u.desc}</p><em>${tag}</em>`;
+    b.innerHTML = `<small>${i + 1}</small><div class="chead"><span class="ibox">${icon(u.id)}</span><h3>${u.name}</h3></div><p>${u.desc}</p><em>${tag}</em>`;
     b.addEventListener('click', () => choose(i));
     return b;
   }));

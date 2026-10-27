@@ -1,5 +1,6 @@
 // Base screen: the tech tree as a pannable, zoomable graph, plus buying nodes.
 import { sfx } from './audio';
+import { icon } from './icons';
 import { save } from './save';
 import { G } from './state';
 import { TECH, buyTech, canBuy, techCost, techLv, techNode, techOff, techOpen, toggleTechOff, type TechNode } from './tech';
@@ -39,6 +40,16 @@ function nodeState(n: TechNode): string {
   return canBuy(n) ? 'open afford' : 'open';
 }
 
+/** The strip under a node: what tapping it would do, or why not. */
+function nodeStatus(n: TechNode): string {
+  const lv = techLv(n.id);
+  if (n.id === 'core') return 'ОНЛАЙН';
+  if (lv > 0 && techOff(n)) return 'ВЫКЛ ИЗ ПУЛА';
+  if (lv >= n.max) return 'МАКСИМУМ';
+  if (!techOpen(n)) return 'ЗАКРЫТО';
+  return `<span>${lv ? 'УЛУЧШИТЬ' : 'ОТКРЫТЬ'}</span><span class="cost">${fmtCost(n)}</span>`;
+}
+
 function applyView(): void {
   board.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.z})`;
 }
@@ -65,10 +76,8 @@ export function renderBase(): void {
     el.className = `tnode ${n.branch} ${nodeState(n)}${selected === n ? ' sel' : ''}`;
     el.style.left = `${n.x * CELL_W}px`;
     el.style.top = `${n.y * CELL_H}px`;
-    const lv = techLv(n.id);
-    const lvText = n.id === 'core' ? 'БАЗА' : n.max > 1 ? `УР ${lv} / ${n.max}` : lv ? (techOff(n) ? 'ВЫКЛ ИЗ ПУЛА' : 'ОТКРЫТО') : '';
-    const cost = lv < n.max && n.id !== 'core' ? `<span class="cost">${fmtCost(n)}</span>` : '';
-    el.innerHTML = `<b>${n.name}</b><span class="lv">${lvText}${cost}</span>`;
+    el.innerHTML = `<span class="ibox">${icon(n.id)}</span><span class="txt"><b>${n.name}</b>`
+      + `<span class="lv">${n.id === 'core' ? 'БАЗА' : `УР ${techLv(n.id)} / ${n.max}`}</span></span><span class="stat">${nodeStatus(n)}</span>`;
     el.addEventListener('click', () => {
       if (dragged) return;
       selected = n;
@@ -84,6 +93,8 @@ function renderDetail(): void {
   detail.hidden = !selected;
   if (!selected) return;
   const n = selected, lv = techLv(n.id);
+  detail.className = n.branch;
+  $('dIco').innerHTML = icon(n.id);
   $('dName').textContent = n.name;
   $('dDesc').textContent = n.desc;
   const maxed = lv >= n.max;
