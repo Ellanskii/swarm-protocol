@@ -1,7 +1,7 @@
 // Entry point: game flow (start / pause / level-up / game over) and the frame loop.
 import './style.css';
 import { updateAura } from './abilities';
-import { initAudio, toggleMute } from './audio';
+import { duckMusic, initAudio, musicEnabled, toggleMusic, toggleMute } from './audio';
 import { closeBase, openBase, renderBase } from './base';
 import { updateBullets } from './combat';
 import { MECHS, MECH_ORDER, PACING, type MechId } from './config';
@@ -12,6 +12,7 @@ import { resetHUD, updateHUD } from './hud';
 import { bindInput, mouse, toggleAutoAim, touch, updateAim } from './input';
 import { rebuildMech } from './mech';
 import { updateModules } from './modules';
+import { updateMusic, type MusicMode } from './music';
 import { gainXP, removeAllPickups, updateGems, updatePickups } from './pickups';
 import { tryDash, updatePlayer, updateTrails } from './player';
 import { camTarget, renderWorld, updateCamera } from './render';
@@ -22,7 +23,7 @@ import { G, P, S, aim, resetState } from './state';
 import { applyTech, mechUnlocked } from './tech';
 import { choose, openLevelUp } from './upgrades';
 import { watchForUpdates } from './update';
-import { $, fmtTime } from './utils';
+import { $, clamp, fmtTime } from './utils';
 import { firePressed, giveWeapon, reloadPressed, syncArms, updateWeapons } from './weapons';
 
 // ---------------- flow ----------------
@@ -150,6 +151,10 @@ bindInput({
       showBanner(toggleMute() ? 'ЗВУК ВЫКЛ' : 'ЗВУК ВКЛ', 'blue', 0.8);
       return;
     }
+    if (code === 'KeyN') {
+      switchMusic();
+      return;
+    }
     switch (G.state) {
       case 'play':
         if (code === 'MouseLeft') firePressed();
@@ -258,6 +263,30 @@ function syncAutoAimBtns(): void {
 }
 for (const b of autoAimBtns) b.addEventListener('click', () => { toggleAutoAim(); syncAutoAimBtns(); });
 syncAutoAimBtns();
+
+const musicBtns = document.querySelectorAll<HTMLButtonElement>('[data-music]');
+function syncMusicBtns(): void {
+  for (const b of musicBtns) {
+    b.textContent = `Музыка: ${musicEnabled() ? 'ВКЛ' : 'ВЫКЛ'}`;
+    b.classList.toggle('on', musicEnabled());
+  }
+}
+function switchMusic(): void {
+  const on = toggleMusic();
+  syncMusicBtns();
+  if (G.state === 'play') showBanner(on ? 'МУЗЫКА ВКЛ' : 'МУЗЫКА ВЫКЛ', 'blue', 0.8);
+}
+for (const b of musicBtns) b.addEventListener('click', switchMusic);
+syncMusicBtns();
+
+/** Which music the current moment calls for; the fight builds up with time and crowd size. */
+function musicFor(): [MusicMode, number] {
+  if (G.state === 'start' || G.state === 'base') return ['menu', 0];
+  if (G.state === 'over') return [G.won ? 'evac' : 'over', 0];
+  if (G.evacT > 0) return ['evac', 0];
+  if (G.enemies.some(e => e.boss && !e.dead)) return ['boss', 1];
+  return ['play', clamp(G.time / 600 + G.enemies.length / 220, 0, 1)];
+}
 document.body.classList.add('menu');
 
 // ---------------- simulation ----------------
@@ -323,6 +352,9 @@ function frame(now: number): void {
     P.ang += dt * 0.6;
     aim.set(P.x + Math.sin(P.ang) * 5, 1, P.z + Math.cos(P.ang) * 5);
   }
+  const [mode, heat] = musicFor();
+  duckMusic(G.state === 'pause' ? 0.35 : G.state === 'levelup' ? 0.6 : 1);
+  updateMusic(dt, mode, heat);
   updateCamera(dt);
   renderWorld(G.state === 'play' ? dt : 0, G.state === 'play');
   renderer.render(scene, camera);

@@ -8,6 +8,15 @@ let actx: AudioContext | null = null;
 let master: GainNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
 let muted = false;
+/** Music has its own bus, so it can be switched off and ducked apart from the effects. */
+let musicBus: GainNode | null = null;
+const MUSIC_VOL = 0.2;
+let musicOn = readMusicPref();
+let musicDuck = 1;
+
+function readMusicPref(): boolean {
+  try { return localStorage.getItem('swarm.music') !== 'off'; } catch { return true; }
+}
 const lastPlayed: Partial<Record<Sfx, number>> = {};
 /** Minimum gap between repeats, ms — keeps hordes from turning into white noise. */
 const THROTTLE: Partial<Record<Sfx, number>> = { hit: 40, pick: 35, kill: 30, drone: 60, boom: 50, laser: 70, flak: 50 };
@@ -21,6 +30,10 @@ export function initAudio(): void {
     master = actx.createGain();
     master.gain.value = 0.32;
     master.connect(actx.destination);
+    musicBus = actx.createGain();
+    musicBus.gain.value = 0;
+    musicBus.connect(actx.destination);
+    applyMusicVol();
     noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.4, actx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -29,9 +42,38 @@ export function initAudio(): void {
   }
 }
 
+/** Mutes everything: effects and music. */
 export function toggleMute(): boolean {
   muted = !muted;
+  applyMusicVol();
   return muted;
+}
+
+export function toggleMusic(): boolean {
+  musicOn = !musicOn;
+  try { localStorage.setItem('swarm.music', musicOn ? 'on' : 'off'); } catch { /* storage blocked */ }
+  applyMusicVol();
+  return musicOn;
+}
+
+export const musicEnabled = (): boolean => musicOn;
+
+/** Pause and menus play the music quieter; 1 = full. */
+export function duckMusic(k: number): void {
+  if (k === musicDuck) return;
+  musicDuck = k;
+  applyMusicVol();
+}
+
+function applyMusicVol(): void {
+  if (!actx || !musicBus) return;
+  const v = muted || !musicOn ? 0 : MUSIC_VOL * musicDuck;
+  musicBus.gain.setTargetAtTime(v, actx.currentTime, 0.15);
+}
+
+/** What the music sequencer plays into, once audio is running. */
+export function musicOut(): { ctx: AudioContext; bus: GainNode; noise: AudioBuffer } | null {
+  return actx && musicBus && noiseBuf ? { ctx: actx, bus: musicBus, noise: noiseBuf } : null;
 }
 
 function tone(type: OscillatorType, f0: number, f1: number, dur: number, vol: number): void {

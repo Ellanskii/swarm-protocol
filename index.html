@@ -66,12 +66,15 @@
       <kbd>R / ПКМ</kbd><span>перезарядка и сброс тепла; клик в цветной зоне — мгновенно</span>
       <kbd>Пробел / Shift</kbd><span>рывок с неуязвимостью</span>
       <kbd>1 – 5</kbd><span>выбор меха на этом экране</span>
-      <kbd>Esc / P</kbd><span>пауза, M — звук</span>
+      <kbd>Esc / P</kbd><span>пауза, M — звук, N — музыка</span>
     </div>
     <p class="touch-only">Левый палец — движение. Правый — прицел и огонь, короткий тап — перезарядка и сброс тепла; второй тап в цветной зоне — мгновенно.</p>
     <div id="mechs"></div>
     <p id="mechInfo"></p>
-    <button class="toggle touch-only" data-autoaim>Автоприцел: ВЫКЛ</button>
+    <div class="row">
+      <button class="toggle touch-only" data-autoaim>Автоприцел: ВЫКЛ</button>
+      <button class="toggle" data-music>Музыка: ВКЛ</button>
+    </div>
     <div class="row">
       <button class="btn ghost" id="baseBtn">БАЗА</button>
       <button class="btn" id="startBtn">В БОЙ</button>
@@ -90,7 +93,10 @@
     <button class="btn" id="resumeBtn">ПРОДОЛЖИТЬ</button>
     <button class="btn ghost" id="quitBtn">ЗАВЕРШИТЬ ЗАБЕГ</button>
     <button class="toggle update" data-update hidden>Доступна новая версия — обновить (забег сбросится)</button>
-    <button class="toggle touch-only" data-autoaim>Автоприцел: ВЫКЛ</button>
+    <div class="row">
+      <button class="toggle touch-only" data-autoaim>Автоприцел: ВЫКЛ</button>
+      <button class="toggle" data-music>Музыка: ВКЛ</button>
+    </div>
   </div>
 
   <div id="over" class="screen" hidden>
