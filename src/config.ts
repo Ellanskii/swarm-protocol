@@ -58,7 +58,7 @@ export interface MapDef {
   rush: number;
   /** Weight multipliers for enemy types on this map. */
   mix: Partial<Record<EnemyType, number>>;
-  /** Crowd multiplier: scales the rows' `min` and shortens their `every`. */
+  /** Crowd multiplier: scales the rows' `min`, shortens their `every` and sizes the encirclements. Narrow maps want less. */
   spawn: number;
   /** Scrap multiplier: harder maps pay more. */
   loot: number;
@@ -73,7 +73,7 @@ export const MAPS: Record<MapId, MapDef> = {
   },
   corridor: {
     name: 'Магистраль', desc: 'бесконечный коридор вверх и вниз, больше бегунов', after: 'field',
-    halfX: 13, halfZ: Infinity, pillars: 3, pillarR: [0.8, 1.6], rush: 20, mix: { runner: 1.6 }, spawn: 1.05, loot: 1.2,
+    halfX: 13, halfZ: Infinity, pillars: 3, pillarR: [0.8, 1.6], rush: 0, mix: { runner: 1.6 }, spawn: 0.75, loot: 1.2,
     // mint-teal neon on a near-black green
     palette: { sky: 0x040e0d, ground: 0x061513, gridMinor: 0x0e4a43, gridMajor: 0x19e6b4, wall: 0x082822, wallGlow: 0x0fa383, pillar: 0x0c2e29, cap: 0x1fe6b6 },
   },

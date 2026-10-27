@@ -71,7 +71,7 @@ export function spawnDirector(dt: number): void {
 
   if (G.time >= G.nextBurst) {
     G.nextBurst += PACING.burstEvery;
-    const n = Math.round(26 + G.time / 8);
+    const n = Math.round((26 + G.time / 8) * MAPS[G.map].spawn);
     // at the crowd limit the ring is closed with the machines farthest from the mech
     const spare = G.enemies.length + n > LIMITS.enemies ? farthest(n) : [];
     for (let i = 0; i < n; i++) {
