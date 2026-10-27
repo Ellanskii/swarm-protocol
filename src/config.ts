@@ -37,8 +37,10 @@ export interface Palette {
   gridMajorGlow?: number;
   /** White core along the thick lines, 1.5 when left out; 0 drops it. */
   gridCoreW?: number;
-  /** Neon maps: a colored glint on the floor under every projectile; on when left out. */
+  /** Neon maps: a colored glint on the floor under every projectile, the player's and the enemies'; on when left out. */
   floorGlint?: boolean;
+  /** Neon maps: a glow around every projectile; on when left out. */
+  shotHalo?: boolean;
 }
 
 export interface MapDef {

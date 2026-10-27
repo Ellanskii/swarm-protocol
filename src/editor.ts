@@ -6,9 +6,12 @@ import { applyPalette } from './scene';
 import { G } from './state';
 
 type ColorKey = 'ground' | 'gridMajor' | 'gridMinor';
+type FlagKey = 'floorGlint' | 'shotHalo';
 type WidthKey = 'gridMajorW' | 'gridMinorW' | 'gridMajorGlow' | 'gridMinorGlow' | 'gridCoreW';
 const FIELDS: [ColorKey, string][] = [['ground', 'Пол'], ['gridMajor', 'Толстые линии'], ['gridMinor', 'Тонкие линии']];
 /** Neon grid sizes in texture pixels: key, label, default (as in drawNeonGrid() in scene.ts), max. */
+/** On/off effects of the neon maps; on when the palette leaves them out. */
+const FLAGS: [FlagKey, string][] = [['floorGlint', 'Блики под снарядами'], ['shotHalo', 'Ореолы снарядов']];
 const WIDTHS: [WidthKey, string, number, number][] = [
   ['gridMajorW', 'Толщина толстых', 8, 24],
   ['gridMinorW', 'Толщина тонких', 2, 24],
@@ -24,13 +27,13 @@ const panel = document.createElement('div');
 panel.id = 'editor';
 panel.hidden = true;
 panel.innerHTML = `<b>РЕДАКТОР</b>${FIELDS.map(([k, label]) => `<label>${label}<input type="color" data-key="${k}"></label>`).join('')}`
-  + '<label>Блики под снарядами<input type="checkbox" data-key="floorGlint"></label>'
+  + FLAGS.map(([k, label]) => `<label>${label}<input type="checkbox" data-key="${k}"></label>`).join('')
   + WIDTHS.map(([k, label, , max]) => `<label class="w">${label} <span></span><input type="range" min="0" max="${max}" step="0.5" data-key="${k}"></label>`).join('')
   + '<code></code><button type="button">Скопировать</button>';
 document.body.append(panel);
 
 const inputs = [...panel.querySelectorAll<HTMLInputElement>('input[type=color]')];
-const glint = panel.querySelector<HTMLInputElement>('input[type=checkbox]')!;
+const flags = [...panel.querySelectorAll<HTMLInputElement>('input[type=checkbox]')];
 const sliders = [...panel.querySelectorAll<HTMLInputElement>('input[type=range]')];
 const width = (k: WidthKey): number => palette()[k] ?? WIDTHS.find(w => w[0] === k)![2];
 const code = panel.querySelector('code')!;
@@ -39,13 +42,15 @@ const copyBtn = panel.querySelector('button')!;
 /** The palette fields as they would be written in config.ts. */
 const snippet = (): string => [
   ...FIELDS.map(([k]) => `${k}: 0x${palette()[k].toString(16).padStart(6, '0')}`),
-  ...(palette().neon ? [...WIDTHS.map(([k]) => `${k}: ${width(k)}`), `floorGlint: ${palette().floorGlint !== false}`] : []),
+  ...(palette().neon ? [...WIDTHS.map(([k]) => `${k}: ${width(k)}`), ...FLAGS.map(([k]) => `${k}: ${palette()[k] !== false}`)] : []),
 ].join(', ');
 
 function fill(): void {
   for (const i of inputs) i.value = hex(palette()[i.dataset.key as ColorKey]);
-  glint.checked = palette().floorGlint !== false;
-  glint.disabled = !palette().neon;
+  for (const f of flags) {
+    f.checked = palette()[f.dataset.key as FlagKey] !== false;
+    f.disabled = !palette().neon;
+  }
   // widths only exist for the neon grid; plain line geometry is always 1 px
   for (const r of sliders) {
     r.value = String(width(r.dataset.key as WidthKey));
@@ -65,11 +70,13 @@ for (const i of inputs) {
   i.addEventListener('change', () => i.blur());
 }
 
-glint.addEventListener('change', () => {
-  palette().floorGlint = glint.checked;
-  code.textContent = snippet();
-  glint.blur();
-});
+for (const f of flags) {
+  f.addEventListener('change', () => {
+    palette()[f.dataset.key as FlagKey] = f.checked;
+    code.textContent = snippet();
+    f.blur();
+  });
+}
 
 for (const r of sliders) {
   r.addEventListener('input', () => {

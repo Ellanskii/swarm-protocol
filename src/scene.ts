@@ -412,15 +412,20 @@ function haloTexture(): THREE.CanvasTexture {
   g.fillRect(0, 0, 64, 64);
   return new THREE.CanvasTexture(c);
 }
+const haloMat = (k: number) =>
+  new THREE.MeshBasicMaterial({ map: haloTex, color: new THREE.Color(k, k, k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+const haloTex = haloTexture();
+const flat = (w: number, d: number) => new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2);
 /**
- * Neon floor glint: a flat additive spot under every projectile, stretched along its flight, as if the floor were wet.
- * Cheap stand-in for real reflections: one more instanced draw, no second scene pass. Filled from the bullet pool in render.ts.
+ * Projectile glow, two sprites per shot kind (the player's bullets and the enemies' shots), all flat and additive:
+ * a halo around the shot itself and a glint on the floor under it, stretched along the flight, as if the floor were wet.
+ * A cheap stand-in for real reflections: instanced draws only, no second scene pass.
+ * Each pool is filled from its shot pool in render.ts, copying transforms and colors.
  */
-export const bulletGlint = pool(
-  new THREE.PlaneGeometry(1.4, 3.2).rotateX(-Math.PI / 2),
-  new THREE.MeshBasicMaterial({ map: haloTexture(), color: 0x808080, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
-  LIMITS.bullets,
-);
+export const bulletHalo = pool(flat(0.8, 1.7), haloMat(0.55), LIMITS.bullets);
+export const bulletGlint = pool(flat(1.4, 3.2), haloMat(0.5), LIMITS.bullets);
+export const eshotHalo = pool(flat(1.5, 1.5), haloMat(0.7), LIMITS.enemyShots);
+export const eshotGlint = pool(flat(2.2, 2.2), haloMat(0.5), LIMITS.enemyShots);
 
 export interface Ring {
   m: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;

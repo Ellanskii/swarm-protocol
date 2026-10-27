@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ENEMY_TYPES, LIMITS, MAPS, SHIELD_AURA, SHOULDERS, TANK } from './config';
 import { animateMech } from './mech';
 import {
-  ENEMY_HOVER, beamMesh, bulletGlint, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh, scrapMesh,
+  ENEMY_HOVER, beamMesh, bulletGlint, bulletHalo, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotGlint, eshotHalo, eshotMesh, gemMesh, scrapMesh,
   followFloor, groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
 } from './scene';
 import { G, P, aim } from './state';
@@ -36,6 +36,22 @@ function commit(mesh: THREE.InstancedMesh, n: number): void {
   mesh.count = n;
   mesh.instanceMatrix.needsUpdate = true;
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+}
+
+/**
+ * Neon glow of a shot pool: the halo copies the shots' transforms and colors as they are, the floor glint drops them to the floor.
+ * A switched-off pool draws nothing.
+ */
+function mirror(src: THREE.InstancedMesh, n: number, halo: THREE.InstancedMesh, haloOn: boolean, glint: THREE.InstancedMesh, glintOn: boolean): void {
+  const mats = src.instanceMatrix.array.subarray(0, n * 16), cols = src.instanceColor!.array.subarray(0, n * 3);
+  for (const [dst, on, floor] of [[halo, haloOn, false], [glint, glintOn, true]] as const) {
+    if (!on) { dst.count = 0; continue; }
+    const m = dst.instanceMatrix.array as Float32Array;
+    m.set(mats);
+    if (floor) for (let i = 0; i < n; i++) m[i * 16 + 13] = 0.05;
+    dst.instanceColor!.array.set(cols);
+    commit(dst, n);
+  }
 }
 
 const counts = Object.fromEntries(ENEMY_TYPES.map(k => [k, 0])) as Record<(typeof ENEMY_TYPES)[number], number>;
@@ -186,15 +202,9 @@ export function renderWorld(dt: number, playing: boolean): void {
     writeInstance(bulletMesh, n++, s.x, s.y, s.z, Math.atan2(s.tx - s.x0, s.tz - s.z0), 3, 3, 0.5, tmpC);
   }
   commit(bulletMesh, n);
-  // floor glints reuse the bullets' transforms and colors, dropped to the floor
   const pal = MAPS[G.map].palette;
-  if (pal.neon && pal.floorGlint !== false) {
-    const m = bulletGlint.instanceMatrix.array as Float32Array;
-    m.set(bulletMesh.instanceMatrix.array.subarray(0, n * 16));
-    for (let i = 0; i < n; i++) m[i * 16 + 13] = 0.05;
-    bulletGlint.instanceColor!.array.set(bulletMesh.instanceColor!.array.subarray(0, n * 3));
-    commit(bulletGlint, n);
-  } else bulletGlint.count = 0;
+  const glints = !!pal.neon && pal.floorGlint !== false, halos = !!pal.neon && pal.shotHalo !== false;
+  mirror(bulletMesh, n, bulletHalo, halos, bulletGlint, glints);
 
   n = 0;
   tmpC.setHex(0xff6b35);
@@ -206,6 +216,7 @@ export function renderWorld(dt: number, playing: boolean): void {
     writeInstance(eshotMesh, n++, s.x, 1, s.z, 0, k, k, k, s.blast ? tankShell : tmpC);
   }
   commit(eshotMesh, n);
+  mirror(eshotMesh, n, eshotHalo, halos, eshotGlint, glints);
 
   // xp gems: color and size by value; scrap is a spinning gear of its own mesh, big pieces in brass
   n = 0;
