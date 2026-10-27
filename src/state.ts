@@ -296,6 +296,8 @@ export const G = {
   allUps: false,
   /** Debug: tech costs nothing on the base. Survives restarts like `god`. */
   infRes: false,
+  /** Debug editor (P in dev): machines and their shots freeze, nothing spawns. Survives restarts like `god`. */
+  editor: false,
 };
 
 export const magSize = (d: WeaponDef): number => Math.max(1, Math.round(d.mag * S.mag));

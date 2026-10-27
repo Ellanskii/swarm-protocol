@@ -1,9 +1,9 @@
 // Pushes simulation state into meshes and moves the camera.
 import * as THREE from 'three';
-import { ENEMY_TYPES, LIMITS, SHIELD_AURA, SHOULDERS, TANK } from './config';
+import { ENEMY_TYPES, LIMITS, MAPS, SHIELD_AURA, SHOULDERS, TANK } from './config';
 import { animateMech } from './mech';
 import {
-  ENEMY_HOVER, beamMesh, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh, scrapMesh,
+  ENEMY_HOVER, beamMesh, bulletGlint, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh, scrapMesh,
   followFloor, groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
 } from './scene';
 import { G, P, aim } from './state';
@@ -186,6 +186,15 @@ export function renderWorld(dt: number, playing: boolean): void {
     writeInstance(bulletMesh, n++, s.x, s.y, s.z, Math.atan2(s.tx - s.x0, s.tz - s.z0), 3, 3, 0.5, tmpC);
   }
   commit(bulletMesh, n);
+  // floor glints reuse the bullets' transforms and colors, dropped to the floor
+  const pal = MAPS[G.map].palette;
+  if (pal.neon && pal.floorGlint !== false) {
+    const m = bulletGlint.instanceMatrix.array as Float32Array;
+    m.set(bulletMesh.instanceMatrix.array.subarray(0, n * 16));
+    for (let i = 0; i < n; i++) m[i * 16 + 13] = 0.05;
+    bulletGlint.instanceColor!.array.set(bulletMesh.instanceColor!.array.subarray(0, n * 3));
+    commit(bulletGlint, n);
+  } else bulletGlint.count = 0;
 
   n = 0;
   tmpC.setHex(0xff6b35);

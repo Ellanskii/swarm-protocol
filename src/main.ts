@@ -6,6 +6,7 @@ import { duckMusic, initAudio, musicEnabled, toggleMusic, toggleMute } from './a
 import { closeBase, openBase, renderBase } from './base';
 import { meltdown, updateBullets } from './combat';
 import { MAPS, MAP_ORDER, MECHS, MECH_ORDER, PACING, type MapId, type MechId } from './config';
+import { holdTimers, toggleEditor } from './editor';
 import { spawnDirector, spawnEnemy, updateEnemies, updateEnemyShots, updateStrikes } from './enemies';
 import { clearNumbers, showBanner, sparks, updateNumbers, updateParticles } from './fx';
 import { buildGrid } from './grid';
@@ -172,6 +173,8 @@ bindInput({
         if (code === 'MouseLeft') firePressed();
         else if (code === 'KeyR' || code === 'MouseRight' || code === 'TouchReload') reloadPressed();
         else if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') tryDash();
+        // in dev builds P opens the editor, Esc still pauses
+        else if (code === 'KeyP' && import.meta.env.DEV) toggleEditor();
         else if (code === 'Escape' || code === 'KeyP') setPause(true);
         else if (code === 'KeyG' && import.meta.env.DEV) god();
         else if (code === 'KeyU' && import.meta.env.DEV) allUps();
@@ -343,11 +346,13 @@ function update(dt: number): void {
   if (alive) updatePlayer(dt);
   updateField();
   if (alive) updateWeapons(dt);
-  spawnDirector(dt);
+  // the editor freezes the machines: no spawns, no moves, no shots; the mech and its guns run as usual
+  if (G.editor) holdTimers(dt);
+  else spawnDirector(dt);
   buildGrid();
-  updateEnemies(dt);
+  if (!G.editor) updateEnemies(dt);
   updateBullets(dt);
-  updateEnemyShots(dt);
+  if (!G.editor) updateEnemyShots(dt);
   updateStrikes(dt);
   if (alive) updateShoulders(dt);
   updateTrails(dt);

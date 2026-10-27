@@ -111,6 +111,21 @@ body.menu { cursor: auto; }
 #cross.rl { border-color: var(--gold); border-style: dashed; }
 body.menu #cross { display: none; }
 
+/* ---- dev editor ---- */
+#editor {
+  position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: 70px; z-index: 5; width: 230px; padding: 12px; display: grid; gap: 8px;
+  background: var(--panel); border: 1px solid var(--gold); border-radius: 4px; font: 600 13px var(--display); cursor: auto;
+}
+#editor b { color: var(--gold); letter-spacing: .12em; font-size: 12px; }
+#editor label { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+#editor input[type=color] { width: 44px; height: 26px; padding: 0; border: 1px solid var(--line); background: none; cursor: pointer; }
+#editor label.w { flex-wrap: wrap; gap: 4px 10px; }
+#editor label.w span { font: 600 12px var(--mono); color: var(--gold); }
+#editor input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
+#editor input[type=range] { width: 100%; accent-color: var(--gold); cursor: pointer; }
+#editor code { font: 11px/1.4 var(--mono); color: var(--muted); user-select: text; -webkit-user-select: text; word-break: break-all; }
+#editor button { font: 600 12px var(--mono); padding: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; border-radius: 3px; }
+
 /* ---- touch controls ---- */
 #touch { position: absolute; inset: 0; display: none; }
 body.touch #touch { display: block; }

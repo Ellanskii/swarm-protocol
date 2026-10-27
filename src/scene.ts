@@ -54,6 +54,46 @@ majorLines.position.set(0, 0.015, -20);
 floor.add(ground, minorLines, majorLines);
 scene.add(floor);
 
+// Neon maps bake the grid into the ground texture instead: thick lines with soft halos, one tile per major cell.
+// Drawn once per map change; the GPU then samples one texture, cheaper than the line pass it replaces.
+const GRID_PX = 512;
+const gridCanvas = document.createElement('canvas');
+gridCanvas.width = gridCanvas.height = GRID_PX;
+const gridTex = new THREE.CanvasTexture(gridCanvas);
+gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping;
+gridTex.repeat.set(200 / MAJOR, 200 / MAJOR);
+gridTex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+gridTex.colorSpace = THREE.SRGBColorSpace;
+
+const css = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
+
+function drawNeonGrid(p: Palette): void {
+  const g = gridCanvas.getContext('2d')!, S = GRID_PX;
+  g.fillStyle = css(p.ground);
+  g.fillRect(0, 0, S, S);
+  const lines = (at: number[], col: number, w: number, halo: number) => {
+    // a zero width is ignored by canvas (the last width stays), so skip the lines instead
+    if (w <= 0) return;
+    g.strokeStyle = css(col);
+    g.shadowColor = css(col);
+    g.shadowBlur = halo;
+    g.lineWidth = w;
+    g.beginPath();
+    for (const v of at) {
+      g.moveTo(v, 0); g.lineTo(v, S);
+      g.moveTo(0, v); g.lineTo(S, v);
+    }
+    g.stroke();
+  };
+  // minor lines every 2 world units; major lines sit on the tile edges, half on each side, so tiles join seamlessly
+  const minor = S / (MAJOR / 2);
+  lines([1, 2, 3, 4].map(i => i * minor), p.gridMinor, p.gridMinorW ?? 2, p.gridMinorGlow ?? 6);
+  lines([0, S], p.gridMajor, p.gridMajorW ?? 8, p.gridMajorGlow ?? 18);
+  lines([0, S], 0xffffff, p.gridCoreW ?? 1.5, 0);
+  g.shadowBlur = 0;
+  gridTex.needsUpdate = true;
+}
+
 /** Recolors the sky, fog and floor for the current map. */
 export function applyPalette(p: Palette): void {
   (scene.background as THREE.Color).setHex(p.sky);
@@ -61,6 +101,17 @@ export function applyPalette(p: Palette): void {
   groundMat.color.setHex(p.ground);
   minorLines.material.color.setHex(p.gridMinor);
   majorLines.material.color.setHex(p.gridMajor);
+  const neon = !!p.neon;
+  minorLines.visible = majorLines.visible = !neon;
+  if (neon) drawNeonGrid(p);
+  if (!!groundMat.map !== neon) {
+    groundMat.map = groundMat.emissiveMap = neon ? gridTex : null;
+    groundMat.needsUpdate = true;
+  }
+  // the texture already carries the ground color; its lines also glow on their own
+  if (neon) groundMat.color.setHex(0xffffff);
+  groundMat.emissive.setHex(neon ? 0xffffff : 0x000000);
+  groundMat.emissiveIntensity = neon ? 0.55 : 1;
 }
 
 export function followFloor(x: number, z: number): void {
@@ -348,6 +399,28 @@ export const scrapMesh = pool(
   LIMITS.gems,
 );
 export const partMesh = pool(new THREE.BoxGeometry(0.17, 0.17, 0.17), glow(), LIMITS.particles);
+
+/** Soft round falloff, drawn once. */
+function haloTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!, grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(255,255,255,1)');
+  grd.addColorStop(0.35, 'rgba(255,255,255,.45)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+/**
+ * Neon floor glint: a flat additive spot under every projectile, stretched along its flight, as if the floor were wet.
+ * Cheap stand-in for real reflections: one more instanced draw, no second scene pass. Filled from the bullet pool in render.ts.
+ */
+export const bulletGlint = pool(
+  new THREE.PlaneGeometry(1.4, 3.2).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ map: haloTexture(), color: 0x808080, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+  LIMITS.bullets,
+);
 
 export interface Ring {
   m: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
