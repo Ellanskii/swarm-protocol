@@ -67,7 +67,9 @@ function setPause(on: boolean): void {
 }
 
 /** Ends the run either way: everything picked up goes to the save. */
-function endRun(won: boolean): void {
+/** `quit`: the player ended the run from the pause menu; the loot is kept like on death. */
+function endRun(won: boolean, quit = false): void {
+  showOnly(null);
   G.state = 'over';
   mouse.down = false;
   document.body.classList.add('menu');
@@ -77,7 +79,7 @@ function endRun(won: boolean): void {
   if (won) save.wins++;
   persist();
   const title = $('oTitle');
-  title.textContent = won ? 'ЭВАКУАЦИЯ' : 'МЕХ УНИЧТОЖЕН';
+  title.textContent = won ? 'ЭВАКУАЦИЯ' : quit ? 'ЗАБЕГ ПРЕРВАН' : 'МЕХ УНИЧТОЖЕН';
   title.className = won ? 'win' : 'dead';
   $('oTime').textContent = fmtTime(G.time);
   $('oKills').textContent = String(G.kills);
@@ -226,6 +228,21 @@ $('overBaseBtn').addEventListener('click', showBase);
 $('baseBackBtn').addEventListener('click', showMenu);
 $('basePlayBtn').addEventListener('click', startGame);
 $('resumeBtn').addEventListener('click', () => setPause(false));
+// ending a run takes a second press, so a stray tap on the pause screen can't throw the run away
+const quitBtn = $('quitBtn');
+let quitArmed = 0;
+quitBtn.addEventListener('click', () => {
+  if (G.state !== 'pause') return;
+  if (performance.now() < quitArmed) {
+    quitArmed = 0;
+    quitBtn.textContent = 'ЗАВЕРШИТЬ ЗАБЕГ';
+    endRun(false, true);
+    return;
+  }
+  quitArmed = performance.now() + 3000;
+  quitBtn.textContent = 'ТОЧНО ЗАВЕРШИТЬ?';
+  setTimeout(() => { if (performance.now() >= quitArmed) quitBtn.textContent = 'ЗАВЕРШИТЬ ЗАБЕГ'; }, 3050);
+});
 $('pauseBtn').addEventListener('click', () => setPause(true));
 $('dashBtn').addEventListener('pointerdown', e => {
   e.preventDefault();
