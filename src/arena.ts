@@ -1,6 +1,6 @@
-// Endless field: cover pillars generated per chunk around the mech, and circle-vs-pillar collision.
+// Endless field: map bounds and walls, cover pillars generated per chunk around the mech, circle-vs-pillar collision.
 import * as THREE from 'three';
-import { FIELD } from './config';
+import { FIELD, MAPS } from './config';
 import { scene } from './scene';
 import { G, P } from './state';
 
@@ -26,6 +26,48 @@ bodyMesh.frustumCulled = capMesh.frustumCulled = false;
 bodyMesh.count = capMesh.count = 0;
 scene.add(bodyMesh, capMesh);
 
+// ---------------- bounds ----------------
+// Z is always endless; a corridor map bounds X with walls that slide along with the mech.
+
+const halfX = (): number => MAPS[G.map].halfX;
+
+/** Keeps a circle of radius `r` inside the map. */
+export function keepInField(o: { x: number }, r: number): void {
+  const h = halfX() - r;
+  if (o.x > h) o.x = h;
+  else if (o.x < -h) o.x = -h;
+}
+
+export const outOfField = (x: number): boolean => Math.abs(x) > halfX();
+
+/** Moves a spawn point that falls outside the walls onto the wall line, keeping its distance `d` from the mech. */
+export function intoField(x: number, z: number, d: number): [number, number] {
+  const h = halfX() - 1;
+  if (Math.abs(x) <= h) return [x, z];
+  const cx = Math.sign(x) * h, dx = cx - P.x;
+  return [cx, P.z + Math.sign(z - P.z || 1) * Math.sqrt(Math.max(0, d * d - dx * dx))];
+}
+
+const WALL_LEN = 200;
+const walls = new THREE.Group();
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x1b2246, emissive: 0x5a2bb0, emissiveIntensity: 0.9 });
+// beyond the walls the floor grid is covered with the background color
+const voidMat = new THREE.MeshBasicMaterial({ color: 0x0b0d17 });
+for (const side of [-1, 1]) {
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, WALL_LEN), wallMat);
+  wall.position.set(side * 0.5, 0.6, 0);
+  const cover = new THREE.Mesh(new THREE.PlaneGeometry(120, WALL_LEN), voidMat);
+  cover.rotation.x = -Math.PI / 2;
+  cover.position.set(side * 61, 0.03, 0);
+  const g = new THREE.Group();
+  g.add(wall, cover);
+  g.userData.side = side;
+  walls.add(g);
+}
+scene.add(walls);
+
+// ---------------- pillars ----------------
+
 /** Same chunk and seed always give the same pillars, so walking back finds the same cover. */
 function chunkRng(cx: number, cz: number, seed: number): () => number {
   let s = (Math.imul(cx, 0x27d4eb2d) ^ Math.imul(cz, 0x165667b1) ^ seed) >>> 0;
@@ -47,7 +89,7 @@ function chunkPillars(cx: number, cz: number, out: Pillar[]): void {
       const m = r + FIELD.gap / 2;
       const x = cx * C + m + rng() * (C - 2 * m), z = cz * C + m + rng() * (C - 2 * m);
       // keep the start point clear and leave corridors between pillars
-      if (Math.hypot(x, z) < FIELD.clear) continue;
+      if (Math.hypot(x, z) < FIELD.clear || Math.abs(x) + r > halfX() - FIELD.gap) continue;
       let ok = true;
       for (let j = from; j < out.length && ok; j++) ok = Math.hypot(out[j].x - x, out[j].z - z) > out[j].r + r + FIELD.gap;
       if (!ok) continue;
@@ -57,16 +99,23 @@ function chunkPillars(cx: number, cz: number, out: Pillar[]): void {
   }
 }
 
-let curX = NaN, curZ = NaN, curSeed = NaN;
+let curX = NaN, curZ = NaN, curSeed = NaN, curMap = '';
 const m4 = new THREE.Matrix4(), pos = new THREE.Vector3(), scl = new THREE.Vector3(), rot = new THREE.Quaternion();
 
-/** Loads the pillars around the mech when it enters another chunk or a new run starts. */
+/** Slides the walls along with the mech; loads the pillars around it when it enters another chunk or a new run starts. */
 export function updateField(): void {
+  const h = halfX();
+  walls.visible = h < Infinity;
+  if (walls.visible) {
+    walls.position.z = Math.round(P.z / 10) * 10;
+    for (const g of walls.children) g.position.x = g.userData.side * h;
+  }
   const cx = Math.floor(P.x / FIELD.chunk), cz = Math.floor(P.z / FIELD.chunk);
-  if (cx === curX && cz === curZ && G.fieldSeed === curSeed) return;
+  if (cx === curX && cz === curZ && G.fieldSeed === curSeed && G.map === curMap) return;
   curX = cx;
   curZ = cz;
   curSeed = G.fieldSeed;
+  curMap = G.map;
   pillars.length = 0;
   for (let dx = -FIELD.near; dx <= FIELD.near; dx++) {
     for (let dz = -FIELD.near; dz <= FIELD.near; dz++) chunkPillars(cx + dx, cz + dz, pillars);

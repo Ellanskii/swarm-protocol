@@ -5,7 +5,7 @@ import { updateField } from './arena';
 import { duckMusic, initAudio, musicEnabled, toggleMusic, toggleMute } from './audio';
 import { closeBase, openBase, renderBase } from './base';
 import { updateBullets } from './combat';
-import { MECHS, MECH_ORDER, PACING, type MechId } from './config';
+import { MAPS, MAP_ORDER, MECHS, MECH_ORDER, PACING, type MapId, type MechId } from './config';
 import { spawnDirector, spawnEnemy, updateEnemies, updateEnemyShots, updateStrikes } from './enemies';
 import { clearNumbers, showBanner, updateNumbers, updateParticles } from './fx';
 import { buildGrid } from './grid';
@@ -231,6 +231,30 @@ try {
   if (saved && saved in MECHS && mechUnlocked(saved)) G.mech = saved;
 } catch { /* storage blocked */ }
 renderMechs();
+
+// ---------------- map select ----------------
+
+const MAP_KEY = 'swarm.map';
+const mapBtn = $('mapBtn');
+
+function syncMapBtn(): void {
+  mapBtn.textContent = `Карта: ${MAPS[G.map].name}`;
+  mapBtn.title = MAPS[G.map].desc;
+}
+
+mapBtn.addEventListener('click', () => {
+  G.map = MAP_ORDER[(MAP_ORDER.indexOf(G.map) + 1) % MAP_ORDER.length];
+  try { localStorage.setItem(MAP_KEY, G.map); } catch { /* storage blocked */ }
+  syncMapBtn();
+  updateField(); // the title screen shows the chosen map behind it
+});
+
+try {
+  const saved = localStorage.getItem(MAP_KEY) as MapId | null;
+  if (saved && saved in MAPS) G.map = saved;
+} catch { /* storage blocked */ }
+syncMapBtn();
+updateField();
 
 $('startBtn').addEventListener('click', startGame);
 $('againBtn').addEventListener('click', startGame);

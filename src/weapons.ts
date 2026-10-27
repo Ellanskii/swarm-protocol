@@ -1,7 +1,7 @@
 // Arm weapons: every mounted gun fires at once. Ballistic guns share one SYNTHETIK-style active reload,
 // energy weapons share one heat gauge that vents with the same timing window.
 import { sfx, type Sfx } from './audio';
-import { insidePillar } from './arena';
+import { insidePillar, outOfField } from './arena';
 import { beamHit, damage, explode, spawnBullet } from './combat';
 import { HEAT, LIMITS, OVERLOAD, WEAPON_LEVELS, type BaseWeaponId, type EvoWeaponId, type WeaponId } from './config';
 import { ringBurst, showBanner, sparks, steam } from './fx';
@@ -106,14 +106,15 @@ function fire(w: WeaponState): void {
 }
 
 /**
- * Hitscan line from the arm, stops at a pillar, hits every machine on it.
+ * Hitscan line from the arm, stops at a pillar or a wall, hits every machine on it.
  * Laser (energy): runs on heat, burns through shield auras. Railgun (ballistic): runs on ammo, gets the perfect reload and armor piercing.
  */
 function fireBeam(w: WeaponState, mx: number, y: number, mz: number, ang: number): void {
   const d = w.d, dx = Math.sin(ang), dz = Math.cos(ang);
   let len = d.range;
   for (let s = 0.5; s < d.range; s += 0.5) {
-    if (insidePillar(mx + dx * s, mz + dz * s)) { len = s; break; }
+    const x = mx + dx * s, z = mz + dz * s;
+    if (insidePillar(x, z) || outOfField(x)) { len = s; break; }
   }
   // extra barrels widen the beam instead of adding projectiles
   const width = 0.15 * d.size + 0.12 * (S.multi + levelBarrels(w.lv));

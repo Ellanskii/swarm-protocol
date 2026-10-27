@@ -1,5 +1,5 @@
 // Enemy spawning (director), AI, separation, enemy projectiles.
-import { insidePillar, pushOutPillars } from './arena';
+import { insidePillar, intoField, keepInField, outOfField, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode, selfDestruct } from './combat';
 import { ARTILLERY, CROWD, DECOY, TANK, ENEMIES, LIMITS, LOOT, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
@@ -28,7 +28,7 @@ export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null 
 function spawnPos(minD: number, maxD: number, ahead = false): [number, number] {
   const front = ahead && P.moving && Math.random() < CROWD.ahead;
   const a = front ? P.legAng + rand(-1.1, 1.1) : Math.random() * Math.PI * 2, d = rand(minD, maxD);
-  return [P.x + Math.sin(a) * d, P.z + Math.cos(a) * d];
+  return intoField(P.x + Math.sin(a) * d, P.z + Math.cos(a) * d, d);
 }
 
 /** Enemy mix shifts toward tougher types over time. */
@@ -68,7 +68,7 @@ export function spawnDirector(dt: number): void {
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const type: EnemyType = G.time > 40 && i % 3 === 0 ? 'runner' : 'grunt';
-      const x = P.x + Math.sin(a) * PACING.burstR, z = P.z + Math.cos(a) * PACING.burstR;
+      const [x, z] = intoField(P.x + Math.sin(a) * PACING.burstR, P.z + Math.cos(a) * PACING.burstR, PACING.burstR);
       if (!spawnEnemy(type, x, z) && spare.length) relocate(spare.pop()!, x, z);
     }
     showBanner('ОКРУЖЕНИЕ', 'red', 1.4);
@@ -220,6 +220,7 @@ export function updateEnemies(dt: number): void {
     e.kx *= kDecay;
     e.kz *= kDecay;
     pushOutPillars(e, e.r);
+    keepInField(e, e.r);
     e.rot = Math.atan2(nx, nz);
     // hulls turn smoothly toward where they drive
     if (mx || mz) {
@@ -293,10 +294,10 @@ export function updateEnemyShots(dt: number): void {
     if (s.blast) {
       // tank shell: bursts on its target spot, on a pillar, or on the mech
       s.left! -= Math.hypot(s.vx, s.vz) * dt;
-      if (s.left! <= 0 || s.life <= 0 || insidePillar(s.x, s.z) || Math.hypot(s.x - P.x, s.z - P.z) < 0.78) shellBurst(s);
+      if (s.left! <= 0 || s.life <= 0 || insidePillar(s.x, s.z) || outOfField(s.x) || Math.hypot(s.x - P.x, s.z - P.z) < 0.78) shellBurst(s);
       continue;
     }
-    if (insidePillar(s.x, s.z)) { s.life = 0; continue; }
+    if (insidePillar(s.x, s.z) || outOfField(s.x)) { s.life = 0; continue; }
     if (P.inv <= 0 && Math.hypot(s.x - P.x, s.z - P.z) < 0.78) {
       hurt(s.dmg);
       s.life = 0;

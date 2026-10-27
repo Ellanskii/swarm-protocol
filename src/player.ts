@@ -1,5 +1,5 @@
 // Player movement, dash, mech passives, taking damage.
-import { pushOutPillars } from './arena';
+import { keepInField, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode } from './combat';
 import { DECOY, JUMP, MECHS, PHASE, RAM, REACTIVE, SHIELD, TRAIL } from './config';
@@ -119,6 +119,7 @@ export function updatePlayer(dt: number): void {
   P.x += vx * dt;
   P.z += vz * dt;
   pushOutPillars(P, RADIUS);
+  keepInField(P, RADIUS);
 
   if (S.regen) P.hp = Math.min(P.maxHp, P.hp + S.regen * dt);
 

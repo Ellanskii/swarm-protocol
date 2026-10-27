@@ -1,5 +1,6 @@
 // Shoulder systems: auto-firing rockets, mortar and drones mounted in shoulder slots.
 import * as THREE from 'three';
+import { outOfField } from './arena';
 import { sfx } from './audio';
 import { beamHit, explode, spawnBullet } from './combat';
 import { BRACE, EVOLUTIONS, LIMITS, MECHS, SHOULDERS, type ShoulderId } from './config';
@@ -143,7 +144,7 @@ function updateRockets(dt: number): void {
     r.y = THREE.MathUtils.clamp(dist * 0.25, 0.8, ROCKET_Y);
     if (Math.random() < 0.5) sparks(r.x, r.y, r.z, 0xffb347, 1, 1);
 
-    let hit = r.life <= 0;
+    let hit = r.life <= 0 || outOfField(r.x);
     if (!hit) forNear(r.x, r.z, e => {
       if (e.dead || (e.x - r.x) ** 2 + (e.z - r.z) ** 2 > (e.r + 0.3) ** 2) return;
       hit = true;

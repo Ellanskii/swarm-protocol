@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import {
   BRACE, CHAIN, ENEMY_TYPES, HEAT, MECHS, ORBITAL, WEAPONS, xpFor,
-  type EnemyDef, type EnemyType, type MechId, type ShoulderId, type WeaponDef, type WeaponId,
+  type EnemyDef, type EnemyType, type MapId, type MechId, type ShoulderId, type WeaponDef, type WeaponId,
 } from './config';
 import type { ArmSlot, SlotId } from './mech';
 
@@ -227,6 +227,8 @@ export const G = {
   state: 'start' as GameState,
   /** Selected mech. Not touched by resetState(), so the choice survives restarts. */
   mech: 'guard' as MechId,
+  /** Chosen on the title screen, like the mech; survives resetState(). */
+  map: 'field' as MapId,
   time: 0,
   kills: 0,
   spawnAcc: 0,

@@ -16,6 +16,22 @@ export const FIELD = {
   gemFar: 45,
 } as const;
 
+export type MapId = 'field' | 'corridor';
+
+export interface MapDef {
+  name: string;
+  desc: string;
+  /** Half-width of the playable strip along X; `Infinity` for an open field. Z is always endless. */
+  halfX: number;
+}
+
+export const MAPS: Record<MapId, MapDef> = {
+  field: { name: 'Пустошь', desc: 'открытое поле во все стороны', halfX: Infinity },
+  corridor: { name: 'Магистраль', desc: 'бесконечный коридор вверх и вниз', halfX: 13 },
+};
+
+export const MAP_ORDER: MapId[] = ['field', 'corridor'];
+
 export const LIMITS = {
   bullets: 900,
   debris: 500,
