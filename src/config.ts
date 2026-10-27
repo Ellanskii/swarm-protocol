@@ -92,6 +92,10 @@ export const LIMITS = {
 } as const;
 
 export const PACING = {
+  /** Steady spawn rate, machines per second: `spawnBase + spawnGrowth * seconds`, capped at `spawnMax`. */
+  spawnBase: 1.1,
+  spawnGrowth: 0.025,
+  spawnMax: 10,
   /** Encirclement wave interval, seconds. */
   burstEvery: 45,
   /** Encirclement ring radius: just outside the view, so the ring closes in from off screen. */

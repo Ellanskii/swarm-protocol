@@ -52,7 +52,7 @@ function pickType(): EnemyType {
 
 export function spawnDirector(dt: number): void {
   if (G.evacT > 0 || G.deathT > 0) return;
-  G.spawnAcc += Math.min(1.1 + G.time * 0.05, 18) * MAPS[G.map].spawn * dt;
+  G.spawnAcc += Math.min(PACING.spawnBase + G.time * PACING.spawnGrowth, PACING.spawnMax) * MAPS[G.map].spawn * dt;
   while (G.spawnAcc >= 1) {
     G.spawnAcc -= 1;
     const [x, z] = spawnPos(24, 31);
