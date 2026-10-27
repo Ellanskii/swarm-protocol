@@ -243,7 +243,8 @@ renderMechs();
 const MAP_KEY = 'swarm.map';
 const mapBtn = $('mapBtn');
 
-const mapUnlocked = (id: MapId): boolean => { const after = MAPS[id].after; return !after || save.cleared.includes(after); };
+// dev builds open every map, to look at them without playing the chain
+const mapUnlocked = (id: MapId): boolean => { const after = MAPS[id].after; return import.meta.env.DEV || !after || save.cleared.includes(after); };
 
 /** Shows the chosen map and what the next locked one needs; a map locked again (save reset) falls back to the first. */
 function syncMap(): void {
