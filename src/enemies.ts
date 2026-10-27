@@ -76,7 +76,7 @@ export function spawnDirector(dt: number): void {
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const type: EnemyType = G.time > 40 && i % 3 === 0 ? 'runner' : 'grunt';
-      const x = clamp(P.x + Math.sin(a) * 19, -ARENA + 1, ARENA - 1), z = clamp(P.z + Math.cos(a) * 19, -ARENA + 1, ARENA - 1);
+      const x = clamp(P.x + Math.sin(a) * PACING.burstR, -ARENA + 1, ARENA - 1), z = clamp(P.z + Math.cos(a) * PACING.burstR, -ARENA + 1, ARENA - 1);
       if (!spawnEnemy(type, x, z) && spare.length) relocate(spare.pop()!, x, z);
     }
     showBanner('ОКРУЖЕНИЕ', 'red', 1.4);

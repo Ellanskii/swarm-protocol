@@ -21,6 +21,8 @@ export const LIMITS = {
 export const PACING = {
   /** Encirclement wave interval, seconds. */
   burstEvery: 45,
+  /** Encirclement ring radius: just outside the view, so the ring closes in from off screen. */
+  burstR: 32,
   /** Seconds until the next boss; the countdown waits while a boss is alive, so they never stack. */
   bossEvery: 120,
   /** The last boss is the final one: beating it ends the run with an evacuation. */
