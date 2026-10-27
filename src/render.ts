@@ -1,9 +1,9 @@
 // Pushes simulation state into meshes and moves the camera.
 import * as THREE from 'three';
 import { ENEMY_TYPES, LIMITS, MAPS, SHIELD_AURA, SHOULDERS, TANK } from './config';
-import { animateMech } from './mech';
+import { animateMech, setMechRim } from './mech';
 import {
-  ENEMY_HOVER, beamMesh, bulletGlint, bulletHalo, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotGlint, eshotHalo, eshotMesh, gemMesh, scrapMesh,
+  ENEMY_HOVER, beamMesh, bulletGlint, bulletHalo, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, enemyRimColors, eshotGlint, eshotHalo, eshotMesh, gemMesh, scrapMesh,
   followFloor, groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
 } from './scene';
 import { G, P, aim } from './state';
@@ -58,6 +58,8 @@ const counts = Object.fromEntries(ENEMY_TYPES.map(k => [k, 0])) as Record<(typeo
 
 export function renderWorld(dt: number, playing: boolean): void {
   const t = G.time;
+  const pal = MAPS[G.map].palette;
+  const rimOn = pal.modelRim !== false;
 
   // enemy machines: every part of a machine shares its transform, plus its own small animation
   for (const k of ENEMY_TYPES) counts[k] = 0;
@@ -73,16 +75,19 @@ export function renderWorld(dt: number, playing: boolean): void {
     const y = hover ? (hover + Math.sin(t * 5 + e.id) * 0.1) * s : 0;
     const step = Math.sin(t * 9 + e.id);
     for (const part of enemyParts[e.type]) {
+      if (part.rim && !rimOn) continue;
       let py = y, ry = e.rot;
       if (part.anim === 'hull') ry = e.mrot;
       else if (part.anim === 'rotor') ry = t * 14 + e.id;
       else if (part.anim === 'legL') py += Math.max(0, step) * 0.16 * s;
       else if (part.anim === 'legR') py += Math.max(0, -step) * 0.16 * s;
-      const col = part.mat === 'body' ? bodyC : part.mat === 'dark' ? darkC : e.flash > 0 ? white : glowC.copy(part.glow);
+      // neon outline: a near-white core in the middle of a tube of the type color
+      const col = part.rim ? (part.mat === 'halo' ? enemyRimColors[e.type] : e.flash > 0 ? white : glowC.copy(enemyRimColors[e.type]).lerp(white, 0.6))
+        : part.mat === 'body' ? bodyC : part.mat === 'dark' ? darkC : e.flash > 0 ? white : glowC.copy(part.glow);
       writeInstance(part.mesh, i, e.x, py, e.z, ry, s, s, s, col);
     }
   }
-  for (const k of ENEMY_TYPES) for (const part of enemyParts[k]) commit(part.mesh, counts[k]);
+  for (const k of ENEMY_TYPES) for (const part of enemyParts[k]) commit(part.mesh, part.rim && !rimOn ? 0 : counts[k]);
 
   // debris chunks shrink away at the end of their life
   let n = 0;
@@ -202,8 +207,7 @@ export function renderWorld(dt: number, playing: boolean): void {
     writeInstance(bulletMesh, n++, s.x, s.y, s.z, Math.atan2(s.tx - s.x0, s.tz - s.z0), 3, 3, 0.5, tmpC);
   }
   commit(bulletMesh, n);
-  const pal = MAPS[G.map].palette;
-  const glints = !!pal.neon && pal.floorGlint !== false, halos = !!pal.neon && pal.shotHalo !== false;
+  const glints = pal.floorGlint !== false, halos = pal.shotHalo !== false;
   mirror(bulletMesh, n, bulletHalo, halos, bulletGlint, glints);
 
   n = 0;
@@ -253,6 +257,7 @@ export function renderWorld(dt: number, playing: boolean): void {
   commit(partMesh, n);
 
   // player
+  setMechRim(rimOn);
   animateMech(dt, playing);
   muzzle.intensity *= Math.exp(-28 * dt);
 

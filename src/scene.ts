@@ -38,24 +38,9 @@ scene.add(muzzle);
 
 // ---------------- floor ----------------
 // The field is endless: floor and grid follow the camera, snapped to the major grid step so the lines stay put.
+// The grid is baked into the ground texture: thick lines with soft halos, one tile per major cell, redrawn on a map change.
+// The GPU samples one texture, which is cheaper than a pass of line geometry.
 const MAJOR = 10;
-const floor = new THREE.Group();
-const groundMat = new THREE.MeshStandardMaterial({ roughness: 0.95 });
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMat);
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-// the view reaches far up the screen (-Z) and little below the mech, so the grid sits ahead of it:
-// a line ending behind the camera may not be drawn at all.
-// White vertex colors, tinted per map through the material color.
-const minorLines = new THREE.GridHelper(120, 60, 0xffffff, 0xffffff);
-minorLines.position.set(0, 0.01, -20);
-const majorLines = new THREE.GridHelper(120, 120 / MAJOR, 0xffffff, 0xffffff);
-majorLines.position.set(0, 0.015, -20);
-floor.add(ground, minorLines, majorLines);
-scene.add(floor);
-
-// Neon maps bake the grid into the ground texture instead: thick lines with soft halos, one tile per major cell.
-// Drawn once per map change; the GPU then samples one texture, cheaper than the line pass it replaces.
 const GRID_PX = 512;
 const gridCanvas = document.createElement('canvas');
 gridCanvas.width = gridCanvas.height = GRID_PX;
@@ -64,6 +49,15 @@ gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping;
 gridTex.repeat.set(200 / MAJOR, 200 / MAJOR);
 gridTex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
 gridTex.colorSpace = THREE.SRGBColorSpace;
+
+const floor = new THREE.Group();
+// the texture carries the ground color, and its lines also glow on their own
+const groundMat = new THREE.MeshStandardMaterial({ roughness: 0.95, map: gridTex, emissiveMap: gridTex, emissive: 0xffffff, emissiveIntensity: 0.55 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+floor.add(ground);
+scene.add(floor);
 
 const css = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
 
@@ -98,20 +92,7 @@ function drawNeonGrid(p: Palette): void {
 export function applyPalette(p: Palette): void {
   (scene.background as THREE.Color).setHex(p.sky);
   (scene.fog as THREE.Fog).color.setHex(p.sky);
-  groundMat.color.setHex(p.ground);
-  minorLines.material.color.setHex(p.gridMinor);
-  majorLines.material.color.setHex(p.gridMajor);
-  const neon = !!p.neon;
-  minorLines.visible = majorLines.visible = !neon;
-  if (neon) drawNeonGrid(p);
-  if (!!groundMat.map !== neon) {
-    groundMat.map = groundMat.emissiveMap = neon ? gridTex : null;
-    groundMat.needsUpdate = true;
-  }
-  // the texture already carries the ground color; its lines also glow on their own
-  if (neon) groundMat.color.setHex(0xffffff);
-  groundMat.emissive.setHex(neon ? 0xffffff : 0x000000);
-  groundMat.emissiveIntensity = neon ? 0.55 : 1;
+  drawNeonGrid(p);
 }
 
 export function followFloor(x: number, z: number): void {
@@ -161,7 +142,7 @@ function pool(geo: THREE.BufferGeometry, mat: THREE.Material, max: number, shado
 
 /** How a part moves: faces the player (default), follows the hull, steps like a leg, or spins. */
 export type PartAnim = 'face' | 'hull' | 'legL' | 'legR' | 'rotor';
-export type PartMat = 'body' | 'dark' | 'glow';
+export type PartMat = 'body' | 'dark' | 'glow' | 'halo';
 
 export interface EnemyPart {
   mesh: THREE.InstancedMesh;
@@ -169,6 +150,8 @@ export interface EnemyPart {
   anim: PartAnim;
   /** Fixed color of glow parts; body parts take the type color, dark parts a dark metal. */
   glow: THREE.Color;
+  /** Neon outline: switched with the palette's `modelRim`, in the machine's type color. */
+  rim: boolean;
 }
 
 const bx = (w: number, h: number, d: number, x = 0, y = 0, z = 0) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
@@ -176,7 +159,27 @@ const bx = (w: number, h: number, d: number, x = 0, y = 0, z = 0) => new THREE.B
 const barrelGeo = (r: number, len: number, x: number, y: number, z: number) =>
   new THREE.CylinderGeometry(r, r, len, 10).rotateX(Math.PI / 2).translate(x, y, z + len / 2);
 
-interface PartSpec { mat: PartMat; anim?: PartAnim; glow?: number; geos: THREE.BufferGeometry[] }
+/** Thin bar from one point to another at height y; outlines read as neon only when they are a bit thicker than a hairline. */
+const RIM_THICK = 1.5;
+const bar = (x1: number, z1: number, x2: number, z2: number, y: number, t: number) =>
+  new THREE.BoxGeometry(t * RIM_THICK, t * RIM_THICK, Math.hypot(x2 - x1, z2 - z1)).rotateY(Math.atan2(x2 - x1, z2 - z1)).translate((x1 + x2) / 2, y, (z1 + z2) / 2);
+/** Neon outline of a box's top face, as four bars; y sits a hair above the face so the top-down camera always sees it. */
+const outline = (w: number, d: number, x: number, y: number, z: number, t = 0.05): THREE.BufferGeometry[] => {
+  const l = x - w / 2, r = x + w / 2, f = z + d / 2, b = z - d / 2;
+  return [bar(l, b, r, b, y, t), bar(l, f, r, f, y, t), bar(l, b, l, f, y, t), bar(r, b, r, f, y, t)];
+};
+
+/**
+ * A neon outline is two parts: a thin hot core and, around it, a thicker additive halo like the glass of a neon tube.
+ * `make(k)` builds the bars with their thickness multiplied by k. Own parts per anim, so the outline can be switched off.
+ */
+const neon = (anim: PartAnim, make: (k: number) => THREE.BufferGeometry[]): PartSpec[] => [
+  { mat: 'glow', rim: true, anim, geos: make(1) },
+  { mat: 'halo', rim: true, anim, geos: make(3) },
+];
+
+/** `rim` parts are the neon outlines, colored from the machine's type color. */
+interface PartSpec { mat: PartMat; anim?: PartAnim; glow?: number; rim?: boolean; geos: THREE.BufferGeometry[] }
 
 const ENEMY_PARTS_SPEC: Record<EnemyType, PartSpec[]> = {
   // walking assembler: boxy body, two stepping legs, claws, one visor slit
@@ -186,12 +189,15 @@ const ENEMY_PARTS_SPEC: Record<EnemyType, PartSpec[]> = {
     { mat: 'glow', glow: 0xffe066, geos: [bx(0.42, 0.08, 0.05, 0, 0.85, 0.39)] },
     { mat: 'dark', anim: 'legL', geos: [bx(0.18, 0.52, 0.24, -0.24, 0.26, 0)] },
     { mat: 'dark', anim: 'legR', geos: [bx(0.18, 0.52, 0.24, 0.24, 0.26, 0)] },
+    ...neon('face', k => outline(0.8, 0.75, 0, 1.06, 0, 0.05 * k)),
   ],
   // kamikaze drone: flat hull on four rotors, red warhead glowing at the nose
   runner: [
     { mat: 'body', geos: [new THREE.OctahedronGeometry(0.42).scale(1, 0.45, 1.35)] },
     { mat: 'dark', anim: 'rotor', geos: [bx(1.1, 0.05, 0.08), bx(0.08, 0.05, 1.1), ...[[-0.5, 0], [0.5, 0], [0, -0.5], [0, 0.5]].map(([x, z]) => new THREE.CylinderGeometry(0.2, 0.2, 0.03, 10).translate(x, 0.06, z))] },
     { mat: 'glow', glow: 0xff3b3b, geos: [new THREE.SphereGeometry(0.14, 10, 8).translate(0, -0.02, 0.42)] },
+    // the flat diamond of the hull
+    ...neon('face', k => [bar(-0.42, 0, 0, 0.57, 0, 0.05 * k), bar(0, 0.57, 0.42, 0, 0, 0.05 * k), bar(0.42, 0, 0, -0.57, 0, 0.05 * k), bar(0, -0.57, -0.42, 0, 0, 0.05 * k)]),
   ],
   // light tank: hull and tracks follow the movement, the turret tracks the player
   spitter: [
@@ -200,6 +206,8 @@ const ENEMY_PARTS_SPEC: Record<EnemyType, PartSpec[]> = {
     { mat: 'body', geos: [bx(0.56, 0.26, 0.56, 0, 0.7, -0.05)] },
     { mat: 'dark', geos: [barrelGeo(0.07, 0.68, 0, 0.72, 0.2)] },
     { mat: 'glow', glow: 0xff8c42, geos: [bx(0.3, 0.06, 0.04, 0, 0.75, 0.24)] },
+    ...neon('hull', k => outline(0.9, 1.1, 0, 0.58, 0, 0.045 * k)),
+    ...neon('face', k => outline(0.56, 0.56, 0, 0.84, -0.05, 0.04 * k)),
   ],
   // heavy tank: wide armored hull, big turret, long barrel
   brute: [
@@ -208,6 +216,8 @@ const ENEMY_PARTS_SPEC: Record<EnemyType, PartSpec[]> = {
     { mat: 'body', geos: [bx(1.0, 0.45, 1.0, 0, 1.15, -0.1)] },
     { mat: 'dark', geos: [barrelGeo(0.13, 1.4, 0, 1.18, 0.38)] },
     { mat: 'glow', glow: 0xff3b3b, geos: [bx(0.5, 0.08, 0.05, 0, 1.24, 0.41)] },
+    ...neon('hull', k => outline(1.7, 2.0, 0, 0.93, 0, 0.07 * k)),
+    ...neon('face', k => outline(1.0, 1.0, 0, 1.385, -0.1, 0.06 * k)),
   ],
   // artillery platform: four struts and a barrel raised at the sky
   artillery: [
@@ -217,6 +227,7 @@ const ENEMY_PARTS_SPEC: Record<EnemyType, PartSpec[]> = {
       new THREE.CylinderGeometry(0.13, 0.15, 1.5, 10).translate(0, 0.75, 0).rotateX(0.75).translate(0, 0.9, -0.15),
     ] },
     { mat: 'glow', glow: 0xffb347, geos: [bx(0.6, 0.08, 0.05, 0, 0.82, 0.61)] },
+    ...neon('face', k => outline(1.2, 1.2, 0, 0.99, 0, 0.06 * k)),
   ],
   // shield bearer: walker carrying a glowing emitter on a mast
   shield: [
@@ -225,6 +236,7 @@ const ENEMY_PARTS_SPEC: Record<EnemyType, PartSpec[]> = {
     { mat: 'glow', glow: 0x9fe8ff, geos: [new THREE.IcosahedronGeometry(0.22, 0).translate(0, 1.86, 0), bx(0.5, 0.07, 0.05, 0, 0.98, 0.42)] },
     { mat: 'dark', anim: 'legL', geos: [bx(0.22, 0.55, 0.28, -0.3, 0.27, 0)] },
     { mat: 'dark', anim: 'legR', geos: [bx(0.22, 0.55, 0.28, 0.3, 0.27, 0)] },
+    ...neon('face', k => outline(0.92, 0.82, 0, 1.24, 0, 0.05 * k)),
   ],
   // the Forge: a walking factory with chimneys and an open furnace
   boss: [
@@ -233,6 +245,7 @@ const ENEMY_PARTS_SPEC: Record<EnemyType, PartSpec[]> = {
     { mat: 'glow', glow: 0xff6b1a, geos: [bx(1.8, 0.8, 0.05, 0, 2.1, 1.53), new THREE.CylinderGeometry(0.26, 0.26, 0.08, 10).translate(-0.9, 4.82, -0.8), new THREE.CylinderGeometry(0.26, 0.26, 0.08, 10).translate(0.9, 4.82, -0.8)] },
     { mat: 'dark', anim: 'legL', geos: [bx(0.6, 1.35, 0.6, -1.3, 0.67, 1.1), bx(0.6, 1.35, 0.6, 1.3, 0.67, -1.1)] },
     { mat: 'dark', anim: 'legR', geos: [bx(0.6, 1.35, 0.6, 1.3, 0.67, 1.1), bx(0.6, 1.35, 0.6, -1.3, 0.67, -1.1)] },
+    ...neon('face', k => outline(3.3, 3.1, 0, 3.485, 0, 0.12 * k)),
   ],
 };
 
@@ -243,17 +256,23 @@ const enemyMats: Record<PartMat, THREE.Material> = {
   body: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.25 }),
   dark: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.5 }),
   glow: new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }),
+  halo: new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
 };
 
+const hsl = { h: 0, s: 0, l: 0 };
 export const enemyParts = {} as Record<EnemyType, EnemyPart[]>;
 export const enemyColors = {} as Record<EnemyType, THREE.Color>;
+/** Neon outline colors: the type color at full saturation and a high lightness, so the outline glows against its own body. */
+export const enemyRimColors = {} as Record<EnemyType, THREE.Color>;
 for (const k of ENEMY_TYPES) {
   enemyColors[k] = new THREE.Color(ENEMIES[k].color);
+  enemyRimColors[k] = new THREE.Color().setHSL(enemyColors[k].getHSL(hsl).h, 1, 0.66);
   enemyParts[k] = ENEMY_PARTS_SPEC[k].map(p => ({
     mesh: pool(mergeGeometries(p.geos.map(g => (g.index ? g.toNonIndexed() : g))), enemyMats[p.mat], ENEMIES[k].max, p.mat === 'body'),
     mat: p.mat,
     anim: p.anim ?? 'face',
     glow: new THREE.Color(p.glow ?? 0xffffff),
+    rim: !!p.rim,
   }));
 }
 

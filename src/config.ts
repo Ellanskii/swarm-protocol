@@ -27,9 +27,7 @@ export interface Palette {
   wallGlow: number;
   pillar: number;
   cap: number;
-  /** The grid is baked into the floor texture as thick glowing lines instead of thin line geometry. */
-  neon?: boolean;
-  /** Neon grid in texture pixels, a 10×10 cell being 512 px. Line widths, 2 and 8 when left out. */
+  /** Grid in texture pixels, a 10×10 cell being 512 px. Line widths, 2 and 8 when left out. */
   gridMinorW?: number;
   gridMajorW?: number;
   /** Glow blur of the lines, 6 and 18 when left out. */
@@ -37,10 +35,12 @@ export interface Palette {
   gridMajorGlow?: number;
   /** White core along the thick lines, 1.5 when left out; 0 drops it. */
   gridCoreW?: number;
-  /** Neon maps: a colored glint on the floor under every projectile, the player's and the enemies'; on when left out. */
+  /** A colored glint on the floor under every projectile, the player's and the enemies'; on when left out. */
   floorGlint?: boolean;
-  /** Neon maps: a glow around every projectile; on when left out. */
+  /** A glow around every projectile; on when left out. */
   shotHalo?: boolean;
+  /** Neon outlines on the machines and the mech; on when left out. */
+  modelRim?: boolean;
 }
 
 export interface MapDef {
@@ -69,7 +69,7 @@ export const MAPS: Record<MapId, MapDef> = {
   field: {
     name: 'Пустошь', desc: 'открытое поле во все стороны',
     halfX: Infinity, halfZ: Infinity, pillars: 3, pillarR: [0.8, 1.9], rush: 0, mix: {}, spawn: 1, loot: 1,
-    palette: { sky: 0x0b0d17, ground: 0x0e0820, gridMinor: 0x2a1a66, gridMajor: 0xc42a9e, wall: 0x1b2246, wallGlow: 0x5a2bb0, pillar: 0x2a3360, cap: 0x4cc9f0, neon: true },
+    palette: { sky: 0x0b0d17, ground: 0x0e0820, gridMinor: 0x2a1a66, gridMajor: 0xc42a9e, wall: 0x1b2246, wallGlow: 0x5a2bb0, pillar: 0x2a3360, cap: 0x4cc9f0 },
   },
   corridor: {
     name: 'Магистраль', desc: 'бесконечный коридор вверх и вниз, больше бегунов', after: 'field',

@@ -20,6 +20,8 @@ interface MechRig {
   parts: Partial<Record<SlotId, { id: PartId; mesh: THREE.Object3D; len: number }>>;
   /** 0..1, eases in while moving so the legs settle when stopping. */
   stride: number;
+  /** Neon outline of the torso roof. */
+  rim: THREE.Group;
 }
 
 // ---------------- materials ----------------
@@ -28,6 +30,7 @@ const hullMat = new THREE.MeshStandardMaterial({ color: 0xdfe8f5, roughness: 0.4
 const darkMat = new THREE.MeshStandardMaterial({ color: 0x252b3d, roughness: 0.45, metalness: 0.6 });
 const trimMats = new Map<number, THREE.MeshStandardMaterial>();
 const glowMats = new Map<number, THREE.MeshBasicMaterial>();
+const haloMats = new Map<number, THREE.MeshBasicMaterial>();
 
 const trimMat = (c: number) => {
   let m = trimMats.get(c);
@@ -37,6 +40,13 @@ const trimMat = (c: number) => {
 const glowMat = (c: number) => {
   let m = glowMats.get(c);
   if (!m) glowMats.set(c, (m = new THREE.MeshBasicMaterial({ color: c, toneMapped: false })));
+  return m;
+};
+
+/** Additive glass of a neon tube: sits around a thinner, whiter core. */
+const haloMat = (c: number) => {
+  let m = haloMats.get(c);
+  if (!m) haloMats.set(c, (m = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
   return m;
 };
 
@@ -214,6 +224,19 @@ function buildMech(def: MechDef): MechRig {
     box(tw * 0.14, th * 0.14, 0.04, glowMat(def.trim), -tw * 0.17, th * 0.3, -td / 2 - 0.19),
     box(tw * 0.14, th * 0.14, 0.04, glowMat(def.trim), tw * 0.17, th * 0.3, -td / 2 - 0.19),
   );
+  // neon outline of the roof, the part the top-down camera sees most
+  const rim = new THREE.Group();
+  const core = new THREE.Color(def.trim).lerp(new THREE.Color(1, 1, 1), 0.6).getHex();
+  // a hot core in a tube of the trim color: the same bars twice, the second one thicker and additive
+  for (const [t, mat] of [[0.05, glowMat(core)], [0.15, haloMat(def.trim)]] as const) {
+    const edge = (w: number, d: number, x: number, z: number) => rim.add(box(w, t, d, mat, x, th, z));
+    edge(tw + t, t, 0, td / 2);
+    edge(tw + t, t, 0, -td / 2);
+    edge(t, td + t, tw / 2, 0);
+    edge(t, td + t, -tw / 2, 0);
+  }
+  rim.visible = rimOn;
+  torso.add(rim);
 
   const slot = (x: number, y: number, z: number) => {
     const g = new THREE.Group();
@@ -236,12 +259,19 @@ function buildMech(def: MechDef): MechRig {
     shieldBubble.position.y = f.hipH + 0.3;
     root.add(shieldBubble);
   }
-  return { def, root, pelvis, torso, legs, slots, parts: {}, stride: 0 };
+  return { def, root, pelvis, torso, legs, slots, parts: {}, stride: 0, rim };
 }
 
 /** Arm parts hang from this point inside the arm slot. */
 const ARM_MOUNT_Y = -0.12;
 const ARM_MOUNT_Z = 0.1;
+
+/** Whether the roof outline shows; kept here so a rebuilt model starts the same. */
+let rimOn = false;
+export function setMechRim(on: boolean): void {
+  rimOn = on;
+  rig.rim.visible = on;
+}
 
 let rig = buildMech(MECHS[G.mech]);
 mechRoot.add(rig.root);

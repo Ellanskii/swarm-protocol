@@ -6,12 +6,12 @@ import { applyPalette } from './scene';
 import { G } from './state';
 
 type ColorKey = 'ground' | 'gridMajor' | 'gridMinor';
-type FlagKey = 'floorGlint' | 'shotHalo';
+type FlagKey = 'floorGlint' | 'shotHalo' | 'modelRim';
 type WidthKey = 'gridMajorW' | 'gridMinorW' | 'gridMajorGlow' | 'gridMinorGlow' | 'gridCoreW';
 const FIELDS: [ColorKey, string][] = [['ground', 'Пол'], ['gridMajor', 'Толстые линии'], ['gridMinor', 'Тонкие линии']];
 /** Neon grid sizes in texture pixels: key, label, default (as in drawNeonGrid() in scene.ts), max. */
-/** On/off effects of the neon maps; on when the palette leaves them out. */
-const FLAGS: [FlagKey, string][] = [['floorGlint', 'Блики под снарядами'], ['shotHalo', 'Ореолы снарядов']];
+/** On/off effects; on when the palette leaves them out. */
+const FLAGS: [FlagKey, string][] = [['floorGlint', 'Блики под снарядами'], ['shotHalo', 'Ореолы снарядов'], ['modelRim', 'Контуры моделей']];
 const WIDTHS: [WidthKey, string, number, number][] = [
   ['gridMajorW', 'Толщина толстых', 8, 24],
   ['gridMinorW', 'Толщина тонких', 2, 24],
@@ -42,20 +42,16 @@ const copyBtn = panel.querySelector('button')!;
 /** The palette fields as they would be written in config.ts. */
 const snippet = (): string => [
   ...FIELDS.map(([k]) => `${k}: 0x${palette()[k].toString(16).padStart(6, '0')}`),
-  ...(palette().neon ? [...WIDTHS.map(([k]) => `${k}: ${width(k)}`), ...FLAGS.map(([k]) => `${k}: ${palette()[k] !== false}`)] : []),
+  ...WIDTHS.map(([k]) => `${k}: ${width(k)}`),
+  ...FLAGS.map(([k]) => `${k}: ${palette()[k] !== false}`),
 ].join(', ');
 
 function fill(): void {
   for (const i of inputs) i.value = hex(palette()[i.dataset.key as ColorKey]);
-  for (const f of flags) {
-    f.checked = palette()[f.dataset.key as FlagKey] !== false;
-    f.disabled = !palette().neon;
-  }
-  // widths only exist for the neon grid; plain line geometry is always 1 px
+  for (const f of flags) f.checked = palette()[f.dataset.key as FlagKey] !== false;
   for (const r of sliders) {
     r.value = String(width(r.dataset.key as WidthKey));
-    r.disabled = !palette().neon;
-    r.previousElementSibling!.textContent = palette().neon ? r.value : '—';
+    r.previousElementSibling!.textContent = r.value;
   }
   code.textContent = snippet();
 }
