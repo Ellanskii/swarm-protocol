@@ -54,11 +54,11 @@ export interface MapDef {
   /** Pillar placement attempts per chunk and their radius range. */
   pillars: number;
   pillarR: [number, number];
-  /** Seconds added to the run time when picking enemy types: tougher machines show up this much sooner. */
+  /** Seconds added to the run time when reading WAVES: tougher rows come this much sooner. */
   rush: number;
   /** Weight multipliers for enemy types on this map. */
   mix: Partial<Record<EnemyType, number>>;
-  /** Spawn rate multiplier. */
+  /** Crowd multiplier: scales the rows' `min` and shortens their `every`. */
   spawn: number;
   /** Scrap multiplier: harder maps pay more. */
   loot: number;
@@ -109,10 +109,8 @@ export const LIMITS = {
 } as const;
 
 export const PACING = {
-  /** Steady spawn rate, machines per second: `spawnBase + spawnGrowth * seconds`, capped at `spawnMax`. */
-  spawnBase: 1.1,
-  spawnGrowth: 0.025,
-  spawnMax: 10,
+  /** Machines added per frame while the crowd is below the row's `min`: fast enough to look instant, off screen anyway. */
+  refillPerFrame: 4,
   /** Encirclement wave interval, seconds. */
   burstEvery: 45,
   /** Encirclement ring radius: just outside the view, so the ring closes in from off screen. */
@@ -125,11 +123,36 @@ export const PACING = {
   finalBossHp: 1.6,
   /** Seconds between beating the final boss and the victory screen. */
   evacDelay: 3,
-  /** Enemy HP grows by this fraction per minute survived. */
-  hpPerMinute: 0.5,
   /** Contact damage doubles every N seconds. */
   dmgDoubleEvery: 300,
 } as const;
+
+/**
+ * The steady flow, as in Vampire Survivors: a row holds from its `at` second until the next one.
+ * While fewer than `min` machines are on the field (bosses aside) the director tops them up at once, so killing fast
+ * does not thin the crowd below what the row wants; on top of that `batch` machines arrive every `every` seconds,
+ * so a crowd the player can't keep down grows. `mix` gives the type weights. Encirclements and bosses come on their own timers.
+ */
+export interface WaveRow {
+  at: number;
+  min: number;
+  every: number;
+  batch: number;
+  mix: Partial<Record<EnemyType, number>>;
+}
+
+export const WAVES: WaveRow[] = [
+  { at: 0,   min: 12,  every: 1.2,  batch: 1, mix: { grunt: 1 } },
+  { at: 25,  min: 20,  every: 1.0,  batch: 1, mix: { grunt: 1, runner: 0.55 } },
+  { at: 55,  min: 30,  every: 0.9,  batch: 1, mix: { grunt: 1, runner: 0.55, spitter: 0.2 } },
+  { at: 85,  min: 40,  every: 0.8,  batch: 1, mix: { grunt: 1, runner: 0.55, spitter: 0.2, brute: 0.12 } },
+  { at: 150, min: 55,  every: 0.7,  batch: 1, mix: { grunt: 1, runner: 0.55, spitter: 0.22, brute: 0.16, artillery: 0.05 } },
+  { at: 180, min: 65,  every: 0.6,  batch: 1, mix: { grunt: 1, runner: 0.55, spitter: 0.22, brute: 0.18, artillery: 0.05, shield: 0.05 } },
+  { at: 240, min: 80,  every: 0.5,  batch: 1, mix: { grunt: 1, runner: 0.6, spitter: 0.25, brute: 0.22, artillery: 0.06, shield: 0.05 } },
+  { at: 300, min: 95,  every: 0.45, batch: 1, mix: { grunt: 1, runner: 0.6, spitter: 0.25, brute: 0.26, artillery: 0.06, shield: 0.06 } },
+  { at: 360, min: 110, every: 0.8,  batch: 2, mix: { grunt: 1, runner: 0.65, spitter: 0.28, brute: 0.3, artillery: 0.07, shield: 0.06 } },
+  { at: 480, min: 130, every: 0.7,  batch: 2, mix: { grunt: 1, runner: 0.65, spitter: 0.3, brute: 0.34, artillery: 0.08, shield: 0.07 } },
+];
 
 /** Machines left far behind are moved back around the mech, so outrunning the horde doesn't stall the fight. */
 export const CROWD = {

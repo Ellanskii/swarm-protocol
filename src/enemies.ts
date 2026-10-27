@@ -2,7 +2,7 @@
 import { insidePillar, intoField, keepInField, outOfField, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode, selfDestruct } from './combat';
-import { ARTILLERY, CROWD, DECOY, TANK, ENEMIES, LIMITS, LOOT, MAPS, MECHS, PACING, REPEL, SHIELD_AURA, type EnemyType } from './config';
+import { ARTILLERY, CROWD, DECOY, TANK, ENEMIES, LIMITS, LOOT, MAPS, MECHS, PACING, REPEL, SHIELD_AURA, WAVES, type EnemyType, type WaveRow } from './config';
 import { mushroom, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { hurt } from './player';
@@ -14,9 +14,9 @@ export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null 
   const t = ENEMIES[type];
   if (type !== 'boss' && (G.typeCount[type] >= t.max || G.enemies.length >= LIMITS.enemies)) return null;
   G.typeCount[type]++;
-  const hp = t.hp * (1 + (G.time / 60) * PACING.hpPerMinute);
+  // a type's HP never grows with time: upgrades are felt, the run gets harder through the WAVES mix and crowd size
   const e: Enemy = {
-    id: G.nextId++, type, t, x, z, kx: 0, kz: 0, hp, maxHp: hp, r: t.r,
+    id: G.nextId++, type, t, x, z, kx: 0, kz: 0, hp: t.hp, maxHp: t.hp, r: t.r,
     flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0, mrot: 0, shielded: false, mark: 0, dashHit: 0, bump: 0, aim: 0,
     dead: false, born: G.time, boss: false,
   };
@@ -31,32 +31,40 @@ function spawnPos(minD: number, maxD: number, ahead = false): [number, number] {
   return intoField(P.x + Math.sin(a) * d, P.z + Math.cos(a) * d, d);
 }
 
-/** Enemy mix shifts toward tougher types over time; the map brings them sooner and reweights them. */
-function pickType(): EnemyType {
-  const map = MAPS[G.map], t = G.time + map.rush;
-  const weights: [EnemyType, number][] = [
-    ['grunt', 1],
-    ['runner', t > 25 ? 0.55 : 0],
-    ['spitter', t > 55 ? 0.2 : 0],
-    ['brute', t > 85 ? 0.08 + t / 1800 : 0],
-    ['artillery', t > 150 ? 0.05 : 0],
-    ['shield', t > 180 ? 0.05 : 0],
-  ];
-  for (const p of weights) p[1] *= map.mix[p[0]] ?? 1;
+/** The WAVES row in force; the map's `rush` moves the run clock ahead. */
+function waveRow(): WaveRow {
+  const t = G.time + MAPS[G.map].rush;
+  let row = WAVES[0];
+  for (const w of WAVES) if (t >= w.at) row = w;
+  return row;
+}
+
+/** A type from the row's mix, reweighted by the map. */
+function pickType(row: WaveRow): EnemyType {
+  const mix = MAPS[G.map].mix;
   let sum = 0;
-  for (const [, w] of weights) sum += w;
+  for (const [k, w] of Object.entries(row.mix) as [EnemyType, number][]) sum += w * (mix[k] ?? 1);
   let r = Math.random() * sum;
-  for (const [k, w] of weights) if ((r -= w) <= 0) return k;
+  for (const [k, w] of Object.entries(row.mix) as [EnemyType, number][]) if ((r -= w * (mix[k] ?? 1)) <= 0) return k;
   return 'grunt';
+}
+
+function spawnOne(row: WaveRow): void {
+  const [x, z] = spawnPos(24, 31);
+  spawnEnemy(pickType(row), x, z);
 }
 
 export function spawnDirector(dt: number): void {
   if (G.evacT > 0 || G.deathT > 0) return;
-  G.spawnAcc += Math.min(PACING.spawnBase + G.time * PACING.spawnGrowth, PACING.spawnMax) * MAPS[G.map].spawn * dt;
-  while (G.spawnAcc >= 1) {
-    G.spawnAcc -= 1;
-    const [x, z] = spawnPos(24, 31);
-    spawnEnemy(pickType(), x, z);
+  const row = waveRow(), crowd = MAPS[G.map].spawn;
+  // below the row's minimum: top the crowd up right away
+  let alive = 0;
+  for (const e of G.enemies) if (!e.dead && !e.boss) alive++;
+  for (let i = Math.min(Math.round(row.min * crowd) - alive, PACING.refillPerFrame); i > 0; i--) spawnOne(row);
+  // and the steady trickle on top
+  if ((G.spawnAcc += dt) >= row.every / crowd) {
+    G.spawnAcc = 0;
+    for (let i = 0; i < row.batch; i++) spawnOne(row);
   }
 
   recycleStragglers();
