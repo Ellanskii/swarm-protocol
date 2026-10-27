@@ -320,6 +320,33 @@ const glow = () => new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: fa
 export const bulletMesh = pool(new THREE.BoxGeometry(0.13, 0.13, 0.75), glow(), LIMITS.bullets);
 export const eshotMesh = pool(new THREE.SphereGeometry(0.28, 10, 8), glow(), LIMITS.enemyShots);
 export const gemMesh = pool(new THREE.OctahedronGeometry(0.24), glow(), LIMITS.gems);
+/** Scrap pickup: a flat gear lying tilted, extruded from a 2D outline so it stays a few hundred triangles per instance. */
+function gearGeometry(teeth: number, r: number, tooth: number, hole: number, depth: number): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  const step = (Math.PI * 2) / teeth;
+  for (let i = 0; i < teeth; i++) {
+    const a = i * step;
+    // root, tooth flank up, tooth top, flank down: the top is narrower than the root so it reads as a gear tooth
+    const pts: [number, number][] = [[a, r], [a + step * 0.2, r + tooth], [a + step * 0.45, r + tooth], [a + step * 0.65, r]];
+    for (const [ang, rad] of pts) {
+      const x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
+      if (i === 0 && ang === a) shape.moveTo(x, y);
+      else shape.lineTo(x, y);
+    }
+  }
+  shape.closePath();
+  const h = new THREE.Path();
+  h.absarc(0, 0, hole, 0, Math.PI * 2, true);
+  shape.holes.push(h);
+  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 6 })
+    .translate(0, 0, -depth / 2)
+    .rotateX(-Math.PI / 2 + 0.35);
+}
+export const scrapMesh = pool(
+  gearGeometry(8, 0.22, 0.08, 0.08, 0.08),
+  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.6, emissive: 0x30343c }),
+  LIMITS.gems,
+);
 export const partMesh = pool(new THREE.BoxGeometry(0.17, 0.17, 0.17), glow(), LIMITS.particles);
 
 export interface Ring {

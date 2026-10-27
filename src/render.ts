@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { ENEMY_TYPES, LIMITS, SHIELD_AURA, SHOULDERS, TANK } from './config';
 import { animateMech } from './mech';
 import {
-  ENEMY_HOVER, beamMesh, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh,
+  ENEMY_HOVER, beamMesh, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, eshotMesh, gemMesh, scrapMesh,
   followFloor, groundRingMesh, laser, laserGeo, mineMesh, muzzle, partMesh, sun, wreckMesh,
 } from './scene';
 import { G, P, aim } from './state';
@@ -198,21 +198,30 @@ export function renderWorld(dt: number, playing: boolean): void {
   }
   commit(eshotMesh, n);
 
-  // xp gems: color and size by value
+  // xp gems: color and size by value; scrap is a spinning gear of its own mesh, big pieces in brass
   n = 0;
+  let ns = 0;
   for (const g of G.gems) {
     if (g.dead) continue;
-    // XP by value: blue, mint, pink; scrap is pale metal; cores are big violet orbs
+    const y = 0.45 + Math.sin(t * 4 + g.ph) * 0.12;
+    if (g.kind === 'scrap') {
+      const big = g.v >= 5;
+      tmpC.setHex(big ? 0xe0b25a : 0xcfd6e6);
+      const s = big ? 1.3 : 1;
+      writeInstance(scrapMesh, ns++, g.x, y, g.z, t * 2.5 + g.ph, s, s, s, tmpC);
+      continue;
+    }
+    // XP: blue, mint, pink; cores are big violet orbs
     let s: number;
-    if (g.kind === 'scrap') { tmpC.setHex(0xcfd6e6); s = g.v >= 5 ? 1.2 : 0.85; }
-    else if (g.kind === 'core') { tmpC.setHex(0xb98cff); s = 2.4; }
+    if (g.kind === 'core') { tmpC.setHex(0xb98cff); s = 2.4; }
     else {
       tmpC.setHex(g.v >= 20 ? 0xff5ef0 : g.v >= 5 ? 0x80ffdb : 0x4cc9f0);
       s = g.v >= 20 ? 1.8 : g.v >= 5 ? 1.35 : 1;
     }
-    writeInstance(gemMesh, n++, g.x, 0.45 + Math.sin(t * 4 + g.ph) * 0.12, g.z, t * 2 + g.ph, s, s, s, tmpC);
+    writeInstance(gemMesh, n++, g.x, y, g.z, t * 2 + g.ph, s, s, s, tmpC);
   }
   commit(gemMesh, n);
+  commit(scrapMesh, ns);
 
   n = 0;
   for (const q of G.parts) {
