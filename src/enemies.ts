@@ -17,7 +17,7 @@ export function spawnEnemy(type: EnemyType, x: number, z: number): Enemy | null 
   // a type's HP never grows with time: upgrades are felt, the run gets harder through the WAVES mix and crowd size
   const e: Enemy = {
     id: G.nextId++, type, t, x, z, kx: 0, kz: 0, hp: t.hp, maxHp: t.hp, r: t.r,
-    flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0, mrot: 0, shielded: false, mark: 0, dashHit: 0, bump: 0, aim: 0,
+    flash: 0, cd: rand(1.5, 3), side: Math.random() < 0.5 ? -1 : 1, rot: 0, mrot: 0, shielded: false, mark: 0, burn: 0, burnDps: 0, burnTick: 0, dashHit: 0, bump: 0, aim: 0,
     dead: false, born: G.time, boss: false,
   };
   G.enemies.push(e);

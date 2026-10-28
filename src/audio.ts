@@ -1,7 +1,7 @@
 // Tiny WebAudio synth: every sound is generated, no assets.
 
 export type Sfx =
-  | 'mg' | 'cannon' | 'shotgun' | 'laser' | 'railgun' | 'launcher' | 'repair' | 'flak' | 'mine' | 'rocket' | 'mortar' | 'shield' | 'drone' | 'hit' | 'kill' | 'pick' | 'level' | 'hurt'
+  | 'mg' | 'cannon' | 'shotgun' | 'laser' | 'railgun' | 'launcher' | 'flamethrower' | 'repair' | 'flak' | 'mine' | 'rocket' | 'mortar' | 'shield' | 'drone' | 'hit' | 'kill' | 'pick' | 'level' | 'hurt'
   | 'boom' | 'perfect' | 'jam' | 'reload' | 'dash' | 'boss' | 'vent' | 'overheat' | 'brace';
 
 let actx: AudioContext | null = null;
@@ -19,7 +19,7 @@ function readMusicPref(): boolean {
 }
 const lastPlayed: Partial<Record<Sfx, number>> = {};
 /** Minimum gap between repeats, ms — keeps hordes from turning into white noise. */
-const THROTTLE: Partial<Record<Sfx, number>> = { hit: 40, pick: 35, kill: 30, drone: 60, boom: 50, laser: 70, flak: 50 };
+const THROTTLE: Partial<Record<Sfx, number>> = { hit: 40, pick: 35, kill: 30, drone: 60, boom: 50, laser: 70, flak: 50, flamethrower: 90 };
 
 /** Must be called from a user gesture. */
 export function initAudio(): void {
@@ -117,6 +117,7 @@ export function sfx(n: Sfx): void {
     case 'laser': tone('sine', 1900, 1300, 0.06, 0.018); break;
     case 'railgun': tone('sawtooth', 2400, 80, 0.35, 0.07); noise(0.25, 0.18, 6000); break;
     case 'launcher': noise(0.25, 0.12, 1600); tone('sawtooth', 200, 600, 0.18, 0.04); break;
+    case 'flamethrower': noise(0.12, 0.1, 1100); tone('sawtooth', 90, 60, 0.1, 0.03); break;
     case 'repair': tone('sine', 520, 1040, 0.2, 0.05); break;
     case 'flak': noise(0.05, 0.06, 3500); tone('square', 900, 300, 0.03, 0.02); break;
     case 'mine': tone('square', 220, 160, 0.04, 0.03); break;

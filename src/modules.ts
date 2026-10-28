@@ -1,10 +1,11 @@
 // Branch modifiers that live in the world: napalm fires, cluster bomblets, the decoy hologram, designator marks,
 // and the capstones that act on their own: orbital strike and chain lightning.
 import { chainLightning, damage, explode } from './combat';
-import { CHAIN, DECOY, DESIGNATOR, LIMITS, NAPALM, ORBITAL } from './config';
-import { sparks } from './fx';
+import { CHAIN, DECOY, DESIGNATOR, IGNITE, LIMITS, NAPALM, ORBITAL } from './config';
+import { flame, sparks } from './fx';
 import { forNear } from './grid';
 import { G, P, S } from './state';
+import { rand } from './utils';
 
 /** Uses the grid, so runs after buildGrid(). */
 export function updateModules(dt: number): void {
@@ -27,8 +28,23 @@ export function updateModules(dt: number): void {
     });
   }
 
+  // burning machines (flamethrower): fire ignores armor and goes out on its own
+  for (const e of G.enemies) {
+    if (e.dead || e.burn <= 0) continue;
+    e.burn -= dt;
+    // flames lick up the outside of the hull, so big machines show them too; bigger ones burn in more places
+    if (Math.random() < dt * 12 * Math.max(1, e.r)) {
+      const a = Math.random() * Math.PI * 2, h = e.t.y * 2 * (e.r / e.t.r);
+      flame(e.x + Math.sin(a) * e.r * 0.95, h * rand(0.15, 1), e.z + Math.cos(a) * e.r * 0.95, Math.min(e.r, 1));
+    }
+    if ((e.burnTick -= dt) > 0) continue;
+    e.burnTick = IGNITE.tick;
+    damage(e, e.burnDps * IGNITE.tick, 0, 0, false, false, Infinity);
+    if (e.burn <= 0) e.burnDps = 0;
+  }
+
   const dc = G.decoy;
-  if (dc.life > 0 && (dc.life -= dt) <= 0) explode(dc.x, dc.z, DECOY.r, DECOY.dmg * S.dmg);
+  if (dc.life > 0 && (dc.life -= dt) <= 0) explode(dc.x, dc.z, DECOY.r, DECOY.dmg * dc.power * S.dmg);
 
   if (S.orbital && (G.orbitalT -= dt) <= 0) {
     const spot = densestSpot(ORBITAL.range, ORBITAL.r);

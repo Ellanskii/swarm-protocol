@@ -117,6 +117,17 @@ const PART_BUILDERS: Record<PartId, (trim: number) => PartBuild> = {
     g.add(mouth);
     return { mesh: g, len: 1 };
   },
+  flamethrower: trim => {
+    // a wide fuel tank on the back of a short nozzle with a glowing pilot flame
+    const g = new THREE.Group();
+    const tank = barrel(0.17, 0.5, darkMat, 0, 0.12, -0.2);
+    g.add(box(0.26, 0.24, 0.4, darkMat, 0, 0, 0.1), tank, barrel(0.07, 0.5, darkMat, 0, 0, 0.4), box(0.3, 0.05, 0.26, trimMat(trim), 0, 0.15, 0.05));
+    g.add(barrel(0.1, 0.06, darkMat, 0, 0, 0.84));
+    const pilot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), glowMat(0xff7a2a));
+    pilot.position.z = 0.93;
+    g.add(pilot);
+    return { mesh: g, len: 0.95 };
+  },
   rockets: trim => {
     const g = new THREE.Group();
     g.add(box(0.46, 0.36, 0.5, darkMat, 0, 0.1, 0), box(0.48, 0.06, 0.52, trimMat(trim), 0, 0.3, 0));
@@ -255,10 +266,10 @@ function buildMech(def: MechDef): MechRig {
 
   pelvis.add(torso);
   root.add(pelvis);
-  if (def.shield) {
-    shieldBubble.position.y = f.hipH + 0.3;
-    root.add(shieldBubble);
-  }
+  // every mech carries the bubble: the Energy Shield upgrade can give any of them a shield mid-run
+  shieldBubble.position.y = f.hipH + 0.3;
+  shieldBubble.visible = false;
+  root.add(shieldBubble);
   return { def, root, pelvis, torso, legs, slots, parts: {}, stride: 0, rim };
 }
 
@@ -379,7 +390,7 @@ export function animateMech(dt: number, playing: boolean): void {
   if (P.maxShield) {
     shieldBubble.material.opacity = 0.14 * (P.shield / P.maxShield) * (1 + Math.sin(G.time * 4) * 0.15);
     shieldBubble.visible = P.shield > 0.5;
-  }
+  } else shieldBubble.visible = false;
 
   // the wreck takes the mech's place until the next run
   r.root.visible = !wreck && !(P.blink > 0 && Math.floor(P.blink * 20) % 2 === 0);

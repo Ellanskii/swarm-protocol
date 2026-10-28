@@ -77,7 +77,8 @@ export function machineDeath(x: number, y: number, z: number, r: number, col: nu
     G.shake = Math.min(1.2, G.shake + Math.min(0.5, r * 0.15));
     if (G.wrecks.length < LIMITS.wrecks) {
       const life = r > 2 ? 6 : 3;
-      G.wrecks.push({ model, x, z, rot, s: scale, life, max: life, smokeT: 0 });
+      // the mech call passes its blast size as `r`, the hull itself is about a unit wide
+      G.wrecks.push({ model, x, z, rot, s: scale, r: model === 'mech' ? 1 : r, h: y * 2, life, max: life, smokeT: 0 });
     }
   }
 }
@@ -141,15 +142,17 @@ export function updateParticles(dt: number): void {
     w.life -= dt;
     if ((w.smokeT -= dt) > 0 || w.life <= 0.8) continue;
     const burning = w.max - w.life < Math.min(BURN.time, w.max * BURN.share);
-    const y = (w.model === 'mech' ? 1 : 0.5) * w.s;
+    // big hulls burn and smoke in proportion: flames on the sides, smoke rising off the top
+    const big = Math.max(1, w.r), a = Math.random() * Math.PI * 2, rim = w.r * 0.9, top = w.h * 0.9;
+    const side = (k: number, y: number): [number, number, number] => [w.x + Math.sin(a) * rim * k, y, w.z + Math.cos(a) * rim * k];
     if (burning) {
-      w.smokeT = 0.03;
-      flame(w.x, y * 0.6, w.z, w.s);
-      if (Math.random() < 0.4) smoke(w.x, y + 0.4, w.z, 1.4, 0x2a2a33);
+      w.smokeT = 0.03 / big;
+      flame(...side(1, w.h * rand(0.1, 0.9)), Math.min(w.r, 1.2));
+      if (Math.random() < 0.4) smoke(...side(Math.random(), top), 1.4, 0x2a2a33);
     } else {
-      w.smokeT = 0.08;
-      smoke(w.x, y, w.z, 1.8);
-      if (Math.random() < 0.2) sparks(w.x, 0.4, w.z, 0xff8c42, 1, 2);
+      w.smokeT = 0.08 / big;
+      smoke(...side(Math.random(), top), 1.8);
+      if (Math.random() < 0.2) sparks(...side(Math.random(), 0.4), 0xff8c42, 1, 2);
     }
   }
   for (const r of rings) {

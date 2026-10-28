@@ -93,7 +93,7 @@ function fire(w: WeaponState): void {
     // rockets don't pierce: they burst on the first machine
     const pierce = d.blast ? 0 : S.pierce + d.pierce;
     spawnBullet(mx, mz, y, Math.sin(ang), Math.cos(ang), speed, dmg, life, pierce, color, {
-      size: d.size, blast: d.blast, pen: S.pen, chain: d.chain, energy: d.shieldPierce,
+      size: d.size, blast: d.blast, pen: S.pen, chain: d.chain, energy: d.shieldPierce, ignite: d.ignite,
     });
   }
 
@@ -202,10 +202,12 @@ function heatUp(amount: number): void {
 
 /** Overload: the overheat discharges as lightning into every machine around instead of into the mech. */
 function overload(): void {
-  ringBurst(P.x, P.z, OVERLOAD.r);
+  const r = OVERLOAD.r * (1 + OVERLOAD.rLevel * (S.overload - 1));
+  const dmg = OVERLOAD.dmg * (1 + OVERLOAD.dmgLevel * (S.overload - 1)) * S.dmg;
+  ringBurst(P.x, P.z, r);
   for (const e of G.enemies) {
-    if (e.dead || (e.x - P.x) ** 2 + (e.z - P.z) ** 2 > (OVERLOAD.r + e.r) ** 2) continue;
-    damage(e, OVERLOAD.dmg * S.dmg, 0, 0, true, true);
+    if (e.dead || (e.x - P.x) ** 2 + (e.z - P.z) ** 2 > (r + e.r) ** 2) continue;
+    damage(e, dmg, 0, 0, true, true);
     sparks(e.x, 1.2, e.z, 0x9fe8ff, 6, 6);
   }
   G.shake = Math.min(1.2, G.shake + 0.5);

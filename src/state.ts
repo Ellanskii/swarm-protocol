@@ -144,6 +144,11 @@ export interface Enemy {
   shielded: boolean;
   /** Seconds left on a target designator mark. */
   mark: number;
+  /** Seconds left burning (flamethrower) and the damage per second of that fire. */
+  burn: number;
+  burnDps: number;
+  /** Time to the next burn tick. */
+  burnTick: number;
   /** Bastion repel cooldown for this machine. */
   bump: number;
   /** Heavy tank: seconds left aiming before the shot; 0 = not aiming. */
@@ -181,6 +186,8 @@ export interface Bullet {
   chain: number;
   /** Burns through shield auras. */
   energy: boolean;
+  /** Sets machines on fire. */
+  ignite: boolean;
 }
 
 export interface ShoulderState { id: ShoulderId; lv: number; cd: number; slot: SlotId; evo?: boolean }
@@ -213,7 +220,8 @@ export interface Debris { x: number; y: number; z: number; vx: number; vy: numbe
 /** Mushroom cloud over a big blast; `r` is the blast radius, `t` runs up to `dur`. */
 export interface Mushroom { x: number; z: number; r: number; t: number; dur: number }
 /** Burnt-out hull: the machine's own model in charred metal, or the mech's (`mech`). `s` is the model scale. */
-export interface Wreck { model: EnemyType | 'mech'; x: number; z: number; rot: number; s: number; life: number; max: number; smokeT: number }
+/** `r` and `h` are the hull's radius and height, so fire and smoke come out of its sides and top instead of the middle. */
+export interface Wreck { model: EnemyType | 'mech'; x: number; z: number; rot: number; s: number; r: number; h: number; life: number; max: number; smokeT: number }
 /** Artillery shell on its way: the zone is marked until it lands. */
 /** A marked zone that blows up after a warning. Enemy artillery hits everyone; `friendly` (orbital strike) only machines. */
 export interface Strike { x: number; z: number; t: number; dur: number; r: number; dmg: number; friendly?: boolean }
@@ -282,7 +290,7 @@ export const G = {
   bomblets: [] as Bomblet[],
   mushrooms: [] as Mushroom[],
   /** Decoy hologram; `life` 0 = none. */
-  decoy: { x: 0, z: 0, life: 0 },
+  decoy: { x: 0, z: 0, life: 0, power: 1 },
   designT: 0,
   reactiveCd: 0,
   orbitalT: 0,
@@ -290,6 +298,8 @@ export const G = {
   /** Counts dashes, see Enemy.dashHit. */
   dashId: 0,
   dashMod: 'dash' as DashMod,
+  /** Level of the dash module (1..MAX_LEVEL); 0 while the plain dash is on. */
+  dashLv: 0,
   typeCount: {} as Record<EnemyType, number>,
   /** Debug invulnerability. Not touched by resetState(), so it survives restarts. */
   god: false,
@@ -324,7 +334,7 @@ export function resetState(): void {
   const mech = MECHS[G.mech];
   Object.assign(P, {
     x: 0, z: 0, ang: 0, legAng: 0, walkPh: 0, tx: 0, tz: 1, aimErr: 0, hp: mech.hp, maxHp: mech.hp,
-    shield: mech.shield, maxShield: mech.shield, calm: 0, inv: 0, blink: 0,
+    shield: 0, maxShield: 0, calm: 0, inv: 0, blink: 0,
     dashCharges: mech.dash.charges, dashCd: 0, trailT: 0, dashT: 0, dashMax: 1, ddx: 0, ddz: 1, still: 0,
     level: 1, xp: 0, xpNext: xpFor(1), mx: 0, my: 1, mz: 0, speed: 0, moving: false,
   } satisfies Player);
@@ -336,8 +346,8 @@ export function resetState(): void {
     heat: 0, heatIdle: 0, ventFrom: 0,
     vent: { on: false, t: 0, dur: 1, arS: 0, arE: 0, arUsed: false, perfect: false },
     enemies: [], bullets: [], eshots: [], gems: [], pickups: [], parts: [], debris: [], wrecks: [], strikes: [], drones: [],
-    shoulders: [], rockets: [], shells: [], trails: [], mines: [], dashMod: 'dash',
-    beams: [], fires: [], bomblets: [], mushrooms: [], decoy: { x: 0, z: 0, life: 0 }, designT: 0, reactiveCd: 0, orbitalT: ORBITAL.every, chainT: CHAIN.every, dashId: 0,
+    shoulders: [], rockets: [], shells: [], trails: [], mines: [], dashMod: 'dash', dashLv: 0,
+    beams: [], fires: [], bomblets: [], mushrooms: [], decoy: { x: 0, z: 0, life: 0, power: 1 }, designT: 0, reactiveCd: 0, orbitalT: ORBITAL.every, chainT: CHAIN.every, dashId: 0,
   });
   for (const k of ENEMY_TYPES) G.typeCount[k] = 0;
 }

@@ -8,7 +8,11 @@ const ICONS: Record<string, string> = Object.fromEntries(
 );
 
 // tech nodes whose id differs from the upgrade they stand for
-const ALIAS: Record<string, string> = { ballistics: 'dmg', armor: 'hp', servo: 'speed' };
+const ALIAS: Record<string, string> = {
+  ballistics: 'dmg', armor: 'hp', servo: 'speed',
+  // evolved arm weapons wear their evolution's icon
+  plasma: 'evoPlasma', siege: 'evoSiege', minigun: 'evoMinigun', arclauncher: 'evoArc',
+};
 
 /** Inline SVG for a tech node or run upgrade; unknown ids get the command-center mark. */
 export function icon(id: string): string {

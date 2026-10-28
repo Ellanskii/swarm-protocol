@@ -24,7 +24,7 @@ import { platform } from './platform';
 import { loadSave, persist, resetSave, save } from './save';
 import { G, P, S, aim, resetState } from './state';
 import { applyTech, mechUnlocked } from './tech';
-import { choose, openLevelUp } from './upgrades';
+import { UPGRADES, choose, openLevelUp, takeUpgrade } from './upgrades';
 import { $, clamp, fmtTime } from './utils';
 import { firePressed, giveWeapon, reloadPressed, syncArms, updateWeapons } from './weapons';
 
@@ -49,6 +49,7 @@ function resetGame(): void {
   const mech = MECHS[G.mech];
   if (mech.startShoulder) installShoulder(mech.startShoulder);
   for (let i = 0; i < (mech.bay ?? 0) + S.bay; i++) addDrone();
+  for (const id of mech.startUps ?? []) takeUpgrade(UPGRADES.find(u => u.id === id)!);
 }
 
 function showOnly(id: 'start' | 'levelup' | 'pause' | 'over' | null): void {

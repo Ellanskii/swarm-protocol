@@ -1,8 +1,8 @@
 // Player projectiles, damage, explosions, enemy death.
 import { insidePillar, outOfField } from './arena';
 import { sfx } from './audio';
-import { BRACE, CHAIN, CLUSTER, DESIGNATOR, LIMITS, LOOT, MELTDOWN, NAPALM, PACING, SHIELD_AURA } from './config';
-import { dmgNumber, machineDeath, mushroom, ringBurst, showBanner, sparks } from './fx';
+import { BRACE, CHAIN, CLUSTER, DESIGNATOR, IGNITE, LIMITS, LOOT, MELTDOWN, NAPALM, PACING, SHIELD_AURA } from './config';
+import { dmgNumber, flame, machineDeath, mushroom, ringBurst, showBanner, sparks } from './fx';
 import { forNear } from './grid';
 import { wreckMech } from './mech';
 import { hasHull } from './scene';
@@ -11,7 +11,7 @@ import { G, P, S, braced, type Bullet, type Enemy } from './state';
 import { rand } from './utils';
 
 /** Optional shot traits; see Bullet. */
-export interface ShotOpts { size?: number; blast?: number; pen?: number; chain?: number; energy?: boolean }
+export interface ShotOpts { size?: number; blast?: number; pen?: number; chain?: number; energy?: boolean; ignite?: boolean }
 
 export function spawnBullet(
   x: number, z: number, y: number,
@@ -21,7 +21,7 @@ export function spawnBullet(
   if (G.bullets.length >= LIMITS.bullets) return;
   G.bullets.push({
     x, z, y, vx: dx * speed, vz: dz * speed, dmg, life, pierce, col, last: -1,
-    s: o.size ?? 1, blast: o.blast ?? 0, pen: o.pen ?? 0, chain: o.chain ?? 0, energy: o.energy ?? false,
+    s: o.size ?? 1, blast: o.blast ?? 0, pen: o.pen ?? 0, chain: o.chain ?? 0, energy: o.energy ?? false, ignite: o.ignite ?? false,
   });
 }
 
@@ -98,12 +98,17 @@ export function updateBullets(dt: number): void {
         b.last = e.id;
         damage(e, b.dmg, (b.vx / speed) * 3 / e.r, (b.vz / speed) * 3 / e.r, true, b.energy, b.pen);
         sparks(b.x, 1, b.z, e.t.color, 3, 5);
+        if (b.ignite) {
+          e.burn = IGNITE.time;
+          e.burnDps = Math.max(e.burnDps, b.dmg * IGNITE.mul);
+        }
         if (b.blast) { detonate(b); return true; }
         if (S.explode > 0 && Math.random() < S.explode) explode(b.x, b.z, 2.8, b.dmg * 0.8);
         if (b.pierce > 0) b.pierce--;
         else { b.life = 0; return true; }
       });
     }
+    if (b.ignite && Math.random() < dt * 45) flame(b.x, b.y - 0.3, b.z, 0.5);
     if (b.blast && b.life > 0) {
       if (Math.random() < dt * 30) sparks(b.x, b.y, b.z, 0x8a8f9e, 1, 1);
       if ((b.life -= dt) <= 0) detonate(b);

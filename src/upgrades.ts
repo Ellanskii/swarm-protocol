@@ -1,10 +1,10 @@
 // Upgrade pool and the level-up screen.
 import { sfx } from './audio';
-import { EVOLUTIONS, SHOULDERS, WEAPONS, WEAPON_LEVELS, type BaseWeaponId, type EvoDef, type ShoulderId, type WeaponId } from './config';
+import { DASH_LEVELS, EVOLUTIONS, MAX_LEVEL, SHOULDERS, WEAPONS, WEAPON_LEVELS, type BaseWeaponId, type EvoDef, type ShoulderId, type WeaponId } from './config';
 import { icon } from './icons';
 import { mouse } from './input';
 import { freeShoulderSlot, installShoulder } from './shoulders';
-import { G, P, S, armWeapons, magSize } from './state';
+import { G, P, S, armWeapons, magSize, type DashMod } from './state';
 
 const hasAmmoWeapon = (): boolean => armWeapons().some(w => !w.d.heat);
 const hasHeatWeapon = (): boolean => armWeapons().some(w => !!w.d.heat);
@@ -33,6 +33,7 @@ const WEAPON_DESC: Record<BaseWeaponId, string> = {
   laser: 'Ручное оружие. Непрерывный луч прожигает всех на линии и игнорирует щиты, но вязнет в броне',
   railgun: 'Ручное оружие. Редкий мощный выстрел прошивает всё на линии, броня ему почти не мешает',
   launcher: 'Ручное оружие. Ракеты взрываются при попадании и бьют по площади',
+  flamethrower: 'Ручное оружие. Короткая широкая струя огня поджигает всех на пути, горящих броня не защищает',
 };
 
 const evoOf = (base: WeaponId | ShoulderId): EvoDef | undefined => Object.values(EVOLUTIONS).find(e => e.base === base);
@@ -49,11 +50,14 @@ const weaponUp = (id: BaseWeaponId): Upgrade => ({
   get desc() {
     const w = G.owned[id];
     if (!w) return WEAPON_DESC[id];
-    const more = w.d.beam ? ' и шире луч' : w.d.pellets > 1 ? ' и ещё две дробины' : ' и ещё один ствол';
+    const more = w.d.beam ? ' и шире луч' : w.d.ignite ? ' и ещё две струи' : w.d.pellets > 1 ? ' и ещё две дробины' : ' и ещё один ствол';
     const extra = levelBarrels(w.lv + 1) > levelBarrels(w.lv) ? more : '';
     return `+${WEAPON_LEVELS.dmg * 100}% урона${extra}${w.lv + 1 === WEAPON_LEVELS.max ? evoHint(id) : ''}`;
   },
-  avail: () => !G.owned[evoOf(id)?.into ?? id] && (!!G.owned[id] || freeArmSlot() !== null),
+  avail: () => {
+    const into = evoOf(id)?.into;
+    return !(into && G.owned[into]) && (!!G.owned[id] || freeArmSlot() !== null);
+  },
   level: () => G.owned[id]?.lv ?? 0,
   apply: () => giveWeapon(id),
 });
@@ -70,72 +74,74 @@ const shoulderUp = (id: ShoulderId): Upgrade => ({
   apply: () => installShoulder(id),
 });
 
+/** A dash module: picking it replaces the plain dash, picking it again levels it up. */
+const dashUp = (id: Exclude<DashMod, 'dash'>, name: string, desc: string): Upgrade => ({
+  id, name, max: MAX_LEVEL, kind: 'dash',
+  get desc() {
+    return G.dashMod === id
+      ? `Рывок длиннее на ${DASH_LEVELS.reach * 100}%, урон рывка +${DASH_LEVELS.dmg * 100}%`
+      : desc;
+  },
+  avail: () => G.dashMod === 'dash' || G.dashMod === id,
+  level: () => (G.dashMod === id ? G.dashLv : 0),
+  apply: () => { G.dashMod = id; G.dashLv++; },
+});
+
 export const UPGRADES: Upgrade[] = [
-  { id: 'dmg', name: 'Калибр', desc: '+20% урона всем оружием', max: 8, apply: () => { S.dmg *= 1.2; } },
-  { id: 'rate', name: 'Облегчённый затвор', desc: '+15% к скорострельности', max: 8, apply: () => { S.rate *= 1.15; } },
+  { id: 'dmg', name: 'Калибр', desc: '+34% урона всем оружием', max: MAX_LEVEL, apply: () => { S.dmg *= 1.34; } },
+  { id: 'rate', name: 'Облегчённый затвор', desc: '+25% к скорострельности', max: MAX_LEVEL, apply: () => { S.rate *= 1.25; } },
   {
-    id: 'mag', name: 'Длинный магазин', desc: '+35% патронов в магазине', max: 5, avail: hasAmmoWeapon,
+    id: 'mag', name: 'Длинный магазин', desc: '+35% патронов в магазине', max: MAX_LEVEL, avail: hasAmmoWeapon,
     apply: () => {
       S.mag *= 1.35;
       for (const w of armWeapons()) w.ammo = magSize(w.d);
       G.reload.on = false;
     },
   },
-  { id: 'reload', name: 'Быстрые руки', desc: 'Перезарядка на 20% быстрее, жёлтая зона шире', max: 5, avail: hasAmmoWeapon, apply: () => { S.reload *= 1.2; S.arW += 0.03; } },
-  { id: 'cooling', name: 'Теплоотвод', desc: 'Энергетическое оружие греется на 12% меньше и остывает на 25% быстрее', max: 4, avail: hasHeatWeapon, apply: () => { S.heat *= 0.88; S.cool *= 1.25; } },
-  { id: 'multi', name: 'Сдвоенный ствол', desc: '+1 пуля за выстрел, дробовику +2 дробины', max: 4, apply: () => { S.multi++; } },
-  { id: 'pierce', name: 'Бронебойные', desc: 'Пуля прошивает ещё одного врага', max: 4, apply: () => { S.pierce++; } },
-  { id: 'crit', name: 'Слабые места', desc: '+10% шанс крита, крит наносит ×2.2', max: 5, apply: () => { S.crit += 0.1; } },
-  { id: 'explode', name: 'Разрывные', desc: '+12% шанс, что попадание взорвётся', max: 5, apply: () => { S.explode += 0.12; } },
-  { id: 'aura', name: 'Тесла-катушка', desc: 'Бьёт током всех рядом. С каждым уровнем шире и больнее', max: 5, apply: () => { S.aura++; } },
-  { id: 'speed', name: 'Сервоприводы', desc: '+10% к скорости бега', max: 5, apply: () => { S.speed *= 1.1; } },
-  { id: 'hp', name: 'Бронепластины', desc: '+25 к максимуму HP и полное лечение', max: 6, apply: () => { P.maxHp += 25; P.hp = P.maxHp; } },
-  { id: 'regen', name: 'Ремонтные наниты', desc: '+1 HP в секунду', max: 5, apply: () => { S.regen += 1; } },
-  { id: 'magnet', name: 'Магнит', desc: '+50% к радиусу сбора опыта', max: 4, apply: () => { S.magnet *= 1.5; } },
-  { id: 'pen', name: 'Подкалиберные', desc: 'Пули и снаряды игнорируют 3 единицы брони', max: 3, avail: hasAmmoWeapon, apply: () => { S.pen += 3; } },
-  { id: 'reactive', name: 'Реактивная броня', desc: 'Получив удар, броня взрывается вокруг меха (не чаще раза в 3 с). Уровень усиливает взрыв', max: 3, apply: () => { S.reactive++; } },
-  { id: 'cluster', name: 'Кассетные', desc: 'Каждый взрыв разбрасывает малые бомбы: +1 за уровень', max: 3, apply: () => { S.cluster++; } },
-  { id: 'napalm', name: 'Напалм', desc: 'Взрывы оставляют горящую землю. Уровень усиливает огонь', max: 3, apply: () => { S.napalm++; } },
+  { id: 'reload', name: 'Быстрые руки', desc: 'Перезарядка на 20% быстрее, жёлтая зона шире', max: MAX_LEVEL, avail: hasAmmoWeapon, apply: () => { S.reload *= 1.2; S.arW += 0.03; } },
+  { id: 'cooling', name: 'Теплоотвод', desc: 'Энергетическое оружие греется на 10% меньше и остывает на 20% быстрее', max: MAX_LEVEL, avail: hasHeatWeapon, apply: () => { S.heat *= 0.9; S.cool *= 1.2; } },
+  { id: 'multi', name: 'Сдвоенный ствол', desc: '+1 пуля за выстрел, дробовику +2 дробины', max: MAX_LEVEL, apply: () => { S.multi++; } },
+  { id: 'pierce', name: 'Бронебойные', desc: 'Пуля прошивает ещё одного врага', max: MAX_LEVEL, apply: () => { S.pierce++; } },
+  { id: 'crit', name: 'Слабые места', desc: '+10% шанс крита, крит наносит ×2.2', max: MAX_LEVEL, apply: () => { S.crit += 0.1; } },
+  { id: 'explode', name: 'Разрывные', desc: '+12% шанс, что попадание взорвётся', max: MAX_LEVEL, apply: () => { S.explode += 0.12; } },
+  { id: 'aura', name: 'Тесла-катушка', desc: 'Бьёт током всех рядом. С каждым уровнем шире и больнее', max: MAX_LEVEL, apply: () => { S.aura++; } },
+  { id: 'speed', name: 'Сервоприводы', desc: '+10% к скорости бега', max: MAX_LEVEL, apply: () => { S.speed *= 1.1; } },
+  { id: 'hp', name: 'Бронепластины', desc: '+30 к максимуму HP и полное лечение', max: MAX_LEVEL, apply: () => { P.maxHp += 30; P.hp = P.maxHp; } },
+  { id: 'regen', name: 'Ремонтные наниты', desc: '+1 HP в секунду', max: MAX_LEVEL, apply: () => { S.regen += 1; } },
+  { id: 'magnet', name: 'Магнит', desc: '+38% к радиусу сбора опыта', max: MAX_LEVEL, apply: () => { S.magnet *= 1.38; } },
+  { id: 'pen', name: 'Подкалиберные', desc: 'Пули и снаряды игнорируют 2 единицы брони', max: MAX_LEVEL, avail: hasAmmoWeapon, apply: () => { S.pen += 2; } },
+  { id: 'reactive', name: 'Реактивная броня', desc: 'Получив удар, броня взрывается вокруг меха (не чаще раза в 3 с). Уровень усиливает взрыв', max: MAX_LEVEL, apply: () => { S.reactive++; } },
+  { id: 'cluster', name: 'Кассетные', desc: 'Каждый взрыв разбрасывает малые бомбы: +1 за уровень', max: MAX_LEVEL, apply: () => { S.cluster++; } },
+  { id: 'napalm', name: 'Напалм', desc: 'Взрывы оставляют горящую землю. Уровень усиливает огонь', max: MAX_LEVEL, apply: () => { S.napalm += 0.6; } },
   {
-    id: 'eshield', name: 'Энергощит', desc: '+30 к щиту. Щит принимает урон первым и восстанавливается через 3 с без попаданий', max: 4,
-    apply: () => { P.maxShield += 30; P.shield += 30; },
+    id: 'eshield', name: 'Энергощит', desc: '+24 к щиту. Щит принимает урон первым и восстанавливается через 3 с без попаданий', max: MAX_LEVEL,
+    apply: () => { P.maxShield += 24; P.shield += 24; },
   },
   {
-    id: 'capacitors', name: 'Конденсаторы', desc: 'Горячая зона нагрева начинается на 10% раньше, урон в ней ещё +10%', max: 3, avail: hasHeatWeapon,
-    apply: () => { S.hotAt -= 0.1; S.hotDmg += 0.1; },
+    id: 'capacitors', name: 'Конденсаторы', desc: 'Горячая зона нагрева начинается на 6% раньше, урон в ней ещё +6%', max: MAX_LEVEL, avail: hasHeatWeapon,
+    apply: () => { S.hotAt -= 0.06; S.hotDmg += 0.06; },
   },
-  { id: 'overload', name: 'Перегрузка', desc: 'Перегрев не ранит меха, а бьёт молнией всех вокруг', max: 1, avail: hasHeatWeapon, apply: () => { S.overload = 1; } },
-  { id: 'designator', name: 'Целеуказатель', desc: 'Метит самую крепкую машину рядом: она получает +30% урона. +1 цель за уровень', max: 3, apply: () => { S.mark++; } },
-  { id: 'dash', name: 'Ускоритель', desc: 'Рывок перезаряжается на 25% быстрее', max: 3, apply: () => { S.dashMul *= 0.75; } },
+  { id: 'overload', name: 'Перегрузка', desc: 'Перегрев не ранит меха, а бьёт молнией всех вокруг. Уровень усиливает разряд', max: MAX_LEVEL, avail: hasHeatWeapon, apply: () => { S.overload++; } },
+  { id: 'designator', name: 'Целеуказатель', desc: 'Метит самую крепкую машину рядом: она получает +30% урона. +1 цель за уровень', max: MAX_LEVEL, apply: () => { S.mark++; } },
+  { id: 'dash', name: 'Ускоритель', desc: 'Рывок перезаряжается на 16% быстрее', max: MAX_LEVEL, apply: () => { S.dashMul *= 0.84; } },
   weaponUp('mg'),
   weaponUp('cannon'),
   weaponUp('shotgun'),
   weaponUp('laser'),
   weaponUp('railgun'),
   weaponUp('launcher'),
+  weaponUp('flamethrower'),
   shoulderUp('rockets'),
   shoulderUp('mortar'),
   shoulderUp('drone'),
   shoulderUp('mines'),
   shoulderUp('flak'),
   shoulderUp('repair'),
-  // dash modules replace the plain dash; a mech carries only one
-  {
-    id: 'jump', name: 'Прыжковые двигатели', desc: 'Рывок становится прыжком: неуязвимость в полёте и удар по площади при приземлении',
-    max: 1, kind: 'dash', avail: () => G.dashMod === 'dash', apply: () => { G.dashMod = 'jump'; },
-  },
-  {
-    id: 'ram', name: 'Таран', desc: 'Рывок сносит машины на пути: урон без учёта брони и отброс',
-    max: 1, kind: 'dash', avail: () => G.dashMod === 'dash', apply: () => { G.dashMod = 'ram'; },
-  },
-  {
-    id: 'phase', name: 'Фазовый рывок', desc: 'Мгновенный скачок сквозь машины: прожигает их и сбрасывает 30% тепла',
-    max: 1, kind: 'dash', avail: () => G.dashMod === 'dash', apply: () => { G.dashMod = 'phase'; },
-  },
-  {
-    id: 'decoy', name: 'Приманка', desc: 'Рывок оставляет голограмму: она стягивает ближних машин и через 3 с взрывается',
-    max: 1, kind: 'dash', avail: () => G.dashMod === 'dash', apply: () => { G.dashMod = 'decoy'; },
-  },
+  // dash modules replace the plain dash; a mech carries only one, and it levels up: longer dash, harder hit
+  dashUp('jump', 'Прыжковые двигатели', 'Рывок становится прыжком: неуязвимость в полёте и удар по площади при приземлении'),
+  dashUp('ram', 'Таран', 'Рывок сносит машины на пути: урон без учёта брони и отброс'),
+  dashUp('phase', 'Фазовый рывок', 'Мгновенный скачок сквозь машины: прожигает их и сбрасывает 30% тепла'),
+  dashUp('decoy', 'Приманка', 'Рывок оставляет голограмму: она стягивает ближних машин и через 3 с взрывается'),
   // evolutions: base at max level + a catalyst from another branch
   ...Object.entries(EVOLUTIONS).map(([id, e]): Upgrade => ({
     id, name: e.name, max: 1, kind: 'evo',
@@ -205,11 +211,16 @@ export function openLevelUp(): void {
   sfx('level');
 }
 
+/** Takes an upgrade one level, as if it was picked on the level-up screen. */
+export function takeUpgrade(u: Upgrade): void {
+  u.apply();
+  G.upLv[u.id] = (G.upLv[u.id] ?? 0) + 1;
+}
+
 export function choose(i: number): void {
   const u = choices[i];
   if (!u || G.state !== 'levelup') return;
-  u.apply();
-  G.upLv[u.id] = (G.upLv[u.id] ?? 0) + 1;
+  takeUpgrade(u);
   G.pendingLevels--;
   if (G.pendingLevels > 0) { openLevelUp(); return; }
   screen.hidden = true;

@@ -1,6 +1,6 @@
 // DOM HUD. Every write goes through a cache so unchanged values don't touch the DOM.
 import * as THREE from 'three';
-import { MECHS, PACING, WEAPON_ORDER } from './config';
+import { EVOLUTIONS, MECHS, PACING, WEAPON_ORDER } from './config';
 import { dashCooldown } from './player';
 import { camera } from './scene';
 import { shoulderName } from './shoulders';
@@ -88,9 +88,16 @@ export function updateHUD(): void {
     el.slots.innerHTML = G.shoulders.map(s => `<span class="sh${s.evo ? ' evo' : ''}">${shoulderName(s)} <b>${s.lv}</b></span>`).join('');
   });
 
-  const owned = UPGRADES.filter(u => G.upLv[u.id] && !u.kind);
-  set('ups', owned.map(u => u.id + G.upLv[u.id]).join(','), () => {
-    el.ups.innerHTML = owned.map(u => `<span title="${u.name}">${icon(u.id)}<b>${G.upLv[u.id]}</b></span>`).join('');
+  // everything the mech has taken, with levels: arm weapons, shoulder systems, the dash module, then the passives
+  const evoIcon = (base: string): string => Object.entries(EVOLUTIONS).find(([, e]) => e.base === base)?.[0] ?? base;
+  const taken: { id: string; name: string; lv: number }[] = [
+    ...WEAPON_ORDER.flatMap(id => G.owned[id] ?? []).map(w => ({ id: w.id, name: w.d.name, lv: w.lv })),
+    ...G.shoulders.map(s => ({ id: s.evo ? evoIcon(s.id) : s.id, name: shoulderName(s), lv: s.lv })),
+    ...(G.dashMod !== 'dash' ? [{ id: G.dashMod, name: UPGRADES.find(u => u.id === G.dashMod)?.name ?? G.dashMod, lv: G.dashLv }] : []),
+    ...UPGRADES.filter(u => G.upLv[u.id] && !u.kind).map(u => ({ id: u.id, name: u.name, lv: G.upLv[u.id] })),
+  ];
+  set('ups', taken.map(u => u.id + u.lv).join(','), () => {
+    el.ups.innerHTML = taken.map(u => `<span title="${u.name}">${icon(u.id)}<b>${u.lv}</b></span>`).join('');
   });
 
   // run goal: which forge is next and when; the third one is the final, beating it means evacuation

@@ -203,8 +203,8 @@ export interface MechDef {
   /** Number of shoulder slots. */
   shoulders: 1 | 2;
   start: WeaponId;
-  /** Regenerating shield on top of HP, 0 for none. */
-  shield: number;
+  /** Run upgrades the mech starts with, each taken once like a level-up pick (ids from UPGRADES). */
+  startUps?: string[];
   /** Dash leaves a damaging trail. */
   trail: boolean;
   /** Share of incoming damage the hull shrugs off. */
@@ -226,32 +226,32 @@ export interface MechDef {
 export const MECHS: Record<MechId, MechDef> = {
   guard: {
     name: 'Страж', role: 'Средний, универсальный', passive: 'Щит восстанавливается, если 3 секунды не получать урон',
-    hp: 120, speed: 6.2, turnRate: 9, dash: { charges: 1, cd: 2 }, shoulders: 2, start: 'cannon', shield: 40, trail: false,
+    hp: 120, speed: 6.2, turnRate: 9, dash: { charges: 1, cd: 2 }, shoulders: 2, start: 'cannon', startUps: ['eshield'], trail: false,
     scale: 1, frame: { hipH: 1.1, legW: 0.24, torso: [1.0, 0.65, 0.8] }, trim: 0x4cc9f0,
   },
   scout: {
     name: 'Скаут', role: 'Лёгкий, быстрый', passive: 'Два заряда рывка, рывок оставляет жгучий след',
-    hp: 75, speed: 8.2, turnRate: 13, dash: { charges: 2, cd: 1.6 }, shoulders: 1, start: 'mg', shield: 0, trail: true,
+    hp: 75, speed: 8.2, turnRate: 13, dash: { charges: 2, cd: 1.6 }, shoulders: 1, start: 'mg', trail: true,
     scale: 0.92, frame: { hipH: 1.25, legW: 0.18, torso: [0.78, 0.5, 0.66] }, trim: 0x80ffdb,
   },
   // ballistics tier 3: a walking wall for close fights
   bastion: {
     name: 'Бастион', role: 'Тяжёлый, ближний бой', passive: 'Корпус гасит 20% урона, врезавшиеся машины отлетают и получают урон',
-    hp: 170, speed: 5.2, turnRate: 6.5, dash: { charges: 1, cd: 3 }, shoulders: 2, start: 'shotgun', shield: 0, trail: false,
+    hp: 170, speed: 5.2, turnRate: 6.5, dash: { charges: 1, cd: 3 }, shoulders: 2, start: 'shotgun', trail: false,
     armor: 0.2, repel: true,
     scale: 1.18, frame: { hipH: 1.0, legW: 0.3, torso: [1.2, 0.75, 0.95] }, trim: 0xffd166,
   },
   // rockets tier 3: fragile, deadly when planted
   artillery: {
     name: 'Артиллерист', role: 'Дальний бой', passive: 'Стоя на месте, упирается опорами: +30% урона, плечи перезаряжаются на 30% быстрее',
-    hp: 85, speed: 6.4, turnRate: 8, dash: { charges: 1, cd: 2.2 }, shoulders: 2, start: 'launcher', startShoulder: 'mortar', shield: 0, trail: false,
+    hp: 85, speed: 6.4, turnRate: 8, dash: { charges: 1, cd: 2.2 }, shoulders: 2, start: 'launcher', startShoulder: 'mortar', trail: false,
     brace: true,
     scale: 1.02, frame: { hipH: 1.0, legW: 0.22, torso: [1.05, 0.55, 0.85] }, trim: 0xff8c42,
   },
   // robotics tier 3: fights through its drones
   carrier: {
     name: 'Носитель', role: 'Поддержка, дроны', passive: 'Ангар с двумя боевыми дронами, которые не занимают плечо',
-    hp: 95, speed: 6.8, turnRate: 9, dash: { charges: 1, cd: 2 }, shoulders: 1, start: 'mg', shield: 0, trail: false,
+    hp: 95, speed: 6.8, turnRate: 9, dash: { charges: 1, cd: 2 }, shoulders: 1, start: 'mg', trail: false,
     bay: 2,
     scale: 1.05, frame: { hipH: 1.15, legW: 0.22, torso: [1.1, 0.6, 1.0] }, trim: 0x7dff9a,
   },
@@ -267,6 +267,9 @@ export const SHIELD = { delay: 3, regen: 15 } as const;
 /** Scout dash trail. */
 export const TRAIL = { every: 0.04, life: 1.4, tick: 0.3, r: 1.1, dmg: 12 } as const;
 
+/** Dash modules level up too: each level above 1 lengthens the dash by `reach` and adds `dmg` to the damage it deals (slam, ram, blink, decoy blast). */
+export const DASH_LEVELS = { reach: 0.15, dmg: 0.3 } as const;
+
 /** Jump jets (rockets branch): the dash becomes a jump that slams the ground on landing. */
 export const JUMP = { time: 0.45, speed: 14, height: 2.2, r: 3.2, dmg: 40 } as const;
 /** Ram (ballistics branch): the dash hits every machine on the way, ignoring armor, and throws it aside. */
@@ -279,14 +282,14 @@ export const DECOY = { life: 3, pull: 12, r: 3.6, dmg: 60 } as const;
 /** The mech's death: a mushroom blast wipes the machines nearby, loot flies in, then the death screen. */
 export const MELTDOWN = { r: 14, wait: 3 } as const;
 
-/** Reactive armor (ballistics): a hit on the mech sets off a blast around it, once per `cd`. Damage +50% per level. */
+/** Reactive armor (ballistics): a hit on the mech sets off a blast around it, once per `cd`. Damage +25% per level. */
 export const REACTIVE = { cd: 3, r: 3.2, dmg: 35 } as const;
 /** Cluster munitions (rockets): every blast scatters bomblets (one per level, plus one). */
 export const CLUSTER = { delay: 0.35, spread: 2.4, r: 1.5, dmg: 0.35 } as const;
 /** Napalm (rockets): blasts leave burning ground. Damage per second per level. */
 export const NAPALM = { life: 2.5, tick: 0.25, dps: 14, rMul: 0.7 } as const;
-/** Overload (energy): an overheat discharges into everything around instead of hurting the mech. */
-export const OVERLOAD = { r: 5.5, dmg: 70 } as const;
+/** Overload (energy): an overheat discharges into everything around instead of hurting the mech. `rLevel` and `dmgLevel` grow it per level above 1. */
+export const OVERLOAD = { r: 5.5, dmg: 70, rLevel: 0.12, dmgLevel: 0.3 } as const;
 /** Target designator (robotics): marks the toughest machines nearby, one per level; marked ones take extra damage. */
 export const DESIGNATOR = { every: 1.5, life: 4, range: 18, bonus: 0.3 } as const;
 
@@ -294,14 +297,17 @@ export const MECH_ORDER: MechId[] = ['guard', 'scout', 'bastion', 'artillery', '
 
 // ---------------- weapons ----------------
 
+/** Every weapon, shoulder system and upgrade levels up this many times; evolutions are a single step. */
+export const MAX_LEVEL = 5;
+
 /** Arm weapons. */
-export type BaseWeaponId = 'mg' | 'cannon' | 'shotgun' | 'laser' | 'railgun' | 'launcher';
+export type BaseWeaponId = 'mg' | 'cannon' | 'shotgun' | 'laser' | 'railgun' | 'launcher' | 'flamethrower';
 export type WeaponId = BaseWeaponId | EvoWeaponId;
 /** Weapons that only come from evolutions. */
 export type EvoWeaponId = 'plasma' | 'siege' | 'minigun' | 'arclauncher';
 
 /** Slot-mounted models, see PART_BUILDERS in mech.ts. */
-export type PartId = 'mg' | 'cannon' | 'shotgun' | 'laser' | 'railgun' | 'launcher' | 'rockets' | 'mortar' | 'drone' | 'mines' | 'flak' | 'repair';
+export type PartId = 'mg' | 'cannon' | 'shotgun' | 'laser' | 'railgun' | 'launcher' | 'flamethrower' | 'rockets' | 'mortar' | 'drone' | 'mines' | 'flak' | 'repair';
 
 export interface WeaponDef {
   name: string;
@@ -332,6 +338,8 @@ export interface WeaponDef {
   shieldPierce?: boolean;
   /** Blasts throw a chain lightning with this many jumps. */
   chain?: number;
+  /** Hits set machines on fire, see IGNITE. */
+  ignite?: boolean;
   /** Energy weapon: each shot adds this much heat (1 = overheat) instead of spending ammo; `mag` and `reload` are unused. */
   heat?: number;
   /** Model mounted in the arm slot. */
@@ -352,7 +360,15 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   minigun: { name: 'Миниган', dmg: 9, rate: 24, mag: 110, reload: 1.8, spread: 0.11, pellets: 1, speed: 55, range: 24, pierce: 0, size: 0.8, color: 0x9ff0ff, kick: 0.05, part: 'mg' },
   arclauncher: { name: 'Грозовая ракетница', dmg: 34, rate: 1.6, mag: 7, reload: 1.7, spread: 0.04, pellets: 1, speed: 26, range: 26, pierce: 0, size: 2, color: 0x9fe8ff, kick: 0.35, part: 'launcher', blast: 2.8, chain: 4 },
   launcher: { name: 'Ракетница', dmg: 26, rate: 1.5, mag: 6, reload: 1.8, spread: 0.04,  pellets: 1, speed: 24, range: 26, pierce: 0, size: 2,   color: 0xff8c42, kick: 0.35, part: 'launcher', blast: 2.6 },
+  // a wide short cone of flames through everything in reach: little direct damage, the burning does the work
+  flamethrower: { name: 'Огнемёт', dmg: 3, rate: 16, mag: 64, reload: 1.7, spread: 0.3, pellets: 2, speed: 22, range: 8, pierce: 99, size: 1.7, color: 0xff7a2a, kick: 0.03, part: 'flamethrower', ignite: true },
 };
+
+/**
+ * Burning machines (flamethrower hits): damage per second is the hit's damage times `mul`, refreshed by every new hit.
+ * Fire ignores armor, shield auras still halve it.
+ */
+export const IGNITE = { time: 2.5, tick: 0.4, mul: 4 } as const;
 
 /**
  * Heat for energy weapons: the energy branch's resource. Firing heats the shared gauge, it cools on its own after a pause.
@@ -380,11 +396,11 @@ export const HEAT = {
   autoStop: 0.95,
 } as const;
 
-export const WEAPON_ORDER: WeaponId[] = ['mg', 'minigun', 'cannon', 'siege', 'shotgun', 'plasma', 'railgun', 'launcher', 'arclauncher', 'laser'];
+export const WEAPON_ORDER: WeaponId[] = ['mg', 'minigun', 'cannon', 'siege', 'shotgun', 'plasma', 'railgun', 'launcher', 'arclauncher', 'flamethrower', 'laser'];
 
 /** Arm weapon levels: picking an owned weapon again levels it up. */
 export const WEAPON_LEVELS = {
-  max: 5,
+  max: MAX_LEVEL,
   /** Damage bonus per level above 1. */
   dmg: 0.25,
   /** An extra barrel (shotgun: two pellets) every N levels. */
@@ -445,15 +461,15 @@ export interface ShoulderDef {
 }
 
 export const SHOULDERS: Record<ShoulderId, ShoulderDef> = {
-  rockets: { name: 'Ракеты',      desc: 'Залп самонаводящихся ракет по ближайшим целям', cd: 3.2, dmg: 24, count: 3, perLevel: 1, range: 22, blast: 2.2, color: 0xff8c42, max: 5 },
-  mortar:  { name: 'Миномёт',     desc: 'Навесной выстрел по самой плотной толпе',     cd: 4.5, dmg: 60, count: 1, perLevel: 1, range: 20, blast: 3.6, color: 0xffb347, max: 4 },
-  drone:   { name: 'Боевой дрон', desc: 'Дрон кружит рядом и стреляет по ближайшим',   cd: 0.65, dmg: 10, count: 1, perLevel: 1, range: 15, blast: 0,   color: 0x80ffdb, max: 4 },
+  rockets: { name: 'Ракеты',      desc: 'Залп самонаводящихся ракет по ближайшим целям', cd: 3.2, dmg: 24, count: 3, perLevel: 1, range: 22, blast: 2.2, color: 0xff8c42, max: MAX_LEVEL },
+  mortar:  { name: 'Миномёт',     desc: 'Навесной выстрел по самой плотной толпе',     cd: 4.5, dmg: 60, count: 1, perLevel: 1, range: 20, blast: 3.6, color: 0xffb347, max: MAX_LEVEL },
+  drone:   { name: 'Боевой дрон', desc: 'Дрон кружит рядом и стреляет по ближайшим',   cd: 0.65, dmg: 10, count: 1, perLevel: 1, range: 15, blast: 0,   color: 0x80ffdb, max: MAX_LEVEL },
   // mines: `count` is how many can lie at once (+perLevel), `range` the trigger radius
-  mines:   { name: 'Минный раскладчик', desc: 'Сбрасывает мины на ходу. Мина взрывается, когда рядом машина', cd: 1.2, dmg: 38, count: 6, perLevel: 3, range: 1.3, blast: 2.6, color: 0xff3b3b, max: 4 },
+  mines:   { name: 'Минный раскладчик', desc: 'Сбрасывает мины на ходу. Мина взрывается, когда рядом машина', cd: 1.2, dmg: 38, count: 6, perLevel: 3, range: 1.3, blast: 2.6, color: 0xff3b3b, max: MAX_LEVEL },
   // flak: shoots down enemy shells first, then kamikaze drones; `count` targets per burst
-  flak:    { name: 'Зенитка', desc: 'Сбивает вражеские снаряды и дронов-камикадзе', cd: 0.45, dmg: 14, count: 1, perLevel: 1, range: 11, blast: 0, color: 0xffe066, max: 4 },
+  flak:    { name: 'Зенитка', desc: 'Сбивает вражеские снаряды и дронов-камикадзе', cd: 0.45, dmg: 14, count: 1, perLevel: 1, range: 11, blast: 0, color: 0xffe066, max: MAX_LEVEL },
   // repair drone: `count` is HP restored per cycle (+perLevel), only while the mech is damaged
-  repair:  { name: 'Ремонтный дрон', desc: 'Чинит меха: возвращает HP раз в несколько секунд', cd: 4, dmg: 0, count: 8, perLevel: 4, range: 0, blast: 0, color: 0x7dff9a, max: 4 },
+  repair:  { name: 'Ремонтный дрон', desc: 'Чинит меха: возвращает HP раз в несколько секунд', cd: 4, dmg: 0, count: 8, perLevel: 4, range: 0, blast: 0, color: 0x7dff9a, max: MAX_LEVEL },
 };
 
 // ---------------- enemies ----------------

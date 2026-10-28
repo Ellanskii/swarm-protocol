@@ -2,7 +2,7 @@
 import { keepInField, pushOutPillars } from './arena';
 import { sfx } from './audio';
 import { damage, explode } from './combat';
-import { DECOY, JUMP, MECHS, PHASE, RAM, REACTIVE, SHIELD, TRAIL } from './config';
+import { DASH_LEVELS, DECOY, JUMP, MECHS, PHASE, RAM, REACTIVE, SHIELD, TRAIL } from './config';
 import { flashVignette, sparks } from './fx';
 import { forNear } from './grid';
 import { moveInput } from './input';
@@ -18,6 +18,10 @@ const DASH_SPEED = 23;
 const DASH_TIME = 0.17;
 
 export const dashCooldown = (): number => MECHS[G.mech].dash.cd * S.dashMul;
+
+/** Dash module level bonuses: the dash gets longer, and what it hits harder. The plain dash has none. */
+const dashReach = (): number => 1 + DASH_LEVELS.reach * Math.max(0, G.dashLv - 1);
+const dashPower = (): number => 1 + DASH_LEVELS.dmg * Math.max(0, G.dashLv - 1);
 
 
 export function tryDash(): void {
@@ -36,8 +40,8 @@ export function tryDash(): void {
   P.inv = Math.max(P.inv, mod === 'dash' ? 0.25 : time + 0.15);
   P.trailT = 0;
   G.dashId++;
-  if (mod === 'phase' && !G.vent.on) G.heat = Math.max(0, G.heat - PHASE.vent);
-  if (mod === 'decoy') Object.assign(G.decoy, { x: P.x, z: P.z, life: DECOY.life });
+  if (mod === 'phase' && !G.vent.on) G.heat = Math.max(0, G.heat - PHASE.vent * dashPower());
+  if (mod === 'decoy') Object.assign(G.decoy, { x: P.x, z: P.z, life: DECOY.life, power: dashPower() });
   sfx('dash');
 }
 
@@ -53,11 +57,11 @@ function dashHits(): void {
     e.dashHit = G.dashId;
     if (ram) {
       // a steel ram: armor does not help, light machines fly off
-      damage(e, RAM.dmg * S.dmg, P.ddx * RAM.push / e.r, P.ddz * RAM.push / e.r, true, false, 99);
+      damage(e, RAM.dmg * dashPower() * S.dmg, P.ddx * RAM.push / e.r, P.ddz * RAM.push / e.r, true, false, 99);
       sparks(e.x, 0.8, e.z, 0xffd166, 8, 7);
       G.shake = Math.min(1.2, G.shake + 0.15);
     } else {
-      damage(e, PHASE.dmg * S.dmg, 0, 0, true, true);
+      damage(e, PHASE.dmg * dashPower() * S.dmg, 0, 0, true, true);
       sparks(e.x, 1, e.z, 0xb98cff, 6, 5);
     }
   }
@@ -84,7 +88,7 @@ export function updatePlayer(dt: number): void {
   if (P.dashT > 0) {
     P.dashT -= dt;
     const mod = G.dashMod;
-    const sp = DASH_SPEED_BY[mod];
+    const sp = DASH_SPEED_BY[mod] * dashReach();
     vx = P.ddx * sp;
     vz = P.ddz * sp;
     if (mod === 'ram' || mod === 'phase') dashHits();
@@ -93,7 +97,7 @@ export function updatePlayer(dt: number): void {
       sparks(P.x, jumpHeight() + 0.6, P.z, 0xff8c42, 2, 3);
       if (P.dashT <= 0) {
         // landing slam
-        explode(P.x, P.z, JUMP.r, JUMP.dmg * S.dmg);
+        explode(P.x, P.z, JUMP.r * (1 + 0.5 * (dashPower() - 1)), JUMP.dmg * dashPower() * S.dmg);
         G.shake = Math.min(1.2, G.shake + 0.4);
       }
     } else sparks(P.x, 0.5, P.z, 0x4cc9f0, 1, 2);
@@ -168,7 +172,7 @@ export function hurt(amount: number): void {
   amount *= 1 - (MECHS[G.mech].armor ?? 0);
   if (S.reactive && G.reactiveCd <= 0) {
     G.reactiveCd = REACTIVE.cd;
-    explode(P.x, P.z, REACTIVE.r, REACTIVE.dmg * (1 + 0.5 * (S.reactive - 1)) * S.dmg);
+    explode(P.x, P.z, REACTIVE.r, REACTIVE.dmg * (1 + 0.25 * (S.reactive - 1)) * S.dmg);
   }
   const soak = Math.min(P.shield, amount);
   P.shield -= soak;
