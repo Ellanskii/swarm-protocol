@@ -495,7 +495,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
 
 export const ENEMY_TYPES = Object.keys(ENEMIES) as EnemyType[];
 
-/** Heavy tank: pushes in, now and then stops to aim (a red line shows it) and fires a slow shell that bursts where the mech stood. */
+/** Heavy tank: pushes in, now and then stops to aim and fires a slow shell that bursts where the mech stood. */
 export const TANK = { every: 4.5, aim: 0.7, minRange: 3, range: 15, speed: 12, dmg: 22, r: 1.8 } as const;
 
 /** Artillery platform: keeps its distance and shells the spot the player stands on. */

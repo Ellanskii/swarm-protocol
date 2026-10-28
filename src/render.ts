@@ -1,6 +1,6 @@
 // Pushes simulation state into meshes and moves the camera.
 import * as THREE from 'three';
-import { ENEMY_TYPES, LIMITS, MAPS, SHIELD_AURA, SHOULDERS, TANK } from './config';
+import { ENEMY_TYPES, LIMITS, MAPS, SHIELD_AURA, SHOULDERS } from './config';
 import { animateMech, placeMechWreck, setMechRim } from './mech';
 import {
   ENEMY_HOVER, beamMesh, bulletGlint, bulletHalo, bulletMesh, camera, cloudBall, cloudMat, cloudRing, cloudStem, debrisMesh, decoyMesh, domeMat, domeMesh, enemyColors, enemyParts, enemyRimColors, eshotGlint, eshotHalo, eshotMesh, gemMesh, scrapMesh,
@@ -178,13 +178,6 @@ export function renderWorld(dt: number, playing: boolean): void {
 
   // beams: the laser flickers in width, the railgun slug trail thins and fades
   n = 0;
-  // aiming tanks: a thin red sight line to the mech that brightens right before the shot
-  for (const e of G.enemies) {
-    if (e.dead || e.aim <= 0 || n >= beamMesh.instanceMatrix.count) continue;
-    const len = Math.hypot(P.x - e.x, P.z - e.z), k = 1 - e.aim / TANK.aim;
-    tmpC.setHex(0xff2a2a).multiplyScalar(0.3 + 0.7 * k);
-    writeInstance(beamMesh, n++, e.x, 1, e.z, Math.atan2(P.x - e.x, P.z - e.z), 0.05 + 0.05 * k, 0.05, len, tmpC);
-  }
   for (const b of G.beams) {
     if (b.life <= 0) continue;
     const k = b.life / b.max;
