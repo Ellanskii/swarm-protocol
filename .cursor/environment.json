@@ -1,0 +1,5 @@
+{
+  "name": "Swarm Protocol",
+  "install": "npm ci",
+  "start": "curl -sf -o /dev/null --max-time 2 http://127.0.0.1:5173/ || exec npm run dev -- --host 0.0.0.0 --port 5173"
+}
